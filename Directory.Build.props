@@ -3,7 +3,7 @@
 		<Product>Ks.Core</Product>
 		<Authors>xkyss</Authors>
 		<Copyright>Copyright 2022-$([System.DateTime]::Now.Year) (c) xkyss</Copyright>
-		<Version>0.1.4.0</Version>
+		<Version>0.2.1.0</Version>
 	</PropertyGroup>
 
 	<PropertyGroup>
