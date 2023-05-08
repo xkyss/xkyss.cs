@@ -2,7 +2,7 @@
 
 namespace System;
 
-public static class StringConvertExtensions
+public static class StringExtensions
 {
     public static string[] SplitByLength(this string @this, int length)
     {
