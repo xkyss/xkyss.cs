@@ -17,12 +17,11 @@ using static Windows.Win32.PInvoke;
 //PInvoke.SendMessage(h2, PInvoke.WM_KEYDOWN, (WPARAM) (int) SCROLLBAR_COMMAND.SB_PAGEUP, (LPARAM)0);
 //PInvoke.SendMessage(h2, PInvoke.WM_KEYUP, (WPARAM) (int) SCROLLBAR_COMMAND.SB_PAGEDOWN, (LPARAM)0);
 
-var pos = (nint)(uint)(500 | 500 << 16);
 // 左键点击消息
-Console.WriteLine("1");
-PostMessage((HWND)0, WM_LBUTTONDOWN, (WPARAM)(int)VIRTUAL_KEY.VK_LBUTTON, pos);
-Console.WriteLine("2");
-Thread.Sleep(50);
-Console.WriteLine("3");
-PostMessage((HWND)0, WM_LBUTTONUP, (WPARAM) (int) 0, pos);
-Console.WriteLine("4");
+{
+	var pos = (nint)(uint)(100 | 90 << 16);
+	var hwnd = (HWND)0x1808EA;
+	SendMessage(hwnd, WM_LBUTTONDOWN, (WPARAM)0, pos);
+	Thread.Sleep(50);
+	SendMessage(hwnd, WM_LBUTTONUP, (WPARAM)0, pos);
+}
