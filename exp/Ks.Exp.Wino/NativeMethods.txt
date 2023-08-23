@@ -1,0 +1,5 @@
+FindWindow
+FindWindowEx
+SendMessage
+WM_VSCROLL
+SB_PAGEDOWN
