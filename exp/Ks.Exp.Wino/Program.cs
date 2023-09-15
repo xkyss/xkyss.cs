@@ -5,6 +5,7 @@ using Windows.Win32.UI.Input.KeyboardAndMouse;
 
 using static Windows.Win32.PInvoke;
 
+
 //// 寻找指定的窗口句柄
 //var h1 = PInvoke.FindWindow("Intermediate D3D Window", null);
 //var h2 = PInvoke.FindWindowEx(h1, HWND.Null, "Chrome_RenderWidgetHostHWND", null);
