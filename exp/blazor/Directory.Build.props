@@ -18,4 +18,10 @@
 			<_Parameter1>$(MSBuildProjectName).Test</_Parameter1>
 		</AssemblyAttribute>
 	</ItemGroup>
+
+	<!-- Please keep this file and keep it in the same directory as package.json. 
+		This ensures that the WorkingDirectory of the build command in Ks.Exp.BlazorAntdPro.Client.csproj is correctly located to the current directory.  -->
+	<PropertyGroup Label="BasePath">
+		<SolutionDir Condition="'$(SolutionDir)'==''">$(MSBuildThisFileDirectory)</SolutionDir>
+	</PropertyGroup>
 </Project>
