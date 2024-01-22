@@ -38,6 +38,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ks.Exp.BlazorMasa", "exp\bl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ks.Exp.BlazorMasa.Client", "exp\blazor\Ks.Exp.BlazorMasa.Client\Ks.Exp.BlazorMasa.Client.csproj", "{680C86CF-544D-4F2E-A066-ADA05A2138D7}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ks.Exp.BlazorHtmlRenderer", "exp\blazor\Ks.Exp.BlazorHtmlRenderer\Ks.Exp.BlazorHtmlRenderer.csproj", "{6587CDB8-A159-47E3-BF93-01591482D5D4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -88,6 +90,10 @@ Global
 		{680C86CF-544D-4F2E-A066-ADA05A2138D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{680C86CF-544D-4F2E-A066-ADA05A2138D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{680C86CF-544D-4F2E-A066-ADA05A2138D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6587CDB8-A159-47E3-BF93-01591482D5D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6587CDB8-A159-47E3-BF93-01591482D5D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6587CDB8-A159-47E3-BF93-01591482D5D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6587CDB8-A159-47E3-BF93-01591482D5D4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -105,6 +111,7 @@ Global
 		{2755C049-8D13-4C0E-B4A2-63614872552C} = {D754E805-09C3-4EEC-B496-8583C9A90A76}
 		{7A020727-CE93-4F98-9FF3-1620FE733749} = {D754E805-09C3-4EEC-B496-8583C9A90A76}
 		{680C86CF-544D-4F2E-A066-ADA05A2138D7} = {D754E805-09C3-4EEC-B496-8583C9A90A76}
+		{6587CDB8-A159-47E3-BF93-01591482D5D4} = {D754E805-09C3-4EEC-B496-8583C9A90A76}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {EB930BCA-24AB-4193-B984-09129602ADD8}
