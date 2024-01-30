@@ -4,10 +4,12 @@
   <Namespace>System.Text.Json</Namespace>
 </Query>
 
+
+#load "xunit"
+
 // 使用 System.Text.Json 序列化派生类的属性
 // https://learn.microsoft.com/zh-cn/dotnet/standard/serialization/system-text-json/polymorphism?pivots=dotnet-7-0
 
-#load "xunit"
 
 
 void Main()
