@@ -1,17 +1,35 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
+using System.Net.Sockets;
+using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket
 {
     public class SocketClientChannel : NetChannel
     {
         private readonly Pipe _receivePipe = new();
+        private readonly TcpClient _socket = new (AddressFamily.InterNetwork)
+        {
+            NoDelay = true
+        };
+        private readonly ILogger _logger;
+
+        public SocketClientChannel(ILogger<SocketClientChannel> logger)
+        {
+            _logger = logger;
+        }
+
+        public Task ConnectAsync(string ip, int port)
+        {
+            return _socket.ConnectAsync(ip, port);
+        }
 
         public override async Task RunAsync()
         {
             try
             {
-                // _ = recvNetData();
+                _ = recvNetData();
+                
                 var cancelToken = CloseTokenSource.Token;
                 while (!cancelToken.IsCancellationRequested)
                 {
@@ -34,13 +52,49 @@ namespace Ks.Net.Socket
             }
             catch (Exception e)
             {
-                // LOGGER.Error(e.Message);
+                _logger.LogError(e.Message);
             }
+        }
+
+        public override Task Write(Message message)
+        {
+            var bytes = "Hello"u8.ToArray();
+            lock(_socket)
+            {
+                _socket.GetStream().Write(bytes);
+            }
+
+            return Task.CompletedTask;
+        }
+        
+        async Task recvNetData()
+        {
+            byte[] readBuffer = new byte[2048];
+            var dataPipeWriter = _receivePipe.Writer;
+            var cancelToken = CloseTokenSource.Token;
+            while (!cancelToken.IsCancellationRequested)
+            { 
+                var length = await _socket.GetStream().ReadAsync(readBuffer, cancelToken);
+                if (length > 0)
+                {
+                    dataPipeWriter.Write(readBuffer.AsSpan()[..length]);
+                    var flushTask = dataPipeWriter.FlushAsync();
+                    if (!flushTask.IsCompleted)
+                    {
+                        await flushTask.ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+            _logger.LogError("退出socket接收");
         }
 
         protected virtual bool TryParseMessage(ref ReadOnlySequence<byte> input)
         {
-            return true;
+            return false;
         }
     }
 }

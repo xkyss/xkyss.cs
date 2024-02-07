@@ -10,7 +10,9 @@ namespace Ks.Net.Socket
 
         private readonly ConnectionContext _context;
         private readonly ILogger _logger;
-
+        private readonly SemaphoreSlim _sendSemaphore = new(0);
+        private readonly MemoryStream _sendStream = new();
+        
         public SocketServerChannel(ConnectionContext context, ILogger<SocketServerChannel> logger)
         {
             _logger = logger;
@@ -21,7 +23,7 @@ namespace Ks.Net.Socket
         {
             try
             {
-                // _ = TrySendAsync();
+                _ = TrySendAsync();
 
                 var cancelToken = CloseTokenSource.Token;
                 while (!cancelToken.IsCancellationRequested)
@@ -50,11 +52,44 @@ namespace Ks.Net.Socket
             
             _logger.LogInformation("RunAsync end.");
         }
+        
+        async Task TrySendAsync()
+        {
+            //pipewriter线程不安全，这里统一发送写刷新数据
+            try
+            {
+                var token = CloseTokenSource.Token;
+                while (!token.IsCancellationRequested)
+                {
+                    await _sendSemaphore.WaitAsync();
+                    lock (_sendStream)
+                    {
+                        var len = _sendStream.Length;
+                        if (len > 0)
+                        {
+                            _context.Transport.Output.Write(_sendStream.GetBuffer().AsSpan<byte>()[..(int)len]);
+                            _sendStream.SetLength(0);
+                            _sendStream.Position = 0;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    await _context.Transport.Output.FlushAsync(token);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.Message);
+            };
+        }
 
         private bool TryParseMessage(ref ReadOnlySequence<byte> buffer, out Message o)
         {
             o = new Message();
-            return true;
+            return false;
         }
     }
 }

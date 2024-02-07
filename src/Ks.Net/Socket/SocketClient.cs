@@ -1,29 +1,40 @@
-﻿using System.Net.Sockets;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket;
 
 public class SocketClient
 {
-    private readonly TcpClient _socket = new (AddressFamily.InterNetwork)
+    private readonly SocketClientChannel _channel;
+    private readonly ILogger _logger;
+    private readonly string _ip;
+    private readonly int _port;
+
+    public SocketClient(IConfiguration configuration, ILogger<SocketClient> logger, SocketClientChannel channel)
     {
-        NoDelay = true
-    };
+        _logger = logger;
+        _channel = channel;
+        
+        var serverConfig = configuration.GetSection(Constants.DefaultSocketClientKey);
+        _ip = serverConfig.GetValue(Constants.DefaultSocketHostKey, Constants.DefaultSocketHost)!;
+        _port = serverConfig.GetValue(Constants.DefaultSocketPortKey, Constants.DefaultSocketPort);
+    }
 
-    private NetChannel? _channel;
-
-    public async Task Connect(string ip, int port)
+    public Task Write(Message message)
     {
-        try
-        {
-            await _socket.ConnectAsync(ip, port);
-        }
-        catch (Exception e)
-        {
-            // Log.Error(e);
-            return;
-        }
-
-        _channel = new SocketClientChannel();
+        return _channel.Write(message);
+    }
+    
+    public async Task Start()
+    {
+        _logger.LogInformation("启动客户端.");
+        await _channel.ConnectAsync(_ip, _port);
         await _channel.RunAsync();
+    }
+
+    public Task Stop()
+    {
+        _logger.LogInformation("停止客户端.");
+        return Task.CompletedTask;
     }
 }

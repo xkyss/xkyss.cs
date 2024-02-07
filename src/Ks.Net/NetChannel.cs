@@ -10,5 +10,10 @@ namespace Ks.Net
         {
             return Task.CompletedTask;
         }
+
+        public virtual Task Write(Message message)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

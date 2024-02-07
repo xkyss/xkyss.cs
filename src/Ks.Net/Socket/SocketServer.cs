@@ -16,7 +16,7 @@ public class SocketServer
     {
         _logger = logger;
         
-        var serverConfig = configuration.GetSection(Constants.DefaultSocketConfigKey);
+        var serverConfig = configuration.GetSection(Constants.DefaultSocketServerKey);
         var port = serverConfig.GetValue(Constants.DefaultSocketPortKey, Constants.DefaultSocketPort);
         
         var builder = WebApplication.CreateBuilder();
