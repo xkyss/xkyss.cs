@@ -1,10 +1,11 @@
 <Query Kind="Program">
-  <Namespace>System.Threading.Tasks</Namespace>
   <Namespace>Microsoft.AspNetCore.Builder</Namespace>
-  <Namespace>Microsoft.AspNetCore.Hosting</Namespace>
-  <Namespace>Microsoft.Extensions.Logging</Namespace>
   <Namespace>Microsoft.AspNetCore.Connections</Namespace>
+  <Namespace>Microsoft.AspNetCore.Hosting</Namespace>
+  <Namespace>Microsoft.Extensions.Hosting</Namespace>
+  <Namespace>Microsoft.Extensions.Logging</Namespace>
   <Namespace>System.Net.Sockets</Namespace>
+  <Namespace>System.Threading.Tasks</Namespace>
   <IncludeAspNet>true</IncludeAspNet>
 </Query>
 
