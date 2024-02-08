@@ -24,15 +24,21 @@ namespace Ks.Net.Socket
             return _socket.ConnectAsync(ip, port);
         }
 
-        public override async Task RunAsync()
+        public override Task RunAsync()
+        {
+            _ = ReceiveOnceAsync();
+            _ = ReceiveAsync();
+            return Task.CompletedTask;
+        }
+
+        private async Task ReceiveAsync()
         {
             try
             {
-                _ = recvNetData();
-                
                 var cancelToken = CloseTokenSource.Token;
                 while (!cancelToken.IsCancellationRequested)
                 {
+                    _logger.LogInformation("ReceiveAsync in while.");
                     var result = await _receivePipe.Reader.ReadAsync(cancelToken);
                     var buffer = result.Buffer;
                     if (buffer.Length > 0)
@@ -53,7 +59,50 @@ namespace Ks.Net.Socket
             catch (Exception e)
             {
                 _logger.LogError(e.Message);
+                return;
             }
+            
+            _logger.LogInformation("ReceiveAsync 结束.");
+        }
+        
+        private async Task ReceiveOnceAsync()
+        {
+            try
+            {
+                var readBuffer = new byte[2048];
+                var dataPipeWriter = _receivePipe.Writer;
+                var cancelToken = CloseTokenSource.Token;
+                while (!cancelToken.IsCancellationRequested)
+                {
+                    _logger.LogInformation("ReceiveOnceAsync in while.");
+                    var length = await _socket.GetStream().ReadAsync(readBuffer, cancelToken);
+                    if (length > 0)
+                    {
+                        dataPipeWriter.Write(readBuffer.AsSpan()[..length]);
+                        var flushTask = dataPipeWriter.FlushAsync();
+                        if (!flushTask.IsCompleted)
+                        {
+                            await flushTask.ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e.Message);
+                return;
+            };
+            
+            _logger.LogInformation("ReceiveOnceAsync 结束.");
+        }
+
+        protected virtual bool TryParseMessage(ref ReadOnlySequence<byte> input)
+        {
+            return false;
         }
 
         public override Task Write(Message message)
@@ -65,36 +114,6 @@ namespace Ks.Net.Socket
             }
 
             return Task.CompletedTask;
-        }
-        
-        async Task recvNetData()
-        {
-            byte[] readBuffer = new byte[2048];
-            var dataPipeWriter = _receivePipe.Writer;
-            var cancelToken = CloseTokenSource.Token;
-            while (!cancelToken.IsCancellationRequested)
-            { 
-                var length = await _socket.GetStream().ReadAsync(readBuffer, cancelToken);
-                if (length > 0)
-                {
-                    dataPipeWriter.Write(readBuffer.AsSpan()[..length]);
-                    var flushTask = dataPipeWriter.FlushAsync();
-                    if (!flushTask.IsCompleted)
-                    {
-                        await flushTask.ConfigureAwait(false);
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
-            _logger.LogError("退出socket接收");
-        }
-
-        protected virtual bool TryParseMessage(ref ReadOnlySequence<byte> input)
-        {
-            return false;
         }
     }
 }

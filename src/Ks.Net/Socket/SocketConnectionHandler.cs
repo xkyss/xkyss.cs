@@ -4,15 +4,16 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Ks.Net.Socket
 {
-    public class SocketConnectionHandler(ILogger<SocketConnectionHandler> logger) : ConnectionHandler
+    public class SocketConnectionHandler(ILoggerFactory loggerFactory) : ConnectionHandler
     {
+        private readonly ILogger _logger = loggerFactory.CreateLogger<SocketConnectionHandler>();
         public override Task OnConnectedAsync(ConnectionContext connection)
         {
-            logger.LogDebug($"{connection.RemoteEndPoint} 链接成功. ConnectionId: ({connection.ConnectionId})");
-            var channel = new SocketServerChannel(connection, NullLogger<SocketServerChannel>.Instance);
+            _logger.LogDebug($"{connection.RemoteEndPoint} 链接成功. ConnectionId: ({connection.ConnectionId})");
+            var channel = new SocketServerChannel(connection, loggerFactory.CreateLogger<SocketServerChannel>());
             channel.OnMessageHandler += m =>
             {
-                logger.LogInformation("OnMessage.");
+                _logger.LogInformation("OnMessage.");
                 return Task.CompletedTask;
             };
             return channel.RunAsync();

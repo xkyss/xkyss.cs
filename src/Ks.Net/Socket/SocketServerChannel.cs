@@ -19,15 +19,20 @@ namespace Ks.Net.Socket
             _context = context;
         }
 
-        public async Task RunAsync()
+        public Task RunAsync()
+        {
+            _ = SendAsync();
+            return ReceiveAsync();
+        }
+        
+        private async Task ReceiveAsync()
         {
             try
             {
-                _ = TrySendAsync();
-
                 var cancelToken = CloseTokenSource.Token;
                 while (!cancelToken.IsCancellationRequested)
                 {
+                    _logger.LogInformation("ReceiveAsync in while.");
                     var result = await _context.Transport.Input.ReadAsync(cancelToken);
                     var buffer = result.Buffer;
                     if (buffer.Length > 0)
@@ -50,10 +55,10 @@ namespace Ks.Net.Socket
                 return;
             }
             
-            _logger.LogInformation("RunAsync end.");
+            _logger.LogInformation("ReceiveAsync 结束.");
         }
         
-        async Task TrySendAsync()
+        private async Task SendAsync()
         {
             //pipewriter线程不安全，这里统一发送写刷新数据
             try
@@ -61,6 +66,7 @@ namespace Ks.Net.Socket
                 var token = CloseTokenSource.Token;
                 while (!token.IsCancellationRequested)
                 {
+                    _logger.LogInformation("SendAsync in while.");
                     await _sendSemaphore.WaitAsync();
                     lock (_sendStream)
                     {
@@ -83,13 +89,17 @@ namespace Ks.Net.Socket
             catch (Exception e)
             {
                 _logger.LogError(e.Message);
+                return;
             };
+            
+            _logger.LogInformation("SendAsync 结束.");
         }
 
         private bool TryParseMessage(ref ReadOnlySequence<byte> buffer, out Message o)
         {
+            // TODO: 把buffer读完
             o = new Message();
-            return false;
+            return true;
         }
     }
 }
