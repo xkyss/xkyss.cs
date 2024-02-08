@@ -97,8 +97,13 @@ namespace Ks.Net.Socket
 
         private bool TryParseMessage(ref ReadOnlySequence<byte> buffer, out Message o)
         {
-            // TODO: 把buffer读完
             o = new Message();
+            if (buffer.IsEmpty)
+            {
+                return false;
+            }
+            
+            buffer = buffer.Slice(buffer.Length);
             return true;
         }
     }
