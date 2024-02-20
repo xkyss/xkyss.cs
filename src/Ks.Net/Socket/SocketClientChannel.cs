@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net.Sockets;
+using System.Text;
 using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket
@@ -102,6 +103,8 @@ namespace Ks.Net.Socket
 
         protected virtual bool TryParseMessage(ref ReadOnlySequence<byte> input)
         {
+            var s = Encoding.UTF8.GetString(input);
+            _logger.LogInformation($"TryParseMessage: {s}");
             return false;
         }
 

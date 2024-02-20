@@ -61,7 +61,7 @@ public class SocketServerTest
     {
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            ss.Start();
+            _ = ss.Start();
             return Task.CompletedTask;
         }
 
@@ -75,8 +75,8 @@ public class SocketServerTest
     {
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            sc.Start();
-            await Task.Delay(1000);
+            _ = sc.Start();
+            await Task.Delay(1000, cancellationToken);
             await sc.Write(new Message());
         }
 

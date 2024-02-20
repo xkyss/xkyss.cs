@@ -15,5 +15,9 @@ namespace Ks.Net
         {
             return Task.CompletedTask;
         }
+
+        public bool IsClose() => CloseTokenSource.IsCancellationRequested;
+
+        public void Close() => CloseTokenSource.Cancel();
     }
 }
