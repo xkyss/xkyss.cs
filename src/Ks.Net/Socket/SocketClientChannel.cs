@@ -73,13 +73,26 @@ namespace Ks.Net.Socket
                 var readBuffer = new byte[2048];
                 var dataPipeWriter = _receivePipe.Writer;
                 var cancelToken = CloseTokenSource.Token;
+                var stream = _socket.GetStream();
                 while (!cancelToken.IsCancellationRequested)
                 {
+                    var end = false;
                     _logger.LogInformation("ReceiveOnceAsync in while.");
-                    var length = await _socket.GetStream().ReadAsync(readBuffer, cancelToken);
-                    if (length > 0)
+                    do
                     {
+                        var length = await stream.ReadAsync(readBuffer, cancelToken);
+                        if (length <= 0)
+                        {
+                            end = true;
+                            break;
+                        }
+                        
                         dataPipeWriter.Write(readBuffer.AsSpan()[..length]);
+
+                    } while (stream.DataAvailable);
+
+                    if (!end)
+                    {
                         var flushTask = dataPipeWriter.FlushAsync();
                         if (!flushTask.IsCompleted)
                         {

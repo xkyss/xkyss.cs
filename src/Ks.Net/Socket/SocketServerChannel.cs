@@ -115,7 +115,7 @@ namespace Ks.Net.Socket
                 return Task.CompletedTask;
             }
             
-            var bytes = "Hello"u8.ToArray();
+            var bytes = "AAAAAAA"u8.ToArray();
             lock (_sendStream)
             {
                 _sendStream.Write(bytes);
