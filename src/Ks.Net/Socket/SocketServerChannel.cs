@@ -106,15 +106,23 @@ namespace Ks.Net.Socket
             buffer = buffer.Slice(buffer.Length);
             return true;
         }
-
+        
         public override Task Write(Message msg)
         {
-            var bytes = "AAAAAAA"u8.ToArray();
+            if (IsClose())
+            {
+                _logger.LogError("Channel is Closed.");
+                return Task.CompletedTask;
+            }
+            
+            var bytes = "Hello"u8.ToArray();
             lock (_sendStream)
             {
                 _sendStream.Write(bytes);
             }
+
             _sendSemaphore.Release();
+            _logger.LogInformation("Write end.");
             return Task.CompletedTask;
         }
     }

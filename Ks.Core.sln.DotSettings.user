@@ -4,7 +4,7 @@
     &lt;TestId&gt;xUnit::C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE::net8.0::Ks.Net.Test.SocketServerTest.TestServer&lt;/TestId&gt;&#xD;
   &lt;/TestAncestor&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=47209600_002D0938_002D4d35_002D97f2_002D008b992649d9/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="TestServer #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=47209600_002D0938_002D4d35_002D97f2_002D008b992649d9/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="TestServer #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
   &lt;TestAncestor&gt;&#xD;
     &lt;TestId&gt;xUnit::C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE::net8.0::Ks.Net.Test.SocketServerTest.TestServer&lt;/TestId&gt;&#xD;
   &lt;/TestAncestor&gt;&#xD;
@@ -13,9 +13,10 @@
 	
 	
 	
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=c330a752_002D3269_002D4e64_002D8e0b_002Da7c73c36ccbc/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="Test1 #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=c330a752_002D3269_002D4e64_002D8e0b_002Da7c73c36ccbc/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Test1 #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
   &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;xUnit::C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE::net8.0::Ks.Net.Test.SocketServerTest.Test1&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;xUnit::C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE::net8.0::Ks.Net.Test.SocketServerTest.TestServer&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;xUnit::379B3B70-AA66-4CED-AD01-E9013B08593D::net8.0::Ks.Serializer.Test.MessageTest.Test1&lt;/TestId&gt;&#xD;
   &lt;/TestAncestor&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
 	</wpf:ResourceDictionary>
