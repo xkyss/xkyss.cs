@@ -106,5 +106,16 @@ namespace Ks.Net.Socket
             buffer = buffer.Slice(buffer.Length);
             return true;
         }
+
+        public override Task Write(Message msg)
+        {
+            var bytes = "AAAAAAA"u8.ToArray();
+            lock (_sendStream)
+            {
+                _sendStream.Write(bytes);
+            }
+            _sendSemaphore.Release();
+            return Task.CompletedTask;
+        }
     }
 }

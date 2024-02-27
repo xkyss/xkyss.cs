@@ -14,6 +14,7 @@ namespace Ks.Net.Socket
             channel.OnMessageHandler += m =>
             {
                 _logger.LogInformation("OnMessage.");
+                channel.Write(new Message());
                 return Task.CompletedTask;
             };
             return channel.RunAsync();

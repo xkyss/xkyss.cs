@@ -26,12 +26,12 @@ namespace Ks.Net.Socket
 
         public override Task RunAsync()
         {
-            _ = ReceiveOnceAsync();
-            _ = ReceiveAsync();
+            _ = ReceiveNetAsync();
+            _ = ReceivePipAsync();
             return Task.CompletedTask;
         }
 
-        private async Task ReceiveAsync()
+        private async Task ReceivePipAsync()
         {
             try
             {
@@ -65,7 +65,7 @@ namespace Ks.Net.Socket
             _logger.LogInformation("ReceiveAsync 结束.");
         }
         
-        private async Task ReceiveOnceAsync()
+        private async Task ReceiveNetAsync()
         {
             try
             {
