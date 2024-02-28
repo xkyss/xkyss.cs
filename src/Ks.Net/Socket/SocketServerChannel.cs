@@ -4,22 +4,16 @@ using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket
 {
-    public class SocketServerChannel : NetChannel
+    public class SocketServerChannel(ConnectionContext context, ILogger<SocketServerChannel> logger)
+        : NetChannel
     {
-        public event Func<Message, Task> OnMessageHandler;
+        public event Func<Message, Task>? OnMessageHandler;
 
-        private readonly ConnectionContext _context;
-        private readonly ILogger _logger;
+        private readonly ILogger _logger = logger;
         private readonly SemaphoreSlim _sendSemaphore = new(0);
         private readonly MemoryStream _sendStream = new();
-        
-        public SocketServerChannel(ConnectionContext context, ILogger<SocketServerChannel> logger)
-        {
-            _logger = logger;
-            _context = context;
-        }
 
-        public Task RunAsync()
+        public override Task RunAsync()
         {
             _ = SendAsync();
             return ReceiveAsync();
@@ -33,7 +27,7 @@ namespace Ks.Net.Socket
                 while (!cancelToken.IsCancellationRequested)
                 {
                     _logger.LogInformation("ReceiveAsync in while.");
-                    var result = await _context.Transport.Input.ReadAsync(cancelToken);
+                    var result = await context.Transport.Input.ReadAsync(cancelToken);
                     var buffer = result.Buffer;
                     if (buffer.Length > 0)
                     {
@@ -41,7 +35,7 @@ namespace Ks.Net.Socket
                         {
                             await OnMessageHandler.Invoke(msg);
                         }
-                        _context.Transport.Input.AdvanceTo(buffer.Start, buffer.End);
+                        context.Transport.Input.AdvanceTo(buffer.Start, buffer.End);
                     }
                     else if (result.IsCanceled || result.IsCompleted)
                     {
@@ -73,7 +67,7 @@ namespace Ks.Net.Socket
                         var len = _sendStream.Length;
                         if (len > 0)
                         {
-                            _context.Transport.Output.Write(_sendStream.GetBuffer().AsSpan<byte>()[..(int)len]);
+                            context.Transport.Output.Write(_sendStream.GetBuffer().AsSpan<byte>()[..(int)len]);
                             _sendStream.SetLength(0);
                             _sendStream.Position = 0;
                         }
@@ -83,7 +77,7 @@ namespace Ks.Net.Socket
                         }
                     }
 
-                    await _context.Transport.Output.FlushAsync(token);
+                    await context.Transport.Output.FlushAsync(token);
                 }
             }
             catch (Exception e)

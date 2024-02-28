@@ -6,19 +6,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket
 {
-    public class SocketClientChannel : NetChannel
+    public class SocketClientChannel(ILogger<SocketClientChannel> logger) : NetChannel
     {
         private readonly Pipe _receivePipe = new();
         private readonly TcpClient _socket = new (AddressFamily.InterNetwork)
         {
             NoDelay = true
         };
-        private readonly ILogger _logger;
-
-        public SocketClientChannel(ILogger<SocketClientChannel> logger)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger _logger = logger;
 
         public Task ConnectAsync(string ip, int port)
         {
