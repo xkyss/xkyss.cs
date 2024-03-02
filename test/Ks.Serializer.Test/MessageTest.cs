@@ -5,7 +5,7 @@ namespace Ks.Serializer.Test;
 public class MessageTest
 {
     [Fact]
-    public void Test1()
+    public void Test01()
     {
         var serializer = new Ks.Serializer.MessagePack.Serializer();
         var message = new Message()
