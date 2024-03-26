@@ -6,7 +6,7 @@
 
 void Main()
 {
-	var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.03.21-场所积分\2024.03.25-王君-积分数据表格.xlsx";
+	var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.03.21-场所积分\2024.03.26-王君-积分数据表格.xlsx";
 	using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 
 	// 创建工作簿 (.xlsx)
@@ -31,7 +31,11 @@ void Main()
 		}
 		else
 		{
-			Console.WriteLine(sqlOf(row));
+			var sql = sqlOf(row);
+			if (sql != null)
+			{
+				Console.WriteLine(sql);
+			}
 		}
 	}
 }
@@ -55,10 +59,18 @@ static string stringOf(IRow row)
 	return sb.ToString();
 }
 
+static int count = 0;
 static string sqlOf(IRow row) 
 {
+	count++;
+	//Console.WriteLine($"{count} {row.LastCellNum}");
+	if (row.LastCellNum != 21)
+	{
+		//Console.WriteLine("-------------");
+		return null;
+	}
 	var sb = new StringBuilder();
-	sb.Append(@"INSERT INTO t_csjf (`date_time`, `hylx`, `tzhylbdm`, `csmc`, `csdm`, `csdz`, `csfzr_xm`, `csfzr_sfzhm`, `csfzr_lxdh`, `qymc`, `qydm`, `zfsz`, `bcfz`, `jfyy`, `cfyy`, `zxfz`, `bz`) VALUES ");
+	sb.Append(@"INSERT INTO t_csjf (`rq`, `hylx`, `tzhylbdm`, `dwmc`, `dwbm`, `ssjybm`, `csmc`, `csdm`, `csdz`, `cyry_xm`, `cyry_zjhm`, `lxdh`, `qymc`, `qydm`, `zfsz`, `bcfz`, `jfyy`, `cfyy`, `zxfz`, `pm`, `bz`) VALUES ");
 	sb.Append("(");
 	for (int cellIdx = 0; cellIdx < row.LastCellNum; cellIdx++)
 	{
