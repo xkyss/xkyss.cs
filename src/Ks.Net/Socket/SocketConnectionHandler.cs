@@ -12,7 +12,7 @@ namespace Ks.Net.Socket
             var channel = new SocketServerChannel(connection, loggerFactory.CreateLogger<SocketServerChannel>());
             channel.OnMessageHandler += m =>
             {
-                _logger.LogInformation("OnMessage.");
+                _logger.LogInformation($"OnMessage. {m}");
                 channel.Write(new Message());
                 return Task.CompletedTask;
             };

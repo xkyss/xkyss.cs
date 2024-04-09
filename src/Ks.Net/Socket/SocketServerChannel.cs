@@ -33,7 +33,7 @@ namespace Ks.Net.Socket
                     {
                         while (TryParseMessage(ref buffer, out var msg))
                         {
-                            await OnMessageHandler.Invoke(msg);
+                            await OnMessageHandler?.Invoke(msg)!;
                         }
                         context.Transport.Input.AdvanceTo(buffer.Start, buffer.End);
                     }
@@ -61,7 +61,7 @@ namespace Ks.Net.Socket
                 while (!token.IsCancellationRequested)
                 {
                     _logger.LogInformation("SendAsync in while.");
-                    await _sendSemaphore.WaitAsync();
+                    await _sendSemaphore.WaitAsync(token);
                     lock (_sendStream)
                     {
                         var len = _sendStream.Length;
@@ -109,7 +109,7 @@ namespace Ks.Net.Socket
                 return Task.CompletedTask;
             }
             
-            var bytes = "AAAAAAA"u8.ToArray();
+            var bytes = "From Server"u8.ToArray();
             lock (_sendStream)
             {
                 _sendStream.Write(bytes);

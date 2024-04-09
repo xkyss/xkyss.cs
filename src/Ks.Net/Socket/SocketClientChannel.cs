@@ -71,24 +71,24 @@ namespace Ks.Net.Socket
                 var stream = _socket.GetStream();
                 while (!cancelToken.IsCancellationRequested)
                 {
-                    var end = false;
+                    var hasData = false;
                     _logger.LogInformation("ReceiveOnceAsync in while.");
                     do
                     {
                         var length = await stream.ReadAsync(readBuffer, cancelToken);
                         if (length <= 0)
                         {
-                            end = true;
                             break;
                         }
                         
+                        hasData = true;
                         dataPipeWriter.Write(readBuffer.AsSpan()[..length]);
 
                     } while (stream.DataAvailable);
 
-                    if (!end)
+                    if (hasData)
                     {
-                        var flushTask = dataPipeWriter.FlushAsync();
+                        var flushTask = dataPipeWriter.FlushAsync(cancelToken);
                         if (!flushTask.IsCompleted)
                         {
                             await flushTask.ConfigureAwait(false);
@@ -118,7 +118,7 @@ namespace Ks.Net.Socket
 
         public override Task Write(Message message)
         {
-            var bytes = "Hello"u8.ToArray();
+            var bytes = "From Client"u8.ToArray();
             lock(_socket)
             {
                 _socket.GetStream().Write(bytes);
