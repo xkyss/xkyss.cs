@@ -25,3 +25,6 @@ builder.WebHost.ConfigureKestrel((context, kestrel) =>
 
 var app = builder.Build();
 app.Run();
+
+Console.WriteLine("Goodbye, SocketServer!");
+
