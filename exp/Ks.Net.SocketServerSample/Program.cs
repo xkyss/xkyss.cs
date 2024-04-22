@@ -1,11 +1,8 @@
 ﻿
 using Ks.Net.SocketServer.Extensions;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
-Console.WriteLine("Hello, World!");
+Console.WriteLine("Hello, SocketServer!");
 
 var builder = WebApplication.CreateBuilder(args);
 
