@@ -28,6 +28,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ks.Net", "src\Ks.Net\Ks.Net
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ks.Net.Test", "test\Ks.Net.Test\Ks.Net.Test.csproj", "{C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ks.Net.SocketServerSample", "exp\Ks.Net.SocketServerSample\Ks.Net.SocketServerSample.csproj", "{C2AF2E5E-19C0-4E58-9803-4DF2083F4080}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -62,6 +64,10 @@ Global
 		{C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C2AF2E5E-19C0-4E58-9803-4DF2083F4080}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C2AF2E5E-19C0-4E58-9803-4DF2083F4080}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C2AF2E5E-19C0-4E58-9803-4DF2083F4080}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C2AF2E5E-19C0-4E58-9803-4DF2083F4080}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -74,6 +80,7 @@ Global
 		{AC5EA4E6-AE8B-461A-AE99-4D01C7DEC8BF} = {CD229DFC-69E0-4023-82EF-464767ED2EDF}
 		{F36EB9E3-78F8-4703-B3BA-3882004E1A38} = {8F0B2671-2F85-4DE5-A451-915A2666D429}
 		{C4A5F4AC-3A1B-4140-ABB7-F7E5E38724BE} = {8128709D-6CD3-4B1D-B32F-EA0631DED46E}
+		{C2AF2E5E-19C0-4E58-9803-4DF2083F4080} = {CD229DFC-69E0-4023-82EF-464767ED2EDF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {EB930BCA-24AB-4193-B984-09129602ADD8}
