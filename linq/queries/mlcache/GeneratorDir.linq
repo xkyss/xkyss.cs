@@ -5,20 +5,27 @@
 
 // 遍历模板目录, 生成到指定目录 (保持目录结构一致)
 
+// 可配置部分
 var templatePath = @"D:\Code\thzt\mlcache-doc\deploy\generating";
 var targetPath = @"D:\Code\thzt\mlcache-doc\deploy\generated";
+var model = new
+{
+	Username = "appstore",
+	HostIp = "192.168.1.144",
+	BaseIp = "192.168.1.144",
+	HostShort = "144",
+	WorkDir = "/home/Ml-Cache",
+	Version = "1.1.7",
+	Platform = "amd64",
+	DeployUp = "",
+};
+
 
 
 var templates = EnumerateFilesRecursively(new DirectoryInfo(templatePath));
 //templates.Dump();
 
 var razorEngine = new RazorEngine();
-var model = new
-{
-	Username = "appstore",
-	HostIp = "192.168.1.1442",
-	WorkDir = "/home/Ml-Cache",
-};
 
 foreach (var t in templates)
 {
@@ -30,8 +37,8 @@ foreach (var t in templates)
 	string relativePath = Path.GetRelativePath(templatePath, t.Directory.FullName);
 	//relativePath.Dump();
 	string targetFile = Path.Combine(targetPath, relativePath, t.Name);
+	System.Console.WriteLine(targetFile);
 	//targetFile.Dump();
-	//File.WriteAllText(result);
 	// 确保目标文件的目录存在
 	string targetDirectory = Path.GetDirectoryName(targetFile);
 	if (!Directory.Exists(targetDirectory))
@@ -41,9 +48,12 @@ foreach (var t in templates)
 	File.WriteAllText(targetFile, result);
 }
 
+System.Console.WriteLine("Done");
+
 
 static List<FileInfo> EnumerateFilesRecursively(DirectoryInfo di)
 {
+	//var basePath = @"D:\Code\thzt\mlcache-doc\deploy\generating";
 	var list = new List<FileInfo>();
 	try
 	{
@@ -62,7 +72,8 @@ static List<FileInfo> EnumerateFilesRecursively(DirectoryInfo di)
 		{
 			//Console.Write(subDir.FullName);
 			//Console.Write("  ");
-			//Console.WriteLine(Path.GetRelativePath(subDir.FullName, di.FullName));
+			//Console.Write(di.FullName);
+			//Console.WriteLine(Path.GetRelativePath(di.FullName, subDir.FullName));
 			list.AddRange(EnumerateFilesRecursively(subDir));
 		}
 		return list;

@@ -19,7 +19,11 @@ var result = template.Run(new
 {
 	Username = "appstore",
 	HostIp = "192.168.1.144",
+	HostShort = "144",
 	WorkDir = "/home/Ml-Cache",
+	Version = "1.1.6",
+	Platform = "amd64",
+	DeployUp = "",
 });
 
 result.Dump();
