@@ -1,14 +1,12 @@
 <Query Kind="Program">
   <NuGetReference>RazorEngineCore</NuGetReference>
-  <Namespace>System.Text.Json.Nodes</Namespace>
-  <Namespace>RazorEngineCore</Namespace>
-  <Namespace>System.Text.Json</Namespace>
   <Namespace>System.Dynamic</Namespace>
+  <Namespace>System.Text.Json</Namespace>
   <Namespace>System.Text.Json.Serialization</Namespace>
   <Namespace>Xunit</Namespace>
+  <Namespace>RazorEngineCore</Namespace>
+  <Namespace>System.Text.Json.Nodes</Namespace>
 </Query>
-
-// 读取Json为Model
 
 #load "xunit"
 
@@ -20,70 +18,55 @@ void Main()
 
 public class Tester
 {
-	private static string jsonString = """
+	private static string jsonConfig = """
 	{
-		"Username": "appstore",
-		"HostIp": "192.168.1.144",
-		"BaseIp": "192.168.1.144",
-		"HostShort": "144",
-		"WorkDir": "/home/Ml-Cache",
-		"Version": "1.1.7",
-		"Platform": "amd64"
+		"Model": {
+			"Username": "appstore",
+			"HostIp": "192.168.1.144",
+			"BaseIp": "192.168.1.144",
+			"HostShort": "144",
+			"WorkDir": "/home/Ml-Cache",
+			"Version": "1.1.7",
+			"Platform": "amd64",
+		},
+		"Ignore": [],
+		"Copy": [],
 	}
 	""";
-
-	private static string templateContent = """
-	@{
-	    string message = "foreignObject example with Scalable Vector Graphics (SVG)";
-	}
-	Hello @Model["Username"]! and -@Model["Platform"] @message
-	""";
-
+	
 	[Fact]
 	public void Test01()
 	{
-		var razorEngine = new RazorEngine();
-		var node = JsonNode.Parse(jsonString);
-		var template = razorEngine.Compile(templateContent);
-		var result = template.Run(node);
-		result.Dump();
-	}
-
-	[Fact]
-	public void Test02()
-	{
-		var razorEngine = new RazorEngine();
-		var datesNode = JsonNode.Parse(@"[""2019-08-01T00:00:00"",""2019-08-02T00:00:00""]");
-		datesNode[0].GetValue<DateTime>();
-
-		var template2 = razorEngine.Compile(@"Hello @Model[0]", builder =>
+		var node = JsonNode.Parse(jsonConfig, null, new JsonDocumentOptions
 		{
-			builder.AddAssemblyReferenceByName("System.Text.Json");
+			AllowTrailingCommas = true
 		});
-
-		var result2 = template2.Run(datesNode);
-
-		result2.Dump();
-	}
-
-	[Fact]
-	public void Test03()
-	{
-		var razorEngine = new RazorEngine();
-		var serializerOptions = new JsonSerializerOptions
+		var m = JsonSerializer.Deserialize<dynamic>(node["Model"], new JsonSerializerOptions
 		{
 			Converters = { new DynamicJsonConverter() },
-			WriteIndented = true
-		};
+			WriteIndented = true,
+			AllowTrailingCommas = true,
+		});
+		LINQPad.Extensions.Dump(m);
 
-		var obj = JsonSerializer.Deserialize<dynamic>(jsonString, serializerOptions);
+		var config = JsonSerializer.Deserialize<Config>(jsonConfig, new JsonSerializerOptions
+		{
+			AllowTrailingCommas = true,
+		});
+		config.Dump();
 
-		var t = razorEngine.Compile(@"Hello @Model.Username");
-		var r3 = t.Run(obj);
-		LINQPad.Extensions.Dump(r3);
-
-		//r3.Dump();
+		var razorEngine = new RazorEngine();
 	}
+}
+
+
+public class Config 
+{
+	//public string Model {get;set;}
+	
+	public List<string> Ignore {get;set;}
+	
+	public List<string> Copy {get;set;}
 }
 
 
