@@ -75,6 +75,16 @@ public class Tester
 		{
 			AllowTrailingCommas = true,
 		});
+		var node = JsonNode.Parse(jsonConfig, null, new JsonDocumentOptions
+		{
+			AllowTrailingCommas = true
+		});
+		var model = JsonSerializer.Deserialize<dynamic>(node["Model"], new JsonSerializerOptions
+		{
+			Converters = { new DynamicJsonConverter() },
+			WriteIndented = true,
+			AllowTrailingCommas = true,
+		});
 
 		var templates = EnumerateFilesRecursively(new DirectoryInfo(config.SourceRootDir));
 		Assert.True(templates.Count > 0);
@@ -90,6 +100,8 @@ public class Tester
 			copyMatcher.AddIncludePatterns(config.Copy);
 		}
 
+		var razorEngine = new RazorEngine();
+		
 		foreach (var t in templates)
 		{
 			var r = Path.GetRelativePath(config.SourceRootDir, t.FullName);
@@ -101,15 +113,31 @@ public class Tester
 				continue;
 			}
 
+			// 构造目标文件的路径
+			string relativePath = Path.GetRelativePath(config.SourceRootDir, t.Directory.FullName);
+			//relativePath.Dump();
+			string targetFile = Path.Combine(config.TargetRootDir, relativePath, t.Name);
+			// 确保目标文件的目录存在
+			string targetDirectory = Path.GetDirectoryName(targetFile);
+			if (!Directory.Exists(targetDirectory))
+			{
+				Directory.CreateDirectory(targetDirectory);
+			}
+			
 			// 判断是否仅需拷贝
 			if (needCopy && copyMatcher.Match(r).HasMatches)
 			{
 				Console.WriteLine($"Copy: {t.FullName}");
+				File.Copy(t.FullName, targetFile, true);
 				continue;
 			}
 
 			// 使用模板转换
-			
+			var templateContent = File.ReadAllText(t.FullName);
+			var template = razorEngine.Compile(templateContent);
+			var result = template.Run(model);
+			Console.WriteLine($" Gen: {t.FullName}");
+			File.WriteAllText(targetFile, result);
 		}
 
 	}
