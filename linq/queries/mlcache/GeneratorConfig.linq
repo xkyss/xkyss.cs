@@ -1,11 +1,13 @@
 <Query Kind="Program">
+  <NuGetReference>Microsoft.Extensions.FileSystemGlobbing</NuGetReference>
   <NuGetReference>RazorEngineCore</NuGetReference>
+  <Namespace>RazorEngineCore</Namespace>
   <Namespace>System.Dynamic</Namespace>
   <Namespace>System.Text.Json</Namespace>
+  <Namespace>System.Text.Json.Nodes</Namespace>
   <Namespace>System.Text.Json.Serialization</Namespace>
   <Namespace>Xunit</Namespace>
-  <Namespace>RazorEngineCore</Namespace>
-  <Namespace>System.Text.Json.Nodes</Namespace>
+  <Namespace>Microsoft.Extensions.FileSystemGlobbing</Namespace>
 </Query>
 
 #load "xunit"
@@ -20,6 +22,8 @@ public class Tester
 {
 	private static string jsonConfig = """
 	{
+		"SourceRootDir": "D:\\Code\\thzt\\mlcache-doc\\deploy\\generating",
+		"TargetRootDir": "D:\\Code\\thzt\\mlcache-doc\\deploy\\generated",
 		"Model": {
 			"Username": "appstore",
 			"HostIp": "192.168.1.144",
@@ -30,10 +34,18 @@ public class Tester
 			"Platform": "amd64",
 		},
 		"Ignore": [],
-		"Copy": [],
+		"Copy": [
+			"home/Ml-Cache/docker/redis/*"
+		],
 	}
 	""";
 	
+	private bool needIgnore = false;
+	private bool needCopy = false;
+	private Matcher ignoreMatcher = new Matcher();
+	private Matcher copyMatcher = new Matcher();
+
+	/// <summary>测试解析json配置</summary>
 	[Fact]
 	public void Test01()
 	{
@@ -47,15 +59,59 @@ public class Tester
 			WriteIndented = true,
 			AllowTrailingCommas = true,
 		});
-		LINQPad.Extensions.Dump(m);
+		//LINQPad.Extensions.Dump(m);
 
 		var config = JsonSerializer.Deserialize<Config>(jsonConfig, new JsonSerializerOptions
 		{
 			AllowTrailingCommas = true,
 		});
-		config.Dump();
+		//config.Dump();
+	}
+	
+	[Fact]
+	public void Test02()
+	{
+		var config = JsonSerializer.Deserialize<Config>(jsonConfig, new JsonSerializerOptions
+		{
+			AllowTrailingCommas = true,
+		});
 
-		var razorEngine = new RazorEngine();
+		var templates = EnumerateFilesRecursively(new DirectoryInfo(config.SourceRootDir));
+		Assert.True(templates.Count > 0);
+
+		needIgnore = config.Ignore.Count > 0;
+		if (needIgnore)
+		{
+			ignoreMatcher.AddIncludePatterns(config.Ignore);
+		}
+		needCopy = config.Copy.Count > 0;
+		if (needCopy)
+		{
+			copyMatcher.AddIncludePatterns(config.Copy);
+		}
+
+		foreach (var t in templates)
+		{
+			var r = Path.GetRelativePath(config.SourceRootDir, t.FullName);
+			
+			// 判断是否需要忽略
+			if (needIgnore && ignoreMatcher.Match(r).HasMatches)
+			{
+				Console.WriteLine($"Ignore: {t.FullName}");
+				continue;
+			}
+
+			// 判断是否仅需拷贝
+			if (needCopy && copyMatcher.Match(r).HasMatches)
+			{
+				Console.WriteLine($"Copy: {t.FullName}");
+				continue;
+			}
+
+			// 使用模板转换
+			
+		}
+
 	}
 }
 
@@ -64,12 +120,50 @@ public class Config
 {
 	//public string Model {get;set;}
 	
+	public string SourceRootDir {get;set;}
+	
+	public string TargetRootDir {get;set;}
+	
 	public List<string> Ignore {get;set;}
 	
 	public List<string> Copy {get;set;}
 }
 
 
+static List<FileInfo> EnumerateFilesRecursively(DirectoryInfo di)
+{
+	//var basePath = @"D:\Code\thzt\mlcache-doc\deploy\generating";
+	var list = new List<FileInfo>();
+	try
+	{
+		foreach (FileInfo file in di.EnumerateFiles())
+		{
+			if (file.Extension.EndsWith(".linq"))
+			{
+				continue;
+			}
+			//Console.Write(file.FullName);
+			//Console.Write("  ");
+			//Console.WriteLine(Path.GetRelativePath(file.Directory.FullName, di.FullName));
+			list.Add(file);
+		}
+
+		foreach (DirectoryInfo subDir in di.EnumerateDirectories())
+		{
+			//Console.Write(subDir.FullName);
+			//Console.Write("  ");
+			//Console.Write(di.FullName);
+			//Console.WriteLine(Path.GetRelativePath(di.FullName, subDir.FullName));
+			list.AddRange(EnumerateFilesRecursively(subDir));
+		}
+		return list;
+	}
+	catch (Exception ex)
+	{
+		Console.WriteLine("An error occurred: " + ex.Message);
+		return new List<FileInfo>();
+	}
+}
 
 // https://blog.miniasp.com/post/2022/06/11/DynamicJsonConverter-for-System-Text-Json
 // https://gist.github.com/doggy8088/995a28b2655ec9529414c3df18aaa28e
@@ -192,7 +286,7 @@ public class DynamicJsonConverter : JsonConverter<dynamic>
 
 	public override void Write(Utf8JsonWriter writer, dynamic value, JsonSerializerOptions options)
 	{
-		LINQPad.Extensions.Dump(value, "Write Value");
+		//LINQPad.Extensions.Dump(value, "Write Value");
 
 		// https://docs.microsoft.com/en-us/dotnet/api/system.typecode
 		switch (Type.GetTypeCode((Type)value.GetType()))

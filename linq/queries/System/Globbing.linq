@@ -22,7 +22,7 @@ public void Test01()
 	var matcher = new Matcher();
 	matcher.AddInclude("**/*.linq");
 
-	PatternMatchingResult result = matcher.Match("Globbing.linq");
+	var result = matcher.Match("Globbing.linq");
 	Assert.True(result.HasMatches);
 }
 
@@ -33,13 +33,60 @@ public void Test02()
 	var matcher = new Matcher();
 	matcher.AddInclude("*.linq");
 
-	PatternMatchingResult result = matcher.Match("Globbing.linq");
+	var result = matcher.Match("Globbing.linq");
 	Assert.True(result.HasMatches);
+}
+
+/// <summary>不带盘符会成功</summary>
+[Fact]
+public void Test03()
+{
+
+	var matcher = new Matcher();
+	matcher.AddInclude("**/redis/*.conf");
+
+	var result = matcher.Match("home/Ml-Cache/docker/redis/my.conf");
+	Assert.True(result.HasMatches);
+}
+
+/// <summary>反斜杠可以成功</summary>
+[Fact]
+public void Test031()
+{
+
+	var matcher = new Matcher();
+	matcher.AddInclude("**/redis/*.conf");
+
+	var result = matcher.Match("home/Ml-Cache/docker/redis\\my.conf");
+	Assert.True(result.HasMatches);
+}
+
+/// <summary>带盘符会失败</summary>
+[Fact]
+public void Test04()
+{
+
+	var matcher = new Matcher();
+	matcher.AddInclude("**/redis/*.conf");
+
+	var result = matcher.Match("D:/home/Ml-Cache/docker/redis/my.conf");
+	Assert.False(result.HasMatches);
+}
+
+/// <summary>相对目录会失败</summary>
+[Fact]
+public void Test05()
+{
+	var matcher = new Matcher();
+	matcher.AddInclude("**/redis/*.conf");
+
+	var result = matcher.Match("../redis/my.conf");
+	Assert.False(result.HasMatches);
 }
 
 /// <summary>测试真实目录</summary>
 [Fact]
-public void Test03()
+public void Test06()
 {
 	var matcher = new Matcher();
 	matcher.AddIncludePatterns(new[] { "**/*.txt", "**/*.linq" });
