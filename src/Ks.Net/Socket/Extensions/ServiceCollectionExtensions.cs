@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace Ks.Net.SocketServer.Extensions;
+namespace Ks.Net.Socket.Extensions;
 
 /// <summary>
 /// ServiceCollection扩展

@@ -1,7 +1,6 @@
-﻿namespace Ks.Net.SocketServer
+﻿namespace Ks.Net.Socket;
+
+public record ServerOptions
 {
-    public record ServerOptions
-    {
         
-    }
 }

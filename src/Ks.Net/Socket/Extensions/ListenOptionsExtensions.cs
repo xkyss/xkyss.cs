@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
-namespace Ks.Net.SocketServer.Extensions;
+namespace Ks.Net.Socket.Extensions;
 
 /// <summary>
 ///  ListenOptions扩展

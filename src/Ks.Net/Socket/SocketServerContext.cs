@@ -1,7 +1,7 @@
 ﻿using Ks.Net.Kestrel;
 using Microsoft.AspNetCore.Http.Features;
 
-namespace Ks.Net.SocketServer;
+namespace Ks.Net.Socket;
 
 /// <summary>
 /// 上下文信息

@@ -1,28 +1,25 @@
-﻿using Ks.Net.Kestrel;
-using Ks.Net.SocketServer.Middlewares;
-using Microsoft.AspNetCore.Components.Forms;
+﻿using System.Buffers;
+using System.IO.Pipelines;
+using System.Text;
+using Ks.Net.Kestrel;
+using Ks.Net.Socket.Middlewares;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 
+namespace Ks.Net.Socket;
 
-namespace Ks.Net.SocketServer;
-
-public class ServerConnectionHandler : ConnectionHandler 
+public class ServerConnectionHandler(IServiceProvider sp, ILogger<ServerConnectionHandler> logger)
+    : ConnectionHandler
 {
-    private readonly ILogger<ServerConnectionHandler> logger;
-    private readonly NetDelegate<SocketServerContext> net;
+    private static readonly byte[] crlf = Encoding.ASCII.GetBytes("\r\n");
 
-    public ServerConnectionHandler(IServiceProvider sp, ILogger<ServerConnectionHandler> logger)
-    {
-        this.logger = logger;
-        this.net = new NetBuilder<SocketServerContext>(sp)
-            .Use<FallbackMiddlware>()
-            .Build();
-    }
+    private readonly NetDelegate<SocketServerContext> net = new NetBuilder<SocketServerContext>(sp)
+        .Use<FallbackMiddlware>()
+        .Build();
 
     public override async Task OnConnectedAsync(ConnectionContext context)
     {
-        logger.LogInformation("OnConnectedAsync");
+        logger.LogInformation($"[{context.ConnectionId}]加入连接.");
         try
         {
             await HandleRequestsAsync(context);
@@ -33,6 +30,7 @@ public class ServerConnectionHandler : ConnectionHandler
         }
         finally
         {
+            logger.LogInformation($"[{context.ConnectionId}]断开连接.");
             await context.DisposeAsync();
         }
     }
@@ -50,27 +48,39 @@ public class ServerConnectionHandler : ConnectionHandler
                 break;
             }
 
-            // Parse requests
-            var requests = new List<SocketRequest>() { new SocketRequest(), new SocketRequest() }; // RedisRequest.Parse(result.Buffer, out var consumed);
-            if (requests.Count > 0)
+            if (TryReadRequest(result, out var request, out var consumed))
             {
-                foreach (var request in requests)
-                {
-                    var response = new SocketResponse();
-                    var redisContext = new SocketServerContext(client, request, response, context.Features);
-                    await this.net.Invoke(redisContext);
-                }
-                //input.AdvanceTo(consumed);
+                var response = new SocketResponse();
+                var socketConnect = new SocketServerContext(client, request, response, context.Features);
+                await this.net.Invoke(socketConnect);
+                input.AdvanceTo(consumed);
             }
             else
             {
-                //input.AdvanceTo(result.Buffer.Start, result.Buffer.End);
+                input.AdvanceTo(result.Buffer.Start, result.Buffer.End);
             }
 
             if (result.IsCompleted)
             {
                 break;
             }
+        }
+    }
+
+    private static bool TryReadRequest(ReadResult result, out SocketRequest request, out SequencePosition consumed)
+    {
+        var reader = new SequenceReader<byte>(result.Buffer);
+        if (reader.TryReadTo(out ReadOnlySpan<byte> span, crlf))
+        {
+            request = new SocketRequest { Message = Encoding.UTF8.GetString(span) };
+            consumed = reader.Position;
+            return true;
+        }
+        else
+        {
+            request = SocketRequest.Empty;
+            consumed = result.Buffer.Start;
+            return false;
         }
     }
 }

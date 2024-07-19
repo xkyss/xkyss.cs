@@ -1,5 +1,5 @@
 ﻿
-using Ks.Net.SocketServer.Extensions;
+using Ks.Net.Socket.Extensions;
 using Serilog;
 
 Console.WriteLine("Hello, SocketServer!");

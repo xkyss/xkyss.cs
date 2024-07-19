@@ -1,4 +1,4 @@
-﻿namespace Ks.Net.SocketServer;
+﻿namespace Ks.Net.Socket;
 
 sealed class SocketResponse
 {

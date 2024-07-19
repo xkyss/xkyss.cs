@@ -1,13 +1,7 @@
 ﻿using Microsoft.AspNetCore.Connections;
 
-namespace Ks.Net.SocketServer;
+namespace Ks.Net.Socket;
 
-sealed class ConnectedClient
+internal sealed class ConnectedClient(ConnectionContext context)
 {
-    private readonly ConnectionContext context;
-
-    public ConnectedClient(ConnectionContext context)
-    {
-        this.context = context;
-    }
 }
