@@ -50,7 +50,7 @@ public class ServerConnectionHandler(IServiceProvider sp, ILogger<ServerConnecti
 
             if (TryReadRequest(result, out var request, out var consumed))
             {
-                var response = new SocketResponse();
+                var response = new SocketResponse(context.Transport.Output);
                 var socketConnect = new SocketServerContext(client, request, response, context.Features);
                 await this.net.Invoke(socketConnect);
                 input.AdvanceTo(consumed);

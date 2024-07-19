@@ -8,12 +8,10 @@ namespace Ks.Net.Socket.Middlewares;
 /// </summary>
 sealed class FallbackMiddlware(ILogger<FallbackMiddlware> logger) : ISocketServerMiddleware
 {
-
     public Task InvokeAsync(NetDelegate<SocketServerContext> next, SocketServerContext context)
     {
         logger.LogWarning(context.Request.Message);
-        //this.logger.LogWarning($"无法处理{context.Reqeust}");
-        //return context.Response.WriteAsync(ResponseContent.Err);
+        context.Response.WriteAsync(context.Request.Message);
         return Task.CompletedTask;
     }
 }
