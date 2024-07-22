@@ -7,12 +7,12 @@ namespace Ks.Net.Socket.Middlewares;
 /// 回退处理中间件
 /// </summary>
 sealed class FallbackMiddlware(ILogger<FallbackMiddlware> logger) 
-    : ISocketServerMiddleware
+    : ISocketMiddleware
 {
-    public Task InvokeAsync(NetDelegate<SocketServerContext> next, SocketServerContext context)
+    public Task InvokeAsync(NetDelegate<SocketContext> next, SocketContext context)
     {
         logger.LogWarning(context.Request.Message);
-        context.Client.WriteLineAsync(context.Request.Message);
+        // context.Client.WriteLineAsync(context.Request.Message);
         return Task.CompletedTask;
     }
 }

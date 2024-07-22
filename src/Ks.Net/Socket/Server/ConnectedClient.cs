@@ -12,7 +12,12 @@ namespace Ks.Net.Socket;
 internal sealed class ConnectedClient(IServiceProvider sp, ILogger<ConnectedClient> logger)
 {
     private readonly NetDelegate<SocketServerContext> net = new NetBuilder<SocketServerContext>(sp)
-        .Use<FallbackMiddlware>()
+        .Use(c => context =>
+        {
+            logger.LogWarning(context.Request.Message);
+            context.Client.WriteLineAsync(context.Request.Message);
+            return Task.CompletedTask;
+        })
         .Build();
     
     internal ConnectionContext Context { get; set; }
