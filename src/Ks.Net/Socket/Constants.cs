@@ -1,4 +1,6 @@
-﻿namespace Ks.Net.Socket;
+﻿using System.Text;
+
+namespace Ks.Net.Socket;
 
 public class Constants
 {
@@ -10,4 +12,6 @@ public class Constants
         
     public static readonly string DefaultSocketHostKey = "Host";
     public static readonly string DefaultSocketHost = "localhost";
+    
+    public static readonly byte[] CRLF = Encoding.ASCII.GetBytes("\r\n");
 }

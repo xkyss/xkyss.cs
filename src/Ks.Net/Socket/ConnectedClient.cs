@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Text;
+using Ks.Core.System.Buffers;
 using Ks.Net.Kestrel;
 using Ks.Net.Socket.Middlewares;
 using Microsoft.AspNetCore.Connections;
@@ -10,13 +11,43 @@ namespace Ks.Net.Socket;
 
 internal sealed class ConnectedClient(IServiceProvider sp, ILogger<ConnectedClient> logger)
 {
-    private static readonly byte[] crlf = Encoding.ASCII.GetBytes("\r\n");
-
     private readonly NetDelegate<SocketServerContext> net = new NetBuilder<SocketServerContext>(sp)
         .Use<FallbackMiddlware>()
         .Build();
     
     internal ConnectionContext Context { get; set; }
+
+    internal PipeWriter Writer => Context.Transport.Output;
+
+    public ValueTask<FlushResult> WriteAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
+    {
+        Write(text, encoding);
+        return FlushAsync();
+    }
+
+    public ConnectedClient Write(ReadOnlySpan<char> text, Encoding? encoding = null)
+    {
+        Writer.Write(text, encoding ?? Encoding.UTF8);
+        return this;
+    }
+    
+    public ValueTask<FlushResult> WriteLineAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
+    {
+        WriteLine(text, encoding);
+        return FlushAsync();
+    }
+
+    public ConnectedClient WriteLine(ReadOnlySpan<char> text, Encoding? encoding = null)
+    {
+        Writer.Write(text, encoding ?? Encoding.UTF8);
+        Writer.WriteCRLF();
+        return this;
+    }
+
+    public ValueTask<FlushResult> FlushAsync()
+    {
+        return Writer.FlushAsync();
+    }
 
     public Task StartAsync()
     {
@@ -43,9 +74,9 @@ internal sealed class ConnectedClient(IServiceProvider sp, ILogger<ConnectedClie
 
             if (TryReadRequest(result, out var request, out var consumed))
             {
-                var response = new SocketResponse(context.Transport.Output);
+                var response = new SocketResponse();
                 var socketConnect = new SocketServerContext(this, request, response, context.Features);
-                await this.net.Invoke(socketConnect);
+                await net.Invoke(socketConnect);
                 input.AdvanceTo(consumed);
             }
             else
@@ -63,7 +94,7 @@ internal sealed class ConnectedClient(IServiceProvider sp, ILogger<ConnectedClie
     private static bool TryReadRequest(ReadResult result, out SocketRequest request, out SequencePosition consumed)
     {
         var reader = new SequenceReader<byte>(result.Buffer);
-        if (reader.TryReadTo(out ReadOnlySpan<byte> span, crlf))
+        if (reader.TryReadTo(out ReadOnlySpan<byte> span, Constants.CRLF))
         {
             request = new SocketRequest { Message = Encoding.UTF8.GetString(span) };
             consumed = reader.Position;

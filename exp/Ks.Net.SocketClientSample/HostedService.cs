@@ -3,12 +3,12 @@ using Microsoft.Extensions.Hosting;
 
 namespace Ks.Net.SocketClientSample;
 
-internal class HostedService(Client client, IHostLifetime lifetime)
+internal class HostedService(SocketClient socketClient, IHostLifetime lifetime)
     : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        await client.StartAsync();
+        await socketClient.StartAsync();
         
         Console.WriteLine("输入[bye]以结束.");
         while (true)
@@ -23,7 +23,7 @@ internal class HostedService(Client client, IHostLifetime lifetime)
                 break;
             }
 
-            await client.WriteLine(line);
+            await socketClient.WriteLineAsync(line);
         }
 
         _ = lifetime.StopAsync(cancellationToken);
@@ -31,6 +31,6 @@ internal class HostedService(Client client, IHostLifetime lifetime)
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        await client.StopAsync();
+        await socketClient.StopAsync();
     }
 }

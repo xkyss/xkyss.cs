@@ -38,7 +38,7 @@ await Host.CreateDefaultBuilder(args)
     .ConfigureServices((hostContext, services) =>
     {
         services.AddHostedService<HostedService>();
-        services.AddSingleton<Client>();
+        services.AddSingleton<SocketClient>();
     })
     .UseConsoleLifetime()
     .Build()

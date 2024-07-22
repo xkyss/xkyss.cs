@@ -2,13 +2,23 @@
 using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Text;
+using Ks.Net.Kestrel;
+using Ks.Net.Socket.Middlewares;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket;
 
-public class Client(ILogger<Client> logger, IConfiguration configuration)
+public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, IConfiguration configuration)
 {
+    private readonly NetDelegate<SocketClientContext> net = new NetBuilder<SocketClientContext>(sp)
+        .Use(c => cc =>
+        {
+            Console.WriteLine($"<: {cc.Response.Message}");
+            return Task.CompletedTask;
+        })
+        .Build();
+    
     protected readonly CancellationTokenSource CloseTokenSource = new();
     private readonly Pipe _receivePipe = new();
     private readonly TcpClient _socket = new (AddressFamily.InterNetwork)
@@ -19,11 +29,35 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
     public bool IsClose() => CloseTokenSource.IsCancellationRequested;
 
     public void Close() => CloseTokenSource.Cancel();
-
-    public async Task WriteLine(string s)
+    
+    public Task WriteAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
     {
-        await _socket.GetStream().WriteAsync(Encoding.UTF8.GetBytes(s));
-        await _socket.GetStream().WriteAsync(Encoding.UTF8.GetBytes("\r\n"));
+        Write(text, encoding);
+        return FlushAsync();
+    }
+
+    public SocketClient Write(ReadOnlySpan<char> text, Encoding? encoding = null)
+    {
+        _socket.GetStream().Write((encoding ?? Encoding.UTF8).GetBytes(text.ToArray()));
+        return this;
+    }
+    
+    public Task WriteLineAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
+    {
+        WriteLine(text, encoding);
+        return FlushAsync();
+    }
+
+    public SocketClient WriteLine(ReadOnlySpan<char> text, Encoding? encoding = null)
+    {
+        _socket.GetStream().Write((encoding ?? Encoding.UTF8).GetBytes(text.ToArray()));
+        _socket.GetStream().Write(Encoding.UTF8.GetBytes("\r\n"));
+        return this;
+    }
+
+    public Task FlushAsync()
+    {
+        return _socket.GetStream().FlushAsync(CloseTokenSource.Token);
     }
     
     public async Task StartAsync()
@@ -44,36 +78,33 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
 
     private async Task ReceivePipAsync()
     {
-        try
+        var input = _receivePipe.Reader;
+        var cancelToken = CloseTokenSource.Token;
+        while (CloseTokenSource.Token.IsCancellationRequested == false)
         {
-            var cancelToken = CloseTokenSource.Token;
-            while (!CloseTokenSource.Token.IsCancellationRequested)
+            var result = await input.ReadAsync();
+            if (result.IsCanceled)
             {
-                logger.LogInformation("Receive with pipe.");
-                var result = await _receivePipe.Reader.ReadAsync(cancelToken);
-                var buffer = result.Buffer;
-                if (buffer.Length > 0)
-                {
-                    while (TryParseMessage(ref buffer))
-                    {
-                        
-                    };
-                    
-                    _receivePipe.Reader.AdvanceTo(buffer.Start, buffer.End);
-                }
-                else if (result.IsCanceled || result.IsCompleted)
-                {
-                    break;
-                }
+                break;
+            }
+
+            if (TryReadResponse(result, out var response, out var consumed))
+            {
+                var request = new SocketRequest();
+                var socketConnect = new SocketClientContext(this, request, response);
+                await net.Invoke(socketConnect);
+                input.AdvanceTo(consumed);
+            }
+            else
+            {
+                input.AdvanceTo(result.Buffer.Start, result.Buffer.End);
+            }
+
+            if (result.IsCompleted)
+            {
+                break;
             }
         }
-        catch (Exception e)
-        {
-            logger.LogError(e.Message);
-            return;
-        }
-        
-        logger.LogInformation("ReceiveAsync 结束.");
     }
     
     private async Task ReceiveNetAsync()
@@ -87,7 +118,7 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
             while (!cancelToken.IsCancellationRequested)
             {
                 var hasData = false;
-                logger.LogInformation("Receive with net.");
+                // logger.LogInformation("Receive with net.");
                 do
                 {
                     var length = await stream.ReadAsync(readBuffer, cancelToken);
@@ -124,6 +155,24 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
         logger.LogInformation("ReceiveOnceAsync 结束.");
     }
 
+    private static bool TryReadResponse(ReadResult result, out SocketResponse response, out SequencePosition consumed)
+    {
+        var reader = new SequenceReader<byte>(result.Buffer);
+        if (reader.TryReadTo(out ReadOnlySpan<byte> span, Constants.CRLF))
+        {
+            response = new SocketResponse() { Message = Encoding.UTF8.GetString(span) };
+            consumed = reader.Position;
+            return true;
+        }
+        else
+        {
+            response = SocketResponse.Empty;
+            consumed = result.Buffer.Start;
+            return false;
+        } 
+    }
+    
+    
     protected virtual bool TryParseMessage(ref ReadOnlySequence<byte> input)
     {
         var s = Encoding.UTF8.GetString(input);
@@ -132,7 +181,7 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
             return false;
         }
         
-        logger.LogInformation($"TryParseMessage: {s}");
+        // logger.LogInformation($"TryParseMessage: {s}");
         input = input.Slice(input.GetPosition(s.Length));
         return true;
     }

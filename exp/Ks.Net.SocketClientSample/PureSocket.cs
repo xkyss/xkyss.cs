@@ -5,7 +5,7 @@ namespace Ks.Net.SocketClientSample;
 
 public class PureSocket
 {
-    public static async Task Main(string[] args)
+    public static async Task Run(string[] args)
     {
         Console.WriteLine("Hello, SocketClient!");
 
@@ -16,7 +16,7 @@ public class PureSocket
 
         Console.WriteLine("输入[bye]以结束.");
 
-        ReceiveMessagesAsync(socket);
+        _ = ReceiveMessagesAsync(socket);
         while (true)
         {
             var line = Console.ReadLine();
