@@ -7,6 +7,7 @@ Console.WriteLine("Hello, SocketServer!");
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
+    .AddSocketServer()
     .AddConnections();
 
 builder.Host.UseSerilog((hosting, logger) =>

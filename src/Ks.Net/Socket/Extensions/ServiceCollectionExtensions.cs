@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddSocketServer(this IServiceCollection services)
     {
+        services.AddTransient<ConnectedClient>();
         return services;
     }
 }
