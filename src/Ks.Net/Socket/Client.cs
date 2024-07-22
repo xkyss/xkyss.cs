@@ -4,7 +4,6 @@ using System.Net.Sockets;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualBasic;
 
 namespace Ks.Net.Socket;
 
@@ -20,6 +19,12 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
     public bool IsClose() => CloseTokenSource.IsCancellationRequested;
 
     public void Close() => CloseTokenSource.Cancel();
+
+    public async Task WriteLine(string s)
+    {
+        await _socket.GetStream().WriteAsync(Encoding.UTF8.GetBytes(s));
+        await _socket.GetStream().WriteAsync(Encoding.UTF8.GetBytes("\r\n"));
+    }
     
     public async Task StartAsync()
     {
@@ -42,9 +47,9 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
         try
         {
             var cancelToken = CloseTokenSource.Token;
-            while (!cancelToken.IsCancellationRequested)
+            while (!CloseTokenSource.Token.IsCancellationRequested)
             {
-                logger.LogInformation("ReceiveAsync in while.");
+                logger.LogInformation("Receive with pipe.");
                 var result = await _receivePipe.Reader.ReadAsync(cancelToken);
                 var buffer = result.Buffer;
                 if (buffer.Length > 0)
@@ -82,7 +87,7 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
             while (!cancelToken.IsCancellationRequested)
             {
                 var hasData = false;
-                logger.LogInformation("ReceiveOnceAsync in while.");
+                logger.LogInformation("Receive with net.");
                 do
                 {
                     var length = await stream.ReadAsync(readBuffer, cancelToken);
@@ -122,7 +127,13 @@ public class Client(ILogger<Client> logger, IConfiguration configuration)
     protected virtual bool TryParseMessage(ref ReadOnlySequence<byte> input)
     {
         var s = Encoding.UTF8.GetString(input);
+        if (s.IsNullOrEmpty())
+        {
+            return false;
+        }
+        
         logger.LogInformation($"TryParseMessage: {s}");
-        return false;
+        input = input.Slice(input.GetPosition(s.Length));
+        return true;
     }
 }
