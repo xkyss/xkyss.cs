@@ -3,9 +3,15 @@ using Microsoft.AspNetCore.Http.Features;
 
 namespace Ks.Net.Socket;
 
-internal class SocketContext(SocketRequest request, SocketResponse response, IFeatureCollection features)
+internal class SocketContext<TClient>(TClient client, SocketRequest request, SocketResponse response, IFeatureCollection? features)
     : NetContext(features)
+    where TClient : ISocketClient<TClient>
 {
+    /// <summary>
+    /// 客户端
+    /// </summary>
+    public TClient Client { get; } = client;
+    
     /// <summary>
     /// 请求
     /// </summary>

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Ks.Net.Socket.Server;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ks.Net.Socket.Extensions;
 
@@ -25,7 +26,7 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddSocketServer(this IServiceCollection services)
     {
-        services.AddTransient<ConnectedClient>();
+        services.AddTransient<ServerClient>();
         return services;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Ks.Net.Socket;
 
-internal interface ISocketMiddleware : INetMiddleware<SocketContext>
+internal interface ISocketMiddleware<TClient> : INetMiddleware<SocketContext<TClient>>
+    where TClient : ISocketClient<TClient>
 {
 }

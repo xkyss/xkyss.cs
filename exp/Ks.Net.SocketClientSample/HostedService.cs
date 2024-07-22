@@ -1,4 +1,5 @@
 ﻿using Ks.Net.Socket;
+using Ks.Net.Socket.Client;
 using Microsoft.Extensions.Hosting;
 
 namespace Ks.Net.SocketClientSample;

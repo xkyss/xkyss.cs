@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Connections;
+﻿using Ks.Net.Socket.Server;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -10,7 +11,7 @@ public class ServerConnectionHandler(IServiceProvider sp, ILogger<ServerConnecti
 
     public override async Task OnConnectedAsync(ConnectionContext context)
     {
-        var client = sp.GetRequiredService<ConnectedClient>();
+        var client = sp.GetRequiredService<ServerClient>();
         client.Context = context;
         
         try

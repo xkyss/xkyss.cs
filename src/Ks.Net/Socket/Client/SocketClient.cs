@@ -3,20 +3,17 @@ using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Text;
 using Ks.Net.Kestrel;
-using Ks.Net.Socket.Middlewares;
+using Ks.Net.Socket.Client.Middlewares;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Ks.Net.Socket;
+namespace Ks.Net.Socket.Client;
 
 public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, IConfiguration configuration)
+    : ISocketClient<SocketClient>
 {
-    private readonly NetDelegate<SocketClientContext> net = new NetBuilder<SocketClientContext>(sp)
-        .Use(c => cc =>
-        {
-            Console.WriteLine($"<: {cc.Response.Message}");
-            return Task.CompletedTask;
-        })
+    private readonly NetDelegate<SocketContext<SocketClient>> net = new NetBuilder<SocketContext<SocketClient>>(sp)
+        .Use<FallbackMiddleware>()
         .Build();
     
     protected readonly CancellationTokenSource CloseTokenSource = new();
@@ -28,8 +25,6 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
     
     public bool IsClose() => CloseTokenSource.IsCancellationRequested;
 
-    public void Close() => CloseTokenSource.Cancel();
-    
     public Task WriteAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
     {
         Write(text, encoding);
@@ -73,6 +68,7 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
 
     public Task StopAsync()
     {
+        CloseTokenSource.Cancel();
         return Task.CompletedTask;
     }
 
@@ -91,7 +87,7 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
             if (TryReadResponse(result, out var response, out var consumed))
             {
                 var request = new SocketRequest();
-                var socketConnect = new SocketClientContext(this, request, response);
+                var socketConnect = new SocketContext<SocketClient>(this, request, response, null);
                 await net.Invoke(socketConnect);
                 input.AdvanceTo(consumed);
             }

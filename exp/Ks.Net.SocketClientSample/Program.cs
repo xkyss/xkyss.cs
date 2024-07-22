@@ -1,4 +1,5 @@
 ﻿using Ks.Net.Socket;
+using Ks.Net.Socket.Client;
 using Serilog.Events;
 using Serilog;
 using Ks.Net.SocketClientSample;

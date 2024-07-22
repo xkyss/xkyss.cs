@@ -7,51 +7,58 @@ using Ks.Net.Socket.Middlewares;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 
-namespace Ks.Net.Socket;
+namespace Ks.Net.Socket.Server;
 
-internal sealed class ConnectedClient(IServiceProvider sp, ILogger<ConnectedClient> logger)
+internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> logger)
+    : ISocketClient<ServerClient>
 {
-    private readonly NetDelegate<SocketServerContext> net = new NetBuilder<SocketServerContext>(sp)
+    private readonly NetDelegate<SocketContext<ServerClient>> net = new NetBuilder<SocketContext<ServerClient>>(sp)
         .Use(c => context =>
         {
             logger.LogWarning(context.Request.Message);
             context.Client.WriteLineAsync(context.Request.Message);
             return Task.CompletedTask;
         })
+        .Use<FallbackMiddleware<ServerClient>>()
         .Build();
     
     internal ConnectionContext Context { get; set; }
 
     internal PipeWriter Writer => Context.Transport.Output;
 
-    public ValueTask<FlushResult> WriteAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
+    public Task WriteAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
     {
         Write(text, encoding);
         return FlushAsync();
     }
 
-    public ConnectedClient Write(ReadOnlySpan<char> text, Encoding? encoding = null)
+    public ServerClient Write(ReadOnlySpan<char> text, Encoding? encoding = null)
     {
         Writer.Write(text, encoding ?? Encoding.UTF8);
         return this;
     }
     
-    public ValueTask<FlushResult> WriteLineAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
+    public Task WriteLineAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
     {
         WriteLine(text, encoding);
         return FlushAsync();
     }
 
-    public ConnectedClient WriteLine(ReadOnlySpan<char> text, Encoding? encoding = null)
+    public ServerClient WriteLine(ReadOnlySpan<char> text, Encoding? encoding = null)
     {
         Writer.Write(text, encoding ?? Encoding.UTF8);
         Writer.WriteCRLF();
         return this;
     }
 
-    public ValueTask<FlushResult> FlushAsync()
+    public Task FlushAsync()
     {
-        return Writer.FlushAsync();
+        return Writer.FlushAsync().AsTask();
+    }
+
+    public bool IsClose()
+    {
+        return Context.ConnectionClosed.IsCancellationRequested;
     }
 
     public Task StartAsync()
@@ -80,7 +87,7 @@ internal sealed class ConnectedClient(IServiceProvider sp, ILogger<ConnectedClie
             if (TryReadRequest(result, out var request, out var consumed))
             {
                 var response = new SocketResponse();
-                var socketConnect = new SocketServerContext(this, request, response, context.Features);
+                var socketConnect = new SocketContext<ServerClient>(this, request, response, context.Features);
                 await net.Invoke(socketConnect);
                 input.AdvanceTo(consumed);
             }
