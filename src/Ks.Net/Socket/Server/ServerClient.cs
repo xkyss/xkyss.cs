@@ -23,7 +23,7 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
 
     public Task WriteAsync<T>(T message) where T : Message
     {
-        var bodyBytes = MessagePackSerializer.Serialize(message);
+        var bodyBytes = MessagePackSerializer.Serialize(message.GetType(), message);
         
         var response = new SocketResponse();
         response.MessageLength = bodyBytes.Length;

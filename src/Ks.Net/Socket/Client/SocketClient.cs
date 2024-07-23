@@ -29,7 +29,7 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
     
     public Task WriteAsync<T>(T message) where T : Message
     {
-        var bodyBytes = MessagePackSerializer.Serialize(message);
+        var bodyBytes = MessagePackSerializer.Serialize(message.GetType(), message);
         
         var request = new SocketRequest();
         request.MessageLength = bodyBytes.Length;

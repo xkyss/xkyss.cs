@@ -24,10 +24,11 @@ internal class HostedService(SocketClient socketClient, IHostLifetime lifetime)
                 break;
             }
 
+            int.TryParse(line, out var n);
             await socketClient.WriteAsync(new HeartBeat()
             {
-                Sid = 11,
-                TimeTick = 22,
+                Sid = n,
+                TimeTick = n,
             });
         }
 
