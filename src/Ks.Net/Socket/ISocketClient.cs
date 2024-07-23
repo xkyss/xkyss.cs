@@ -4,7 +4,7 @@ public interface ISocketClient
 {
     bool IsClose();
 
-    void Write<T>(T message) where T : Message;
+    Task WriteAsync<T>(T message) where T : Message;
 
     Task StartAsync();
     

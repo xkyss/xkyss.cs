@@ -1,7 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net.Sockets;
-using System.Text;
 using Ks.Net.Kestrel;
 using Ks.Net.Socket.Client.Middlewares;
 using MessagePack;
@@ -28,7 +27,7 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
     
     public bool IsClose() => CloseTokenSource.IsCancellationRequested;
     
-    public void Write<T>(T message) where T : Message
+    public Task WriteAsync<T>(T message) where T : Message
     {
         var bodyBytes = MessagePackSerializer.Serialize(message);
         
@@ -45,7 +44,7 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
         Writer.Write(headerLengthBytes, 0, headerLengthBytes.Length);
         Writer.Write(headerBytes);
         Writer.Write(bodyBytes);
-        Writer.FlushAsync(CloseTokenSource.Token);
+        return Writer.FlushAsync(CloseTokenSource.Token);
     }
     
     public async Task StartAsync()
@@ -69,19 +68,20 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
     {
         var input = _receivePipe.Reader;
         var cancelToken = CloseTokenSource.Token;
-        while (CloseTokenSource.Token.IsCancellationRequested == false)
+        while (cancelToken.IsCancellationRequested == false)
         {
-            var result = await input.ReadAsync();
+            var result = await input.ReadAsync(cancelToken);
             if (result.IsCanceled)
             {
                 break;
             }
 
-            if (TryReadResponse(result, out var response))
+            if (TryReadResponse(result, out var response, out var consumed))
             {
                 var request = new SocketRequest();
                 var socketConnect = new SocketContext<SocketClient>(this, request, response, null);
                 await net.Invoke(socketConnect);
+                input.AdvanceTo(consumed);
             }
             else
             {
@@ -143,12 +143,13 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
         logger.LogInformation("ReceiveOnceAsync 结束.");
     }
 
-    private static bool TryReadResponse(ReadResult result, out SocketResponse response)
+    private static bool TryReadResponse(ReadResult result, out SocketResponse response, out SequencePosition consumed)
     {
         var reader = new SequenceReader<byte>(result.Buffer);
         
         response = SocketResponse.Empty;
-        
+        consumed = result.Buffer.Start;
+
         // 消息头部长度
         if (!reader.TryReadBigEndian(out int headLen))
         {
@@ -161,7 +162,7 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
             return false;
         }
         
-        var headerBytes = result.Buffer.Slice(reader.Position, headLen);
+        reader.TryReadExact(headLen, out var headerBytes);
         response = MessagePackSerializer.Deserialize<SocketResponse>(headerBytes);
         
         // 检测长度
@@ -172,9 +173,10 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
 
         // 读取Message
         // TODO: 当前写死HeartBeat
-        reader.Advance(headLen);
-        var bodyBytes = result.Buffer.Slice(reader.Position);
+        reader.TryReadExact(response.MessageLength, out var bodyBytes);
         response.Message = MessagePackSerializer.Deserialize<HeartBeat>(bodyBytes);
+        
+        consumed = reader.Position;
         return true;
     }
 }

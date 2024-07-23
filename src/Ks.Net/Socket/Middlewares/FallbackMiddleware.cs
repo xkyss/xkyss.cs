@@ -15,9 +15,9 @@ sealed class FallbackMiddleware<TClient>(ILogger<FallbackMiddleware<TClient>> lo
         logger.LogWarning(context.Request.Message?.ToString());
         if (context.Request.Message != null)
         {
-            context.Client.Write(context.Request.Message);
+            return context.Client.WriteAsync(context.Request.Message);
         }
-
+        
         return Task.CompletedTask;
     }
 }

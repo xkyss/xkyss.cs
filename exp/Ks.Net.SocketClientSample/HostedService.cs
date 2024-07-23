@@ -24,7 +24,7 @@ internal class HostedService(SocketClient socketClient, IHostLifetime lifetime)
                 break;
             }
 
-            socketClient.Write(new HeartBeat()
+            await socketClient.WriteAsync(new HeartBeat()
             {
                 Sid = 11,
                 TimeTick = 22,

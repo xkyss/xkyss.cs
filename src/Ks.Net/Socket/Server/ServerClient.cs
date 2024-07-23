@@ -14,12 +14,6 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
     : ISocketClient
 {
     private readonly NetDelegate<SocketContext<ServerClient>> net = new NetBuilder<SocketContext<ServerClient>>(sp)
-        .Use(c => context =>
-        {
-            // logger.LogWarning(context.Request.Message);
-            // context.Client.WriteLineAsync(context.Request.Message);
-            return Task.CompletedTask;
-        })
         .Use<FallbackMiddleware<ServerClient>>()
         .Build();
     
@@ -27,7 +21,7 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
 
     internal PipeWriter Writer => Context.Transport.Output;
 
-    public void Write<T>(T message) where T : Message
+    public Task WriteAsync<T>(T message) where T : Message
     {
         var bodyBytes = MessagePackSerializer.Serialize(message);
         
@@ -38,7 +32,7 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
         Writer.WriteBigEndian(headerBytes.Length);
         Writer.Write(headerBytes);
         Writer.Write(bodyBytes);
-        Writer.FlushAsync();
+        return Writer.FlushAsync().AsTask();
     }
 
     public bool IsClose()
@@ -69,11 +63,12 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
                 break;
             }
 
-            if (TryReadRequest(result, out var request))
+            if (TryReadRequest(result, out var request, out var consumed))
             {
                 var response = new SocketResponse();
                 var socketConnect = new SocketContext<ServerClient>(this, request, response, context.Features);
                 await net.Invoke(socketConnect);
+                input.AdvanceTo(consumed);
             }
             else
             {
@@ -87,11 +82,11 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
         }
     }
 
-    private static bool TryReadRequest(ReadResult result, out SocketRequest request)
+    private static bool TryReadRequest(ReadResult result, out SocketRequest request, out SequencePosition consumed)
     {
         var reader = new SequenceReader<byte>(result.Buffer);
-        
         request = SocketRequest.Empty;
+        consumed = result.Buffer.Start;
         
         // 消息头部长度
         if (!reader.TryReadBigEndian(out int headLen))
@@ -105,7 +100,7 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
             return false;
         }
         
-        var headerBytes = result.Buffer.Slice(reader.Position, headLen);
+        reader.TryReadExact(headLen, out var headerBytes);
         request = MessagePackSerializer.Deserialize<SocketRequest>(headerBytes);
         
         // 检测长度
@@ -113,11 +108,13 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
         {
             return false;
         }
-
+        
+        // 读取Message
         // TODO: 当前写死HeartBeat
-        reader.Advance(headLen);
-        var bodyBytes = result.Buffer.Slice(reader.Position);
+        reader.TryReadExact(request.MessageLength, out var bodyBytes);
         request.Message = MessagePackSerializer.Deserialize<HeartBeat>(bodyBytes);
+        
+        consumed = reader.Position;
         return true;
     }
     
