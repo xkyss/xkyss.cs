@@ -5,7 +5,7 @@ namespace Ks.Net.Socket;
 
 internal class SocketContext<TClient>(TClient client, SocketRequest request, SocketResponse response, IFeatureCollection? features)
     : NetContext(features)
-    where TClient : ISocketClient<TClient>
+    where TClient : ISocketClient
 {
     /// <summary>
     /// 客户端

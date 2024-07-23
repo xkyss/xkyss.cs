@@ -4,13 +4,14 @@ using System.Net.Sockets;
 using System.Text;
 using Ks.Net.Kestrel;
 using Ks.Net.Socket.Client.Middlewares;
+using MessagePack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket.Client;
 
 public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, IConfiguration configuration)
-    : ISocketClient<SocketClient>
+    : ISocketClient
 {
     private readonly NetDelegate<SocketContext<SocketClient>> net = new NetBuilder<SocketContext<SocketClient>>(sp)
         .Use<FallbackMiddleware>()
@@ -23,36 +24,28 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
         NoDelay = true
     };
     
-    public bool IsClose() => CloseTokenSource.IsCancellationRequested;
-
-    public Task WriteAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
-    {
-        Write(text, encoding);
-        return FlushAsync();
-    }
-
-    public SocketClient Write(ReadOnlySpan<char> text, Encoding? encoding = null)
-    {
-        _socket.GetStream().Write((encoding ?? Encoding.UTF8).GetBytes(text.ToArray()));
-        return this;
-    }
+    internal Stream Writer => _socket.GetStream();
     
-    public Task WriteLineAsync(ReadOnlySpan<char> text, Encoding? encoding = null)
+    public bool IsClose() => CloseTokenSource.IsCancellationRequested;
+    
+    public void Write<T>(T message) where T : Message
     {
-        WriteLine(text, encoding);
-        return FlushAsync();
-    }
-
-    public SocketClient WriteLine(ReadOnlySpan<char> text, Encoding? encoding = null)
-    {
-        _socket.GetStream().Write((encoding ?? Encoding.UTF8).GetBytes(text.ToArray()));
-        _socket.GetStream().Write(Encoding.UTF8.GetBytes("\r\n"));
-        return this;
-    }
-
-    public Task FlushAsync()
-    {
-        return _socket.GetStream().FlushAsync(CloseTokenSource.Token);
+        var bodyBytes = MessagePackSerializer.Serialize(message);
+        
+        var request = new SocketRequest();
+        request.MessageLength = bodyBytes.Length;
+        var headerBytes = MessagePackSerializer.Serialize(request);
+        
+        // 写入响应头长度（4字节，大端序）
+        var headerLengthBytes = BitConverter.GetBytes(headerBytes.Length);
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(headerLengthBytes); // 确保使用大端序
+        }
+        Writer.Write(headerLengthBytes, 0, headerLengthBytes.Length);
+        Writer.Write(headerBytes);
+        Writer.Write(bodyBytes);
+        Writer.FlushAsync(CloseTokenSource.Token);
     }
     
     public async Task StartAsync()
@@ -84,12 +77,11 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
                 break;
             }
 
-            if (TryReadResponse(result, out var response, out var consumed))
+            if (TryReadResponse(result, out var response))
             {
                 var request = new SocketRequest();
                 var socketConnect = new SocketContext<SocketClient>(this, request, response, null);
                 await net.Invoke(socketConnect);
-                input.AdvanceTo(consumed);
             }
             else
             {
@@ -151,34 +143,38 @@ public class SocketClient(IServiceProvider sp, ILogger<SocketClient> logger, ICo
         logger.LogInformation("ReceiveOnceAsync 结束.");
     }
 
-    private static bool TryReadResponse(ReadResult result, out SocketResponse response, out SequencePosition consumed)
+    private static bool TryReadResponse(ReadResult result, out SocketResponse response)
     {
         var reader = new SequenceReader<byte>(result.Buffer);
-        if (reader.TryReadTo(out ReadOnlySpan<byte> span, Constants.CRLF))
-        {
-            response = new SocketResponse() { Message = Encoding.UTF8.GetString(span) };
-            consumed = reader.Position;
-            return true;
-        }
-        else
-        {
-            response = SocketResponse.Empty;
-            consumed = result.Buffer.Start;
-            return false;
-        } 
-    }
-    
-    
-    protected virtual bool TryParseMessage(ref ReadOnlySequence<byte> input)
-    {
-        var s = Encoding.UTF8.GetString(input);
-        if (s.IsNullOrEmpty())
+        
+        response = SocketResponse.Empty;
+        
+        // 消息头部长度
+        if (!reader.TryReadBigEndian(out int headLen))
         {
             return false;
         }
         
-        // logger.LogInformation($"TryParseMessage: {s}");
-        input = input.Slice(input.GetPosition(s.Length));
+        // 检测长度
+        if (headLen <= 0)
+        {
+            return false;
+        }
+        
+        var headerBytes = result.Buffer.Slice(reader.Position, headLen);
+        response = MessagePackSerializer.Deserialize<SocketResponse>(headerBytes);
+        
+        // 检测长度
+        if (response.MessageLength <= 0)
+        {
+            return false;
+        }
+
+        // 读取Message
+        // TODO: 当前写死HeartBeat
+        reader.Advance(headLen);
+        var bodyBytes = result.Buffer.Slice(reader.Position);
+        response.Message = MessagePackSerializer.Deserialize<HeartBeat>(bodyBytes);
         return true;
     }
 }

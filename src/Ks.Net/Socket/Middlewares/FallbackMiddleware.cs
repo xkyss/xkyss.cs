@@ -8,12 +8,16 @@ namespace Ks.Net.Socket.Middlewares;
 /// </summary>
 sealed class FallbackMiddleware<TClient>(ILogger<FallbackMiddleware<TClient>> logger) 
     : ISocketMiddleware<TClient>
-    where TClient : ISocketClient<TClient>
+    where TClient : ISocketClient
 {
     public Task InvokeAsync(NetDelegate<SocketContext<TClient>> next, SocketContext<TClient> context)
     {
-        logger.LogWarning(context.Request.Message);
-        context.Client.WriteLineAsync(context.Request.Message);
+        logger.LogWarning(context.Request.Message?.ToString());
+        if (context.Request.Message != null)
+        {
+            context.Client.Write(context.Request.Message);
+        }
+
         return Task.CompletedTask;
     }
 }

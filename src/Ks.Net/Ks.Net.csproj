@@ -13,4 +13,8 @@
     <ItemGroup>
       <ProjectReference Include="..\Ks.Core\Ks.Core.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="MessagePack" Version="2.5.171" />
+    </ItemGroup>
 </Project>
