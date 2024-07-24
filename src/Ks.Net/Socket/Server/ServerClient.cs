@@ -110,7 +110,9 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
         // 读取Message
         // TODO: 当前写死HeartBeat
         reader.TryReadExact(request.MessageLength, out var bodyBytes);
-        request.Message = decoder.Decode<HeartBeat>(bodyBytes);
+
+        var type = GetType(); //request.MessageTypeId;
+        request.Message = (Message?) decoder.Decode(type, bodyBytes);
         
         consumed = reader.Position;
         return true;

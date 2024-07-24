@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<SocketClient>();
         services.AddSingleton<ISocketDecoder, MessagePackDecoder>();
         services.AddSingleton<ISocketEncoder, MessagePackEncoder>();
+        services.AddSingleton<ISocketTypeMapper, SocketTypeMapper>();
         return services;
     }
     
@@ -57,6 +58,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ServerClient>();
         services.AddSingleton<ISocketDecoder, MessagePackDecoder>();
         services.AddSingleton<ISocketEncoder, MessagePackEncoder>();
+        services.AddSingleton<ISocketTypeMapper, SocketTypeMapper>();
         return services;
     }
 }
