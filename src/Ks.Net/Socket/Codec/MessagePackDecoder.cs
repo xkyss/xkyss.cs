@@ -19,4 +19,19 @@ public class MessagePackDecoder : ISocketDecoder
     {
         return MessagePackSerializer.Deserialize<T>(data);
     }
+
+    public object? Decode(Type type, byte[] data)
+    {
+        return MessagePackSerializer.Deserialize(type, data);
+    }
+
+    public object? Decode(Type type, Stream data)
+    {
+        return MessagePackSerializer.Deserialize(type, data);
+    }
+
+    public object? Decode(Type type, ReadOnlySequence<byte> data)
+    {
+        return MessagePackSerializer.Deserialize(type, data);
+    }
 }
