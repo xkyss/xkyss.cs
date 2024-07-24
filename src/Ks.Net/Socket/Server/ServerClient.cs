@@ -8,8 +8,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket.Server;
 
-internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> logger, ISocketEncoder encoder, ISocketDecoder decoder)
-    : ISocketClient
+internal sealed class ServerClient(
+    IServiceProvider sp
+    , ILogger<ServerClient> logger
+    , ISocketEncoder encoder
+    , ISocketDecoder decoder
+    , ISocketTypeMapper typeMapper
+) : ISocketClient
 {
     private readonly NetDelegate<SocketContext<ServerClient>> net = new NetBuilder<SocketContext<ServerClient>>(sp)
         .Use<FallbackMiddleware<ServerClient>>()
@@ -19,14 +24,36 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
 
     internal PipeWriter Writer => Context.Transport.Output;
 
-    public Task WriteAsync<T>(T message) where T : Message
+    public Task WriteAsync<T>(T message)
     {
-        var bodyBytes = encoder.Encode(message.GetType(), message);
+        if (message == null)
+        {
+            logger.LogWarning("消息为空.");
+            return Task.CompletedTask;
+        }
         
-        var response = new SocketResponse();
-        response.MessageLength = bodyBytes.Length;
-        var headerBytes = encoder.Encode(response);
+        var type = message.GetType();
+        if (!typeMapper.TryGet(type, out var id))
+        {
+            logger.LogWarning($"消息{type}未注册.");
+            return Task.CompletedTask;
+        }
         
+        var bodyBytes = encoder.Encode(type, message);
+        var headerBytes = encoder.Encode(new SocketRequest
+        {
+            MessageTypeId = id,
+            MessageLength = bodyBytes.Length
+        });
+        
+        // 写入响应头长度（4字节，大端序）
+        var headerLengthBytes = BitConverter.GetBytes(headerBytes.Length);
+        if (BitConverter.IsLittleEndian)
+        {
+            // 确保使用大端序
+            Array.Reverse(headerLengthBytes);
+        }
+
         Writer.WriteBigEndian(headerBytes.Length);
         Writer.Write(headerBytes);
         Writer.Write(bodyBytes);
@@ -108,11 +135,10 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
         }
         
         // 读取Message
-        // TODO: 当前写死HeartBeat
         reader.TryReadExact(request.MessageLength, out var bodyBytes);
-
-        var type = GetType(); //request.MessageTypeId;
-        request.Message = (Message?) decoder.Decode(type, bodyBytes);
+        typeMapper.TryGet(request.MessageTypeId, out var type);
+        
+        request.Message = decoder.Decode(type, bodyBytes);
         
         consumed = reader.Position;
         return true;

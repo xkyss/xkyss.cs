@@ -1,7 +1,6 @@
 ﻿using Ks.Net.Socket.Client;
 using Ks.Net.Socket.Codec;
 using Ks.Net.Socket.Server;
-using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ks.Net.Socket.Extensions;
@@ -31,9 +30,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSocketClient(this IServiceCollection services)
     {
         services.AddTransient<SocketClient>();
-        services.AddSingleton<ISocketDecoder, MessagePackDecoder>();
-        services.AddSingleton<ISocketEncoder, MessagePackEncoder>();
-        services.AddSingleton<ISocketTypeMapper, SocketTypeMapper>();
+        services.AddInternal();
         return services;
     }
     
@@ -56,9 +53,20 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSocketServer(this IServiceCollection services)
     {
         services.AddTransient<ServerClient>();
+        services.AddInternal();
+        return services;
+    }
+
+    private static IServiceCollection AddInternal(this IServiceCollection services)
+    {
         services.AddSingleton<ISocketDecoder, MessagePackDecoder>();
         services.AddSingleton<ISocketEncoder, MessagePackEncoder>();
-        services.AddSingleton<ISocketTypeMapper, SocketTypeMapper>();
+        services.AddSingleton<ISocketTypeMapper, SocketTypeMapper>(sp =>
+        {
+            var stm = new SocketTypeMapper();
+            stm.Register<HeartBeat>(1001);
+            return stm;
+        });
         return services;
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Ks.Net.Socket;
 
-internal class SocketTypeMapper : ISocketTypeMapper
+public class SocketTypeMapper : ISocketTypeMapper
 {
     private readonly ConcurrentDictionary<Type, int> _typeToId = new();
     private readonly ConcurrentDictionary<int, Type> _idToType = new();
@@ -22,7 +22,7 @@ internal class SocketTypeMapper : ISocketTypeMapper
         return _idToType.TryGetValue(id, out type!);
     }
 
-    public bool TrgGet(Type type, out int id)
+    public bool TryGet(Type type, out int id)
     {
         return _typeToId.TryGetValue(type, out id);
     }

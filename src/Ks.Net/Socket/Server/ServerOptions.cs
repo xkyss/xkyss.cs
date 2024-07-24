@@ -1,4 +1,4 @@
-﻿namespace Ks.Net.Socket;
+﻿namespace Ks.Net.Socket.Server;
 
 public record ServerOptions
 {

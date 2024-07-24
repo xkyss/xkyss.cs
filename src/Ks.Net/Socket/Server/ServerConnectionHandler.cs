@@ -1,14 +1,12 @@
-﻿using Ks.Net.Socket.Server;
-using Microsoft.AspNetCore.Connections;
+﻿using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Ks.Net.Socket;
+namespace Ks.Net.Socket.Server;
 
 public class ServerConnectionHandler(IServiceProvider sp, ILogger<ServerConnectionHandler> logger)
     : ConnectionHandler
 {
-
     public override async Task OnConnectedAsync(ConnectionContext context)
     {
         var client = sp.GetRequiredService<ServerClient>();

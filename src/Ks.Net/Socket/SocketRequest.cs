@@ -11,11 +11,11 @@ public sealed class SocketRequest
     public long TransportId { get; set; }
     
     [Key(1)]
-    public long MessageTypeId { get; set; }
+    public int MessageTypeId { get; set; }
     
     [Key(2)]
     public int MessageLength { get; set; }
     
     [IgnoreMember]
-    public Message? Message { get; set; }
+    public object? Message { get; set; }
 }

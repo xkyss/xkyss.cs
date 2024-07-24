@@ -8,7 +8,7 @@ public interface ISocketTypeMapper
 
     bool TryGet(int id, out Type type);
 
-    bool TrgGet(Type type, out int id);
+    bool TryGet(Type type, out int id);
 
     void Register<T>(int id);
 
