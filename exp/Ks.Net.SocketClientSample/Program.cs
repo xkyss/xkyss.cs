@@ -1,5 +1,6 @@
 ﻿using Ks.Net.Socket;
 using Ks.Net.Socket.Client;
+using Ks.Net.Socket.Extensions;
 using Serilog.Events;
 using Serilog;
 using Ks.Net.SocketClientSample;
@@ -39,7 +40,7 @@ await Host.CreateDefaultBuilder(args)
     .ConfigureServices((hostContext, services) =>
     {
         services.AddHostedService<HostedService>();
-        services.AddSingleton<SocketClient>();
+        services.AddSocketClient();
     })
     .UseConsoleLifetime()
     .Build()

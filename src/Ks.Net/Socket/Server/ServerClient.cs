@@ -1,16 +1,14 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
-using System.Text;
 using Ks.Core.System.Buffers;
 using Ks.Net.Kestrel;
 using Ks.Net.Socket.Middlewares;
-using MessagePack;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket.Server;
 
-internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> logger)
+internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> logger, ISocketEncoder encoder, ISocketDecoder decoder)
     : ISocketClient
 {
     private readonly NetDelegate<SocketContext<ServerClient>> net = new NetBuilder<SocketContext<ServerClient>>(sp)
@@ -23,11 +21,11 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
 
     public Task WriteAsync<T>(T message) where T : Message
     {
-        var bodyBytes = MessagePackSerializer.Serialize(message.GetType(), message);
+        var bodyBytes = encoder.Encode(message.GetType(), message);
         
         var response = new SocketResponse();
         response.MessageLength = bodyBytes.Length;
-        var headerBytes = MessagePackSerializer.Serialize(response);
+        var headerBytes = encoder.Encode(response);
         
         Writer.WriteBigEndian(headerBytes.Length);
         Writer.Write(headerBytes);
@@ -82,7 +80,7 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
         }
     }
 
-    private static bool TryReadRequest(ReadResult result, out SocketRequest request, out SequencePosition consumed)
+    private bool TryReadRequest(ReadResult result, out SocketRequest request, out SequencePosition consumed)
     {
         var reader = new SequenceReader<byte>(result.Buffer);
         request = SocketRequest.Empty;
@@ -101,7 +99,7 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
         }
         
         reader.TryReadExact(headLen, out var headerBytes);
-        request = MessagePackSerializer.Deserialize<SocketRequest>(headerBytes);
+        request = decoder.Decode<SocketRequest>(headerBytes);
         
         // 检测长度
         if (request.MessageLength <= 0)
@@ -112,7 +110,7 @@ internal sealed class ServerClient(IServiceProvider sp, ILogger<ServerClient> lo
         // 读取Message
         // TODO: 当前写死HeartBeat
         reader.TryReadExact(request.MessageLength, out var bodyBytes);
-        request.Message = MessagePackSerializer.Deserialize<HeartBeat>(bodyBytes);
+        request.Message = decoder.Decode<HeartBeat>(bodyBytes);
         
         consumed = reader.Position;
         return true;
