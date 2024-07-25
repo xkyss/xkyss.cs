@@ -1,5 +1,8 @@
-﻿using Ks.Net.Socket.Client;
+﻿using Ks.Net.Kestrel;
+using Ks.Net.Socket.Client;
+using Ks.Net.Socket.Client.Middlewares;
 using Ks.Net.Socket.Codec;
+using Ks.Net.Socket.Middlewares;
 using Ks.Net.Socket.Server;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,6 +32,9 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddSocketClient(this IServiceCollection services)
     {
+        services.AddTransient(sp => new NetBuilder<SocketContext<SocketClient>>(sp)
+            .Use<FallbackMiddleware>()
+            .Build());
         services.AddTransient<SocketClient>();
         services.AddInternal();
         return services;
@@ -52,6 +58,9 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddSocketServer(this IServiceCollection services)
     {
+        services.AddTransient(sp => new NetBuilder<SocketContext<ServerClient>>(sp)
+            .Use<FallbackMiddleware<ServerClient>>()
+            .Build());
         services.AddTransient<ServerClient>();
         services.AddInternal();
         return services;

@@ -7,7 +7,6 @@ namespace Ks.Net.Kestrel;
 /// </summary>
 public class NetBuilder<TContext>
 {
-
     private readonly NetDelegate<TContext> fallbackHandler;
     private readonly List<Func<NetDelegate<TContext>, NetDelegate<TContext>>> middlewares = new();
 

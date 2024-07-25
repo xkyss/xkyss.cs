@@ -9,17 +9,13 @@ using Microsoft.Extensions.Logging;
 namespace Ks.Net.Socket.Server;
 
 internal sealed class ServerClient(
-    IServiceProvider sp
-    , ILogger<ServerClient> logger
+    ILogger<ServerClient> logger
     , ISocketEncoder encoder
     , ISocketDecoder decoder
     , ISocketTypeMapper typeMapper
+    , NetDelegate<SocketContext<ServerClient>> net
 ) : ISocketClient
 {
-    private readonly NetDelegate<SocketContext<ServerClient>> net = new NetBuilder<SocketContext<ServerClient>>(sp)
-        .Use<FallbackMiddleware<ServerClient>>()
-        .Build();
-    
     internal ConnectionContext Context { get; set; }
 
     internal PipeWriter Writer => Context.Transport.Output;

@@ -8,19 +8,15 @@ using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket.Client;
 
-public class SocketClient(
-    IServiceProvider sp
-    , ILogger<SocketClient> logger
+internal sealed class SocketClient(
+    ILogger<SocketClient> logger
     , IConfiguration configuration
     , ISocketDecoder decoder
     , ISocketEncoder encoder
     , ISocketTypeMapper typeMapper
+    , NetDelegate<SocketContext<SocketClient>> net
 )   : ISocketClient
 {
-    private readonly NetDelegate<SocketContext<SocketClient>> net = new NetBuilder<SocketContext<SocketClient>>(sp)
-        .Use<FallbackMiddleware>()
-        .Build();
-    
     protected readonly CancellationTokenSource CloseTokenSource = new();
     private readonly Pipe _receivePipe = new();
     private readonly TcpClient _socket = new (AddressFamily.InterNetwork)

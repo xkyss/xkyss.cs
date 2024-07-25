@@ -1,10 +1,9 @@
 ﻿using Ks.Net.Socket;
-using Ks.Net.Socket.Client;
 using Microsoft.Extensions.Hosting;
 
 namespace Ks.Net.SocketClientSample;
 
-internal class HostedService(SocketClient socketClient, IHostLifetime lifetime)
+internal class HostedService(ISocketClient socketClient, IHostLifetime lifetime)
     : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
