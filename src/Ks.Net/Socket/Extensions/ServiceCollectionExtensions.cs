@@ -2,6 +2,7 @@
 using Ks.Net.Socket.Client;
 using Ks.Net.Socket.Client.Middlewares;
 using Ks.Net.Socket.Codec;
+using Ks.Net.Socket.MessageHandlers;
 using Ks.Net.Socket.Middlewares;
 using Ks.Net.Socket.Server;
 using Microsoft.Extensions.DependencyInjection;
@@ -59,8 +60,14 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSocketServer(this IServiceCollection services)
     {
         services.AddTransient(sp => new NetBuilder<SocketContext<ServerClient>>(sp)
+            .Use<MessageHandlerMiddleware<ServerClient>>(middleware =>
+            {
+                middleware.Register<HeartBeat>(sp.GetRequiredService<HeartBeatHandler<ServerClient>>());
+            })
             .Use<FallbackMiddleware<ServerClient>>()
             .Build());
+        
+        services.AddSingleton<HeartBeatHandler<ServerClient>>();
         services.AddTransient<ServerClient>();
         services.AddInternal();
         return services;

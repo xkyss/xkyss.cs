@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http.Features;
 
 namespace Ks.Net.Socket;
 
-internal class SocketContext<TClient>(TClient client, SocketRequest request, SocketResponse response, IFeatureCollection? features)
+public class SocketContext<TClient>(TClient client, SocketRequest request, SocketResponse response, IFeatureCollection? features)
     : NetContext(features)
     where TClient : ISocketClient
 {

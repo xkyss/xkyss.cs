@@ -118,6 +118,19 @@ public class NetBuilder<TContext>
 
     /// <summary>
     /// 使用中间件
+    /// </summary>
+    /// <typeparam name="TMiddleware"></typeparam>
+    /// <returns></returns>
+    public NetBuilder<TContext> Use<TMiddleware>(Action<TMiddleware> initializer)
+        where TMiddleware : INetMiddleware<TContext>
+    {
+        var middleware = ActivatorUtilities.GetServiceOrCreateInstance<TMiddleware>(this.ApplicationServices);
+        initializer.Invoke(middleware);
+        return this.Use(middleware.InvokeAsync);
+    }
+
+    /// <summary>
+    /// 使用中间件
     /// </summary> 
     /// <typeparam name="TMiddleware"></typeparam> 
     /// <param name="middleware"></param>

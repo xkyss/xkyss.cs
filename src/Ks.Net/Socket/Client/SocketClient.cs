@@ -17,7 +17,7 @@ internal sealed class SocketClient(
     , NetDelegate<SocketContext<SocketClient>> net
 )   : ISocketClient
 {
-    protected readonly CancellationTokenSource CloseTokenSource = new();
+    private readonly CancellationTokenSource CloseTokenSource = new();
     private readonly Pipe _receivePipe = new();
     private readonly TcpClient _socket = new (AddressFamily.InterNetwork)
     {
