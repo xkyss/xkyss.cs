@@ -35,7 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient(sp => new NetBuilder<SocketContext<SocketClient>>(sp)
             .Use<FallbackMiddleware>()
             .Build());
-        services.AddTransient<SocketClient>();
+        services.AddTransient<ISocketClient, SocketClient>();
         services.AddInternal();
         return services;
     }
