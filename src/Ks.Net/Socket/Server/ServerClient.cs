@@ -142,8 +142,15 @@ internal sealed class ServerClient(
         }
         
         // 读取Message
-        reader.TryReadExact(request.MessageLength, out var bodyBytes);
-        typeMapper.TryGet(request.MessageTypeId, out var type);
+        if (!reader.TryReadExact(request.MessageLength, out var bodyBytes))
+        {
+            return false;
+        }
+
+        if (!typeMapper.TryGet(request.MessageTypeId, out var type))
+        {
+            return false;
+        }
         
         request.Message = decoder.Decode(type, bodyBytes);
         

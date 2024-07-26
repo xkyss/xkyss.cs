@@ -206,8 +206,15 @@ internal sealed class SocketClient(
         }
 
         // 读取Message
-        reader.TryReadExact(response.MessageLength, out var bodyBytes);
-        typeMapper.TryGet(response.MessageTypeId, out var type);
+        if (!reader.TryReadExact(response.MessageLength, out var bodyBytes))
+        {
+            return false;
+        }
+
+        if (!typeMapper.TryGet(response.MessageTypeId, out var type))
+        {
+            return false;
+        }
         
         response.Message = decoder.Decode(type, bodyBytes);
         consumed = reader.Position;
