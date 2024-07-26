@@ -3,7 +3,7 @@ using Ks.Net.Kestrel;
 
 namespace Ks.Net.Socket.Middlewares;
 
-public class MessageHandlerMiddleware : ISocketMiddleware
+public class RequestHandlerMiddleware : ISocketMiddleware
 {
     private readonly Dictionary<Type, ISocketMessageHandler> _handlers = new();
 

@@ -60,7 +60,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSocketServer(this IServiceCollection services)
     {
         services.AddTransient(sp => new NetBuilder<SocketContext>(sp)
-            .Use<MessageHandlerMiddleware>(middleware =>
+            .Use<RequestHandlerMiddleware>(middleware =>
             {
                 middleware.Register<HeartBeat>(sp.GetRequiredService<HeartBeatHandler>());
             })
