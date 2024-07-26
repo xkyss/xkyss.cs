@@ -1,7 +1,6 @@
 ﻿namespace Ks.Net.Socket;
 
-public interface ISocketMessageHandler<TClient>
-    where TClient : ISocketClient
+public interface ISocketMessageHandler
 {
-    Task HandleAsync(SocketContext<TClient> context);
+    Task HandleAsync(SocketContext context);
 }

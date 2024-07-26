@@ -1,9 +1,8 @@
 ﻿namespace Ks.Net.Socket.MessageHandlers;
 
-public class HeartBeatHandler<TClient> : ISocketMessageHandler<TClient>
-    where TClient : ISocketClient
+public class HeartBeatHandler : ISocketMessageHandler
 {
-    public Task HandleAsync(SocketContext<TClient> context)
+    public Task HandleAsync(SocketContext context)
     {
         if (context.Request.Message is HeartBeat hb)
         {

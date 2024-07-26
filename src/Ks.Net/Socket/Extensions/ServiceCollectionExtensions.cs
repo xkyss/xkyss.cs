@@ -33,8 +33,8 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddSocketClient(this IServiceCollection services)
     {
-        services.AddTransient(sp => new NetBuilder<SocketContext<SocketClient>>(sp)
-            .Use<FallbackMiddleware>()
+        services.AddTransient(sp => new NetBuilder<SocketContext>(sp)
+            .Use<ClientFallbackMiddleware>()
             .Build());
         services.AddTransient<ISocketClient, SocketClient>();
         services.AddInternal();
@@ -59,15 +59,15 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddSocketServer(this IServiceCollection services)
     {
-        services.AddTransient(sp => new NetBuilder<SocketContext<ServerClient>>(sp)
-            .Use<MessageHandlerMiddleware<ServerClient>>(middleware =>
+        services.AddTransient(sp => new NetBuilder<SocketContext>(sp)
+            .Use<MessageHandlerMiddleware>(middleware =>
             {
-                middleware.Register<HeartBeat>(sp.GetRequiredService<HeartBeatHandler<ServerClient>>());
+                middleware.Register<HeartBeat>(sp.GetRequiredService<HeartBeatHandler>());
             })
-            .Use<FallbackMiddleware<ServerClient>>()
+            .Use<FallbackMiddleware>()
             .Build());
         
-        services.AddSingleton<HeartBeatHandler<ServerClient>>();
+        services.AddSingleton<HeartBeatHandler>();
         services.AddTransient<ServerClient>();
         services.AddInternal();
         return services;

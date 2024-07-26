@@ -2,7 +2,6 @@
 using System.IO.Pipelines;
 using Ks.Core.System.Buffers;
 using Ks.Net.Kestrel;
-using Ks.Net.Socket.Middlewares;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +12,7 @@ internal sealed class ServerClient(
     , ISocketEncoder encoder
     , ISocketDecoder decoder
     , ISocketTypeMapper typeMapper
-    , NetDelegate<SocketContext<ServerClient>> net
+    , NetDelegate<SocketContext> net
 ) : ISocketClient
 {
     internal ConnectionContext Context { get; set; }
@@ -87,7 +86,7 @@ internal sealed class ServerClient(
             if (TryReadRequest(result, out var request, out var consumed))
             {
                 var response = new SocketResponse();
-                var socketConnect = new SocketContext<ServerClient>(this, request, response, context.Features);
+                var socketConnect = new SocketContext(this, request, response, context.Features);
                 await net.Invoke(socketConnect);
                 input.AdvanceTo(consumed);
             }

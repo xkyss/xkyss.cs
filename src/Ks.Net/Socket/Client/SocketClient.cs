@@ -14,7 +14,7 @@ internal sealed class SocketClient(
     , ISocketDecoder decoder
     , ISocketEncoder encoder
     , ISocketTypeMapper typeMapper
-    , NetDelegate<SocketContext<SocketClient>> net
+    , NetDelegate<SocketContext> net
 )   : ISocketClient
 {
     private readonly CancellationTokenSource CloseTokenSource = new();
@@ -96,7 +96,7 @@ internal sealed class SocketClient(
             if (TryReadResponse(result, out var response, out var consumed))
             {
                 var request = new SocketRequest();
-                var socketConnect = new SocketContext<SocketClient>(this, request, response, null);
+                var socketConnect = new SocketContext(this, request, response, null);
                 await net.Invoke(socketConnect);
                 input.AdvanceTo(consumed);
             }

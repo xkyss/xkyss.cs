@@ -3,22 +3,21 @@ using Ks.Net.Kestrel;
 
 namespace Ks.Net.Socket.Middlewares;
 
-public class MessageHandlerMiddleware<TClient> : ISocketMiddleware<TClient>
-    where TClient : ISocketClient
+public class MessageHandlerMiddleware : ISocketMiddleware
 {
-    private readonly Dictionary<Type, ISocketMessageHandler<TClient>> _handlers = new();
+    private readonly Dictionary<Type, ISocketMessageHandler> _handlers = new();
 
-    public void Register<T>(ISocketMessageHandler<TClient> handler)
+    public void Register<T>(ISocketMessageHandler handler)
     {
         Register(typeof(T), handler);
     }
 
-    public void Register(Type type, ISocketMessageHandler<TClient> handler)
+    public void Register(Type type, ISocketMessageHandler handler)
     {
         _handlers[type] = handler;
     }
 
-    public Task InvokeAsync(NetDelegate<SocketContext<TClient>> next, SocketContext<TClient> context)
+    public Task InvokeAsync(NetDelegate<SocketContext> next, SocketContext context)
     {
         Check.NotNull(context.Request.Message, "Message is null");
         
