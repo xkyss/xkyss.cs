@@ -119,9 +119,21 @@ internal sealed class ServerClient(
         {
             return false;
         }
-        
-        reader.TryReadExact(headLen, out var headerBytes);
-        request = decoder.Decode<SocketRequest>(headerBytes);
+
+        if (!reader.TryReadExact(headLen, out var headerBytes))
+        {
+            return false;
+        }
+
+        try
+        {
+            request = decoder.Decode<SocketRequest>(headerBytes);
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "解析[SocketRequest]失败");
+            return false;
+        }
         
         // 检测长度
         if (request.MessageLength <= 0)

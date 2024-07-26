@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net.Sockets;
+using Ks.Core;
 using Ks.Net.Kestrel;
 using Ks.Net.Socket.Client.Middlewares;
 using Microsoft.Extensions.Configuration;
@@ -57,7 +58,11 @@ internal sealed class SocketClient(
             // 确保使用大端序
             Array.Reverse(headerLengthBytes);
         }
-        
+
+        if (headerLengthBytes.Length != 4)
+        {
+            throw new ArgumentException("headerLengthBytes.Length != 4");
+        }
         Writer.Write(headerLengthBytes, 0, headerLengthBytes.Length);
         Writer.Write(headerBytes);
         Writer.Write(bodyBytes);
@@ -178,9 +183,21 @@ internal sealed class SocketClient(
         {
             return false;
         }
-        
-        reader.TryReadExact(headLen, out var headerBytes);
-        response = decoder.Decode<SocketResponse>(headerBytes);
+
+        if (!reader.TryReadExact(headLen, out var headerBytes))
+        {
+            return false;
+        }
+
+        try
+        {
+            response = decoder.Decode<SocketResponse>(headerBytes);
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "解析[SocketResponse]失败");
+            return false;
+        }
         
         // 检测长度
         if (response.MessageLength <= 0)
