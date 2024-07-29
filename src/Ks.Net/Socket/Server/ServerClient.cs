@@ -85,10 +85,11 @@ internal sealed class ServerClient(
 
             if (TryReadRequest(result, out var request, out var consumed))
             {
+                input.AdvanceTo(consumed);
+
                 var response = new SocketResponse();
                 var socketConnect = new SocketContext(this, request, response, context.Features);
                 await net.Invoke(socketConnect);
-                input.AdvanceTo(consumed);
             }
             else
             {

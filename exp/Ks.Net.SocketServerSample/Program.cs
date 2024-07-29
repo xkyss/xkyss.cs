@@ -1,5 +1,6 @@
 ﻿
 using Ks.Net.Socket.Extensions;
+using Ks.Net.Socket.Telnet;
 using Serilog;
 
 Console.WriteLine("Hello, SocketServer!");
@@ -8,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddSocketServer()
+    .AddTelnetServer()
     .AddConnections();
 
 builder.Host.UseSerilog((hosting, logger) =>
@@ -25,6 +27,17 @@ builder.WebHost.ConfigureKestrel((context, kestrel) =>
 });
 
 var app = builder.Build();
+
+app.MapConnectionHandler<TelnetConnectionHandler>("/telnet");
+app.Map("/", async context =>
+{
+    context.Response.ContentType = "application/json;charset=utf-8";
+    await context.Response.WriteAsJsonAsync(new
+    {
+        Code = 0,
+        Message = "Hello",
+    });
+});
 app.Run();
 
 Console.WriteLine("Goodbye, SocketServer!");

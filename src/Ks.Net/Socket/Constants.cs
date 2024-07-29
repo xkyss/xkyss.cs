@@ -2,7 +2,7 @@
 
 namespace Ks.Net.Socket;
 
-public class Constants
+public static class Constants
 {
     public static readonly string DefaultSocketServerKey = "SocketServer";
     public static readonly string DefaultSocketClientKey = "SocketClient";
@@ -13,5 +13,5 @@ public class Constants
     public static readonly string DefaultSocketHostKey = "Host";
     public static readonly string DefaultSocketHost = "localhost";
     
-    public static readonly byte[] CRLF = Encoding.ASCII.GetBytes("\r\n");
+    public static readonly byte[] Crlf = Encoding.ASCII.GetBytes("\r\n");
 }

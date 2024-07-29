@@ -5,6 +5,8 @@ using Ks.Net.Socket.Codec;
 using Ks.Net.Socket.MessageHandlers;
 using Ks.Net.Socket.Middlewares;
 using Ks.Net.Socket.Server;
+using Ks.Net.Socket.Telnet;
+using Ks.Net.Socket.Telnet.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ks.Net.Socket.Extensions;
@@ -70,6 +72,34 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<HeartBeatHandler>();
         services.AddTransient<ServerClient>();
         services.AddInternal();
+        return services;
+    }
+    
+    /// <summary>
+    /// 添加Telnet Server
+    /// </summary>
+    /// <param name="services"></param>
+    /// <param name="configureOptions"></param> 
+    /// <returns></returns>
+    public static IServiceCollection AddTelnetServer(this IServiceCollection services, Action<ServerOptions> configureOptions)
+    {
+        return services.AddTelnetServer().Configure(configureOptions);
+    }
+
+    /// <summary>
+    /// 添加Socket Server
+    /// </summary>
+    /// <param name="services"></param> 
+    /// <returns></returns>
+    public static IServiceCollection AddTelnetServer(this IServiceCollection services)
+    {
+        services.AddTransient(sp => new NetBuilder<SocketContext>(sp)
+            .Use<EmptyMiddleware>()
+            .Use<ByeMiddleware>()
+            .Use<EchoMiddleware>()
+            .Build());
+        
+        services.AddTransient<TelnetClient>();
         return services;
     }
 
