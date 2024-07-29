@@ -31,7 +31,7 @@ public class TelnetClient(ILogger<TelnetClient> logger, NetDelegate<SocketContex
                 Writer.Write(message?.ToString(), Encoding.UTF8);
                 break;
         }
-        
+
         Writer.WriteCRLF();
         return Writer.FlushAsync().AsTask();
     }

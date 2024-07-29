@@ -1,17 +1,15 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
 using System.Net.WebSockets;
-using System.Text;
-using Ks.Core.System.Buffers;
 using Ks.Net.Kestrel;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.Logging;
 
-namespace Ks.Net.Socket.Server;
+namespace Ks.Net.Socket.WebSocketServer;
 
-internal sealed class ServerClient(
-    ILogger<ServerClient> logger
+internal sealed class WsServerClient(
+    ILogger<WsServerClient> logger
     , ISocketEncoder encoder
     , ISocketDecoder decoder
     , ISocketTypeMapper typeMapper
@@ -19,16 +17,13 @@ internal sealed class ServerClient(
 ) : ISocketClient
 {
     internal ConnectionContext Context { get; set; }
+    
+    private WebSocket webSocket;
 
     internal PipeWriter Writer => Context.Transport.Output;
 
-    internal WebSocket WebSocket { get; set; }
-    
     public Task WriteAsync<T>(T message)
     {
-        // Writer.Write("Hello", Encoding.UTF8);
-        // Writer.WriteCRLF();
-        // return Writer.FlushAsync().AsTask();
         if (message == null)
         {
             logger.LogWarning("消息为空.");
@@ -49,19 +44,14 @@ internal sealed class ServerClient(
             MessageLength = bodyBytes.Length
         });
 
-        // 响应头长度（4字节，大端序）
+        // 写入响应头长度（4字节，大端序）
         var headerLengthBytes = BitConverter.GetBytes(headerBytes.Length);
         if (BitConverter.IsLittleEndian)
         {
             // 确保使用大端序
             Array.Reverse(headerLengthBytes);
         }
-        
-        // Writer.WriteBigEndian(headerBytes.Length);
-        // Writer.Write(headerBytes);
-        // Writer.Write(bodyBytes);
-        // return Writer.FlushAsync().AsTask();
-        
+
         // 合并bytes
         using var memoryStream = new MemoryStream();
         using var binaryWriter = new BinaryWriter(memoryStream);
@@ -70,7 +60,7 @@ internal sealed class ServerClient(
         binaryWriter.Write(bodyBytes);
         var data = memoryStream.ToArray();
         
-        return WebSocket.SendAsync(data, WebSocketMessageType.Binary, true, CancellationToken.None);
+        return webSocket.SendAsync(data, WebSocketMessageType.Binary, true, CancellationToken.None);
     }
 
     public bool IsClose()
@@ -92,6 +82,8 @@ internal sealed class ServerClient(
 
     private async Task HandleRequestsAsync(ConnectionContext context)
     {
+        webSocket = await context.GetHttpContext().WebSockets.AcceptWebSocketAsync();
+        
         var input = context.Transport.Input;
         while (context.ConnectionClosed.IsCancellationRequested == false)
         {
