@@ -1,9 +1,7 @@
 ﻿using System.Buffers;
-using System.IO.Pipelines;
 using System.Net.WebSockets;
 using Ks.Net.Kestrel;
 using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket.WebSocketServer;
@@ -18,9 +16,7 @@ internal sealed class WsServerClient(
 {
     internal ConnectionContext Context { get; set; }
     
-    private WebSocket webSocket;
-
-    internal PipeWriter Writer => Context.Transport.Output;
+    internal WebSocket WebSocket { get; set; }
 
     public Task WriteAsync<T>(T message)
     {
@@ -60,7 +56,7 @@ internal sealed class WsServerClient(
         binaryWriter.Write(bodyBytes);
         var data = memoryStream.ToArray();
         
-        return webSocket.SendAsync(data, WebSocketMessageType.Binary, true, CancellationToken.None);
+        return WebSocket.SendAsync(data, WebSocketMessageType.Binary, true, CancellationToken.None);
     }
 
     public bool IsClose()
@@ -82,42 +78,43 @@ internal sealed class WsServerClient(
 
     private async Task HandleRequestsAsync(ConnectionContext context)
     {
-        webSocket = await context.GetHttpContext().WebSockets.AcceptWebSocketAsync();
         
-        var input = context.Transport.Input;
+        using var stream = new MemoryStream();
+        var buffer = new ArraySegment<byte>(new byte[2048]);
+        
         while (context.ConnectionClosed.IsCancellationRequested == false)
         {
-            var result = await input.ReadAsync();
-            if (result.IsCanceled)
+            WebSocketReceiveResult result;
+            stream.SetLength(0);
+            stream.Seek(0, SeekOrigin.Begin);
+            do
+            {
+                result = await WebSocket.ReceiveAsync(buffer, CancellationToken.None);
+                stream.Write(buffer.Array, buffer.Offset, result.Count);
+            } while (!result.EndOfMessage);
+
+            if (result.MessageType == WebSocketMessageType.Close)
             {
                 break;
             }
 
-            if (TryReadRequest(result, out var request, out var consumed))
-            {
-                input.AdvanceTo(consumed);
+            stream.Seek(0, SeekOrigin.Begin);
 
-                var response = new SocketResponse();
-                var socketConnect = new SocketContext(this, request, response, context.Features);
-                await net.Invoke(socketConnect);
-            }
-            else
-            {
-                input.AdvanceTo(result.Buffer.Start, result.Buffer.End);
-            }
-
-            if (result.IsCompleted)
-            {
-                break;
-            }
+            var response = new SocketResponse();
+            TryReadRequest(stream, out var request);
+            var socketConnect = new SocketContext(this, request, response, context.Features);
+            await net.Invoke(socketConnect);
         }
     }
 
-    private bool TryReadRequest(ReadResult result, out SocketRequest request, out SequencePosition consumed)
+    private bool TryReadRequest(MemoryStream stream, out SocketRequest request)
     {
-        var reader = new SequenceReader<byte>(result.Buffer);
+        // 使用 MemoryStream 的内存直接读取,减少一次拷贝
+        stream.Position = 0;
+        var sequence = new ReadOnlySequence<byte>(stream.GetBuffer(), 0, (int)stream.Length);
+        var reader = new SequenceReader<byte>(sequence);
+        
         request = SocketRequest.Empty;
-        consumed = result.Buffer.Start;
         
         // 消息头部长度
         if (!reader.TryReadBigEndian(out int headLen))
@@ -164,9 +161,6 @@ internal sealed class WsServerClient(
         }
         
         request.Message = decoder.Decode(type, bodyBytes);
-        
-        consumed = reader.Position;
         return true;
     }
-    
 }

@@ -26,9 +26,6 @@ internal sealed class ServerClient(
     
     public Task WriteAsync<T>(T message)
     {
-        // Writer.Write("Hello", Encoding.UTF8);
-        // Writer.WriteCRLF();
-        // return Writer.FlushAsync().AsTask();
         if (message == null)
         {
             logger.LogWarning("消息为空.");
@@ -57,20 +54,10 @@ internal sealed class ServerClient(
             Array.Reverse(headerLengthBytes);
         }
         
-        // Writer.WriteBigEndian(headerBytes.Length);
-        // Writer.Write(headerBytes);
-        // Writer.Write(bodyBytes);
-        // return Writer.FlushAsync().AsTask();
-        
-        // 合并bytes
-        using var memoryStream = new MemoryStream();
-        using var binaryWriter = new BinaryWriter(memoryStream);
-        binaryWriter.Write(headerLengthBytes);
-        binaryWriter.Write(headerBytes);
-        binaryWriter.Write(bodyBytes);
-        var data = memoryStream.ToArray();
-        
-        return WebSocket.SendAsync(data, WebSocketMessageType.Binary, true, CancellationToken.None);
+        Writer.WriteBigEndian(headerBytes.Length);
+        Writer.Write(headerBytes);
+        Writer.Write(bodyBytes);
+        return Writer.FlushAsync().AsTask();
     }
 
     public bool IsClose()

@@ -10,10 +10,8 @@ public class ServerConnectionHandler(IServiceProvider sp, ILogger<ServerConnecti
 {
     public override async Task OnConnectedAsync(ConnectionContext context)
     {
-        var webSocket = await context.GetHttpContext().WebSockets.AcceptWebSocketAsync();
         var client = sp.GetRequiredService<ServerClient>();
         client.Context = context;
-        client.WebSocket = webSocket;
         
         try
         {

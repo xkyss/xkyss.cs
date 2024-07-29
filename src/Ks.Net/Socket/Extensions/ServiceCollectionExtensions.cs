@@ -7,6 +7,7 @@ using Ks.Net.Socket.Middlewares;
 using Ks.Net.Socket.Server;
 using Ks.Net.Socket.Telnet;
 using Ks.Net.Socket.Telnet.Middlewares;
+using Ks.Net.Socket.WebSocketServer;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ks.Net.Socket.Extensions;
@@ -74,6 +75,39 @@ public static class ServiceCollectionExtensions
         services.AddInternal();
         return services;
     }
+    
+    /// <summary>
+    /// 添加Socket Server
+    /// </summary>
+    /// <param name="services"></param>
+    /// <param name="configureOptions"></param> 
+    /// <returns></returns>
+    public static IServiceCollection AddWebSocketServer(this IServiceCollection services, Action<ServerOptions> configureOptions)
+    {
+        return services.AddWebSocketServer().Configure(configureOptions);
+    }
+
+    /// <summary>
+    /// 添加Socket Server
+    /// </summary>
+    /// <param name="services"></param> 
+    /// <returns></returns>
+    public static IServiceCollection AddWebSocketServer(this IServiceCollection services)
+    {
+        services.AddTransient(sp => new NetBuilder<SocketContext>(sp)
+            .Use<RequestHandlerMiddleware>(middleware =>
+            {
+                middleware.Register<HeartBeat>(sp.GetRequiredService<HeartBeatHandler>());
+            })
+            .Use<FallbackMiddleware>()
+            .Build());
+        
+        services.AddSingleton<HeartBeatHandler>();
+        services.AddTransient<WsServerClient>();
+        services.AddInternal();
+        return services;
+    }
+
     
     /// <summary>
     /// 添加Telnet Server
