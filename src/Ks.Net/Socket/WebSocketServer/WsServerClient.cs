@@ -73,12 +73,11 @@ internal sealed class WsServerClient(
     public Task StopAsync()
     {
         logger.LogInformation($"[{Context.ConnectionId}]断开连接.");
-        return Context.DisposeAsync().AsTask();
+        return WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "socketclose", CancellationToken.None);
     }
 
     private async Task HandleRequestsAsync(ConnectionContext context)
     {
-        
         using var stream = new MemoryStream();
         var buffer = new ArraySegment<byte>(new byte[2048]);
         
