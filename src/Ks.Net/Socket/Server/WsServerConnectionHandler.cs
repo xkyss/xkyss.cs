@@ -1,5 +1,7 @@
 ﻿using System.Net;
+using Ks.Net.Socket.Server;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,14 +20,15 @@ public class WsServerConnectionHandler(IServiceProvider sp, ILogger<WsServerConn
                 logger.LogError("不是WebSocket连接");
                 return;
             }
-            var webSocket = await context.GetHttpContext()!.WebSockets.AcceptWebSocketAsync();
             
-            var buffer = new ArraySegment<byte>(new byte[2048]);
-            var result = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
+            var transferFormatFeature = context.Features.Get<ITransferFormatFeature>();
+            if (transferFormatFeature != null)
+            {
+                transferFormatFeature.ActiveFormat = TransferFormat.Binary;
+            }
 
-            var client = sp.GetRequiredService<WsServerClient>();
+            var client = sp.GetRequiredService<ServerClient>();
             client.Context = context;
-            client.WebSocket = webSocket;
 
             try
             {

@@ -1,11 +1,8 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
-using System.Net.WebSockets;
-using System.Text;
 using Ks.Core.System.Buffers;
 using Ks.Net.Kestrel;
 using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.Logging;
 
 namespace Ks.Net.Socket.Server;
@@ -21,8 +18,6 @@ internal sealed class ServerClient(
     internal ConnectionContext Context { get; set; }
 
     internal PipeWriter Writer => Context.Transport.Output;
-
-    internal WebSocket WebSocket { get; set; }
     
     public Task WriteAsync<T>(T message)
     {
