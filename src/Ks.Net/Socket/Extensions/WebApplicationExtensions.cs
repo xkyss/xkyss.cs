@@ -1,4 +1,4 @@
-﻿using Ks.Net.Socket.WebSocketServer;
+﻿using Ks.Net.Socket.Server;
 using Microsoft.AspNetCore.Builder;
 
 namespace Ks.Net.Socket.Extensions;

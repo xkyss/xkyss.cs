@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -12,7 +11,7 @@ public class ServerConnectionHandler(IServiceProvider sp, ILogger<ServerConnecti
     {
         var client = sp.GetRequiredService<ServerClient>();
         client.Context = context;
-        
+
         try
         {
             await client.StartAsync();

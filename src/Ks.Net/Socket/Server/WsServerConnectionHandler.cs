@@ -1,12 +1,10 @@
-﻿using System.Net;
-using Ks.Net.Socket.Server;
-using Microsoft.AspNetCore.Connections;
+﻿using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Ks.Net.Socket.WebSocketServer;
+namespace Ks.Net.Socket.Server;
 
 public class WsServerConnectionHandler(IServiceProvider sp, ILogger<WsServerConnectionHandler> logger)
     : ConnectionHandler
@@ -20,7 +18,7 @@ public class WsServerConnectionHandler(IServiceProvider sp, ILogger<WsServerConn
                 logger.LogError("不是WebSocket连接");
                 return;
             }
-            
+
             var transferFormatFeature = context.Features.Get<ITransferFormatFeature>();
             if (transferFormatFeature != null)
             {
@@ -47,6 +45,6 @@ public class WsServerConnectionHandler(IServiceProvider sp, ILogger<WsServerConn
         {
             logger.LogError(ex.Message);
         }
-        
+
     }
 }

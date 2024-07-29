@@ -7,7 +7,6 @@ using Ks.Net.Socket.Middlewares;
 using Ks.Net.Socket.Server;
 using Ks.Net.Socket.Telnet;
 using Ks.Net.Socket.Telnet.Middlewares;
-using Ks.Net.Socket.WebSocketServer;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ks.Net.Socket.Extensions;
