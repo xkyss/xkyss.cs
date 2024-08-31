@@ -11,7 +11,7 @@ public class ServerConnectionHandler(IServiceProvider sp, ILogger<ServerConnecti
     {
         var client = sp.GetRequiredService<ServerClient>();
         client.Context = context;
-        
+
         try
         {
             await client.StartAsync();

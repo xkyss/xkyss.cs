@@ -19,7 +19,7 @@ internal sealed class ServerClient(
     internal ConnectionContext Context { get; set; }
 
     internal PipeWriter Writer => Context.Transport.Output;
-
+    
     public Task WriteAsync<T>(T message)
     {
         if (message == null)
@@ -41,15 +41,15 @@ internal sealed class ServerClient(
             MessageTypeId = id,
             MessageLength = bodyBytes.Length
         });
-        
-        // 写入响应头长度（4字节，大端序）
+
+        // 响应头长度（4字节，大端序）
         var headerLengthBytes = BitConverter.GetBytes(headerBytes.Length);
         if (BitConverter.IsLittleEndian)
         {
             // 确保使用大端序
             Array.Reverse(headerLengthBytes);
         }
-
+        
         Writer.WriteBigEndian(headerBytes.Length);
         Writer.Write(headerBytes);
         Writer.Write(bodyBytes);
@@ -86,10 +86,11 @@ internal sealed class ServerClient(
 
             if (TryReadRequest(result, out var request, out var consumed))
             {
+                input.AdvanceTo(consumed);
+
                 var response = new SocketResponse();
                 var socketConnect = new SocketContext(this, request, response, context.Features);
                 await net.Invoke(socketConnect);
-                input.AdvanceTo(consumed);
             }
             else
             {
