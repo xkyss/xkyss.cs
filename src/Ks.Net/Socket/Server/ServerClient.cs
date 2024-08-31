@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.IO.Pipelines;
+using System.Text;
 using Ks.Core.System.Buffers;
 using Ks.Net.Kestrel;
 using Microsoft.AspNetCore.Connections;
@@ -107,7 +108,7 @@ internal sealed class ServerClient(
         var reader = new SequenceReader<byte>(result.Buffer);
         request = SocketRequest.Empty;
         consumed = result.Buffer.Start;
-        
+
         // 消息头部长度
         if (!reader.TryReadBigEndian(out int headLen))
         {
