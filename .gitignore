@@ -3,3 +3,5 @@ build
 .idea
 Ks.Core.sln.DotSettings.user
 linq/queries/mlcache/home
+linq/queries/mlcache-deploy/home
+linq/queries/mlcache-deploy/*.ps1
