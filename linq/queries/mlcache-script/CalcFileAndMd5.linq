@@ -11,7 +11,7 @@ var csv = Path.Combine(path, "file-md5.csv");
 var ignore = new Matcher();
 
 
-ignore.AddIncludePatterns(new[] {"./*", "**/.git/**/*", "**/.gitignore", "**/README*"});
+ignore.AddIncludePatterns(new[] {"./*", "**/.git/**/*", "**/.gitignore", "**/README*", "mlcache-web/public/pdf/**/*"});
 
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 using var writer = new StreamWriter(csv, false, System.Text.Encoding.GetEncoding("GB2312"));
@@ -34,7 +34,6 @@ foreach (var filename in filenames)
 	}
 
 	var md5 = CalculateMD5(filename);
-	//writer.WriteLine($"\"{file}\",{md5}");
 	writer.WriteLine($"{++index},{relpath},{md5}");
 }
 Console.WriteLine($"忽略总数: {ignoreNum}");
