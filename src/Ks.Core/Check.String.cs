@@ -4,6 +4,14 @@ namespace Ks.Core;
 
 public static partial class Check
 {
+    /// <summary>
+    /// Test only
+    /// </summary>
+    internal static int InternalTest()
+    {
+        return 999;
+    }
+
     public static T NotNull<T>(
         T value,
         [NotNull] string parameterName)
