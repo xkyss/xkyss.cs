@@ -6,8 +6,9 @@
 
 void Main()
 {
-	var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\lycs.xlsx";
-	using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+	//var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\lycs.xlsx";
+	var fixedPath = @"D:\Code\zyst\Yfty\docs\2024.09.14-休闲场所\xxcs-fixed.xlsx";
+	using var fs = new FileStream(fixedPath, FileMode.Open, FileAccess.Read);
 	
 	// 创建工作簿 (.xlsx)
 	var workbook = new XSSFWorkbook(fs);
@@ -73,11 +74,11 @@ static string sqlOf(IRow row)
 	var uuid = Guid.NewGuid().ToString("N");
 
 	var sb = new StringBuilder();
-	sb.Append(@"INSERT INTO t_csxx (OBJ_ID, TZHYLBDM, CSMC, CSDM, ZAGLDWBM, CS_DZMC, CSFZR_XM, CREATE_TIME, IS_UPLOAD, DATA_SOURCES, SJC, OPT_STATE) VALUES ");
+	sb.Append(@"INSERT INTO t_csxx (OBJ_ID, TZHYLBDM, CSMC, CSDM, ZAGLDWBM, CS_DZMC, CSFZR_XM, CREATE_TIME, IS_UPLOAD, DATA_SOURCES, SJC, OPT_STATE, BZ2) VALUES ");
 	sb.Append("(");
 
 	// OBJ_ID
-	sb.Append($"'{uuid}', ");
+	sb.Append($"'{row.GetCell(8).ToString()}', ");
 	// TZHYLBDM
 	sb.Append($"'20', ");
 	// CSMC
@@ -100,6 +101,8 @@ static string sqlOf(IRow row)
 	sb.Append($"{new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds()}, ");
 	// OPT_STATE
 	sb.Append($"1");
+	// BZ2
+	sb.Append($"'{row.GetCell(5).ToString()}', ");
 
 	sb.Append(");");
 	return sb.ToString();
