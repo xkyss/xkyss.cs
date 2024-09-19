@@ -6,10 +6,9 @@
 
 void Main()
 {
-	//var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\lycs.xlsx";
-	var fixedPath = @"D:\Code\zyst\Yfty\docs\2024.09.14-休闲场所\xxcs-fixed.xlsx";
+	var fixedPath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\休闲\休闲场所从业人员表-fixed.xlsx";
 	using var fs = new FileStream(fixedPath, FileMode.Open, FileAccess.Read);
-	
+
 	// 创建工作簿 (.xlsx)
 	var workbook = new XSSFWorkbook(fs);
 	// 获取工作表
@@ -27,7 +26,7 @@ void Main()
 		}
 
 		// 表头
-		if (rowIdx == 0 || rowIdx == 1)
+		if (rowIdx == 0)
 		{
 			//Console.WriteLine(stringOf(row));
 		}
@@ -40,8 +39,8 @@ void Main()
 			}
 		}
 	}
-	
-	Console.WriteLine(UpdateZagldwbm);
+
+	Console.WriteLine(UpdateCsdm);
 }
 
 
@@ -70,27 +69,27 @@ static string dataFormat = "yyyy-MM-dd HH:mm:ss";
 static string sqlOf(IRow row)
 {
 	count++;
-	
-	var uuid = Guid.NewGuid().ToString("N");
+
+	var uuid = row.GetCell(10).ToString();
 
 	var sb = new StringBuilder();
-	sb.Append(@"INSERT INTO t_csxx (OBJ_ID, TZHYLBDM, CSMC, CSDM, ZAGLDWBM, CS_DZMC, CSFZR_XM, CREATE_TIME, IS_UPLOAD, DATA_SOURCES, SJC, OPT_STATE, BZ2) VALUES ");
+	sb.Append(@"REPLACE INTO t_cyry (OBJ_ID, CSMC, CSDM, CYRY_XM, CYRY_ZJHM, CYRY_LXDH, YLTH_GWMC, CREATE_TIME, IS_UPLOAD, DATA_SOURCES, SJC, OPT_STATE, STATE, BZ2) VALUES ");
 	sb.Append("(");
 
 	// OBJ_ID
-	sb.Append($"'{row.GetCell(8).ToString()}', ");
-	// TZHYLBDM
-	sb.Append($"'20', ");
+	sb.Append($"'{uuid}', ");
 	// CSMC
 	sb.Append($"'{row.GetCell(3).ToString()}', ");
-	// CSDM
-	sb.Append($"'XXCS-{uuid.Substring(0, 8)}', ");
-	// ZAGLDWBM
-	sb.Append($"'{row.GetCell(2).ToString()}', ");
-	// CS_DZMC
+	// CSDM, 先用CSMC代替
+	sb.Append($"'{row.GetCell(3).ToString()}', ");
+	// CYRY_XM
 	sb.Append($"'{row.GetCell(4).ToString()}', ");
-	// CSFZR_XM
-	sb.Append($"'{row.GetCell(6).ToString()}', ");
+	// CYRY_ZJHM
+	sb.Append($"'{row.GetCell(8).ToString()}', ");
+	// CYRY_LXDH
+	sb.Append($"'{row.GetCell(9).ToString()}', ");
+	// YLTH_GWMC
+	sb.Append($"'{row.GetCell(7).ToString()}', ");
 	// CREATE_TIME
 	sb.Append($"'{DateTime.Now.ToString(dataFormat)}', ");
 	// IS_UPLOAD
@@ -100,30 +99,32 @@ static string sqlOf(IRow row)
 	// SJC
 	sb.Append($"{new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds()}, ");
 	// OPT_STATE
-	sb.Append($"1");
+	sb.Append($"1, ");
+	// STATE
+	sb.Append($"1, ");
 	// BZ2
-	sb.Append($"'{row.GetCell(5).ToString()}', ");
+	sb.Append($"'{row.GetCell(5).ToString()}'");
 
 	sb.Append(");");
 	return sb.ToString();
 }
 
-static string UpdateZagldwbm = """
--- 更新ZAGLDWBM, 如果没找到对应的部门, 会保留
-UPDATE t_csxx cs
-SET ZAGLDWBM = IF(
+static string UpdateCsdm = """
+-- 更新CSDM, 如果没找到对应的场所, 会保留
+UPDATE t_cyry ry
+SET CSDM = IF(
     EXISTS (
         SELECT 1
-        FROM t_dept
-        WHERE name LIKE CONCAT('%', cs.ZAGLDWBM)
+        FROM t_csxx
+        WHERE CSMC=ry.CSMC
     ),
     (
-        SELECT code
-        FROM t_dept
-        WHERE name LIKE CONCAT('%', cs.ZAGLDWBM)
+        SELECT CSDM
+        FROM t_csxx
+        WHERE CSMC=ry.CSMC
         LIMIT 1
     ),
-    ZAGLDWBM
+    CSDM
 )
-WHERE TZHYLBDM = '20';
+WHERE DATA_SOURCES = '20';
 """;
