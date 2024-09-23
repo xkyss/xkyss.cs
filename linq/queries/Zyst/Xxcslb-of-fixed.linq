@@ -4,10 +4,10 @@
   <Namespace>NPOI.SS.UserModel</Namespace>
 </Query>
 
+/// <summary>提取类别代码</summary>
 void Main()
 {
 	var fixedPath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.23-休闲场所\xxzb0924-fixed.xlsx";
-	//var fixedPath = @"D:\Code\zyst\Yfty\docs\2024.09.14-休闲场所\xxcs-fixed.xlsx";
 	using var fs = new FileStream(fixedPath, FileMode.Open, FileAccess.Read);
 	
 	// 创建工作簿 (.xlsx)
@@ -15,8 +15,8 @@ void Main()
 	// 获取工作表
 	var sheet = workbook.GetSheetAt(0);
 	
-	// 先删除所有之前的休闲场所,懒得更新obj_id了
-	Console.WriteLine(DeleteXxcs);
+	// 用Set保存出现了的类别
+	HashSet<string> lbSet = new HashSet<string>();
 
 	// 遍历工作表中的每一行
 	for (int rowIdx = 0; rowIdx <= sheet.LastRowNum; rowIdx++)
@@ -36,36 +36,18 @@ void Main()
 		}
 		else
 		{
-			var sql = sqlOf(row);
-			if (sql != null)
-			{
-				Console.WriteLine(sql);
-			}
+			//Console.WriteLine(row.GetCell(5).ToString());
+			lbSet.Add(row.GetCell(5).ToString().Trim());
 		}
 	}
 	
-	Console.WriteLine(UpdateZagldwbm);
-}
-
-
-/// <summary>打印表头</summary>
-static string stringOf(IRow row)
-{
-	var sb = new StringBuilder();
-	for (int cellIdx = 0; cellIdx < row.LastCellNum; cellIdx++)
+	var i = 0;
+	foreach(string lb in lbSet)
 	{
-		// 获取当前单元格
-		var cell = row.GetCell(cellIdx);
-		// 确保单元格不为空
-		if (cell == null)
-		{
-			continue;
-		}
-		sb.Append(cell.ToString());
-		sb.Append("\t");
+		Console.WriteLine($"{lb}(\"{++i, 2:D2}\"),");
 	}
-	return sb.ToString();
 }
+
 
 
 static int count = 0;

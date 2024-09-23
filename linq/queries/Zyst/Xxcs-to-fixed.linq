@@ -7,8 +7,8 @@
 
 void Main()
 {
-	var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\休闲\休闲场所总表.xlsx";
-	var fixedPath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\休闲\休闲场所总表-fixed.xlsx";
+	var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.23-休闲场所\xxzb0924.xlsx";
+	var fixedPath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.23-休闲场所\xxzb0924-fixed.xlsx";
 	using var ifs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 
 	// 创建工作簿 (.xlsx)
@@ -22,7 +22,7 @@ void Main()
 	// 在第一行添加列名 "id"
 	var headerRow = sheet.GetRow(0) ?? sheet.CreateRow(0);
 	// 在第一列添加单元格
-	var idCell = headerRow.CreateCell(8);
+	var idCell = headerRow.CreateCell(7);
 	idCell.SetCellValue("id");
 	idCell.CellStyle = cellStyle;
 
@@ -30,7 +30,7 @@ void Main()
 	for (int i = 1; i <= sheet.LastRowNum; i++)
 	{
 		var row = sheet.GetRow(i) ?? sheet.CreateRow(i);
-		var cell = row.CreateCell(8);
+		var cell = row.CreateCell(7);
 		cell.SetCellValue(Guid.NewGuid().ToString("N"));
 		cell.CellStyle = cellStyle;
 	}
@@ -38,6 +38,8 @@ void Main()
 	// 写入文件
 	using var ofs = new FileStream(fixedPath, FileMode.Create, FileAccess.Write);
 	workbook.Write(ofs);
+	
+	Console.WriteLine("done.");
 }
 
 static void SetCellStyle(ICellStyle cellStyle)
