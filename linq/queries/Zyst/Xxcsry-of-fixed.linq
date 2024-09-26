@@ -6,39 +6,47 @@
 
 void Main()
 {
-	var fixedPath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\休闲\休闲场所从业人员表-fixed.xlsx";
-	using var fs = new FileStream(fixedPath, FileMode.Open, FileAccess.Read);
+	var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.23-休闲场所\xxcsry0926.xlsx";
+	//var fixedPath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\休闲\休闲场所从业人员表-fixed.xlsx";
+	using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 
 	// 创建工作簿 (.xlsx)
 	var workbook = new XSSFWorkbook(fs);
-	// 获取工作表
-	var sheet = workbook.GetSheetAt(0);
-
-	// 遍历工作表中的每一行
-	for (int rowIdx = 0; rowIdx <= sheet.LastRowNum; rowIdx++)
+	var indexes = new int[] {0, 1, 2, 3, 4, 5, 7, 9};
+	
+	foreach (var sheetIdx in indexes)
 	{
-		// 获取当前行
-		var row = sheet.GetRow(rowIdx);
-		// 确保行不为空
-		if (row == null)
-		{
-			continue;
-		}
+		// 获取工作表
+		var sheet = workbook.GetSheetAt(0);
 
-		// 表头
-		if (rowIdx == 0)
+		// 遍历工作表中的每一行
+		for (int rowIdx = 0; rowIdx <= sheet.LastRowNum; rowIdx++)
 		{
-			//Console.WriteLine(stringOf(row));
-		}
-		else
-		{
-			var sql = sqlOf(row);
-			if (sql != null)
+			// 获取当前行
+			var row = sheet.GetRow(rowIdx);
+			// 确保行不为空
+			if (row == null)
 			{
-				Console.WriteLine(sql);
+				continue;
+			}
+
+			// 表头
+			if (rowIdx == 0)
+			{
+				//Console.WriteLine(stringOf(row));
+			}
+			else
+			{
+				var sql = sqlOf(row);
+				if (sql != null)
+				{
+					Console.WriteLine(sql);
+				}
 			}
 		}
+
 	}
+
 
 	Console.WriteLine(UpdateCsdm);
 }
@@ -70,7 +78,8 @@ static string sqlOf(IRow row)
 {
 	count++;
 
-	var uuid = row.GetCell(10).ToString();
+	//var uuid = row.GetCell(10).ToString();
+	var uuid = Guid.NewGuid().ToString("N");
 
 	var sb = new StringBuilder();
 	sb.Append(@"REPLACE INTO t_cyry (OBJ_ID, CSMC, CSDM, CYRY_XM, CYRY_ZJHM, CYRY_LXDH, YLTH_GWMC, CREATE_TIME, IS_UPLOAD, DATA_SOURCES, SJC, OPT_STATE, STATE, BZ2) VALUES ");
@@ -79,17 +88,17 @@ static string sqlOf(IRow row)
 	// OBJ_ID
 	sb.Append($"'{uuid}', ");
 	// CSMC
-	sb.Append($"'{row.GetCell(3).ToString()}', ");
+	sb.Append($"'{row.GetCell(2)?.ToString()}', ");
 	// CSDM, 先用CSMC代替
-	sb.Append($"'{row.GetCell(3).ToString()}', ");
+	sb.Append($"'{row.GetCell(2)?.ToString()}', ");
 	// CYRY_XM
-	sb.Append($"'{row.GetCell(4).ToString()}', ");
+	sb.Append($"'{row.GetCell(3).ToString()}', ");
 	// CYRY_ZJHM
-	sb.Append($"'{row.GetCell(8).ToString()}', ");
-	// CYRY_LXDH
-	sb.Append($"'{row.GetCell(9).ToString()}', ");
-	// YLTH_GWMC
 	sb.Append($"'{row.GetCell(7).ToString()}', ");
+	// CYRY_LXDH
+	sb.Append($"'{row.GetCell(8)?.ToString()}', ");
+	// YLTH_GWMC
+	sb.Append($"'{row.GetCell(6)?.ToString()}', ");
 	// CREATE_TIME
 	sb.Append($"'{DateTime.Now.ToString(dataFormat)}', ");
 	// IS_UPLOAD
@@ -103,7 +112,7 @@ static string sqlOf(IRow row)
 	// STATE
 	sb.Append($"1, ");
 	// BZ2
-	sb.Append($"'{row.GetCell(5).ToString()}'");
+	sb.Append($"'{row.GetCell(5)?.ToString()}'");
 
 	sb.Append(");");
 	return sb.ToString();
