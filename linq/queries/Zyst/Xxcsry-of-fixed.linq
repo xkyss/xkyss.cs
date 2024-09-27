@@ -6,47 +6,40 @@
 
 void Main()
 {
-	var filePath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.23-休闲场所\xxcsry0926.xlsx";
-	//var fixedPath = @"E:\xk\Code\zyaj\jwt_v3\ydjwv3\trunk\working\gits\Yfty\docs\2024.09.13-休闲场所\休闲\休闲场所从业人员表-fixed.xlsx";
-	using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+	var csxxFixedPath = @"D:\Code\zyst\Yfty\docs\06.数据\2024.09-休闲场所\2024.09.23-休闲场所\xxzb0924-fixed.xlsx";
+	var fixedPath = @"D:\Code\zyst\Yfty\docs\06.数据\2024.09-休闲场所\2024.09.26\xxcsry0926-fixed.xlsx";
+	using var fs = new FileStream(fixedPath, FileMode.Open, FileAccess.Read);
 
 	// 创建工作簿 (.xlsx)
 	var workbook = new XSSFWorkbook(fs);
-	var indexes = new int[] {0, 1, 2, 3, 4, 5, 7, 9};
-	
-	foreach (var sheetIdx in indexes)
+	// 获取工作表
+	var sheet = workbook.GetSheetAt(0);
+
+	// 遍历工作表中的每一行
+	for (int rowIdx = 0; rowIdx <= sheet.LastRowNum; rowIdx++)
 	{
-		// 获取工作表
-		var sheet = workbook.GetSheetAt(0);
-
-		// 遍历工作表中的每一行
-		for (int rowIdx = 0; rowIdx <= sheet.LastRowNum; rowIdx++)
+		// 获取当前行
+		var row = sheet.GetRow(rowIdx);
+		// 确保行不为空
+		if (row == null)
 		{
-			// 获取当前行
-			var row = sheet.GetRow(rowIdx);
-			// 确保行不为空
-			if (row == null)
-			{
-				continue;
-			}
-
-			// 表头
-			if (rowIdx == 0)
-			{
-				//Console.WriteLine(stringOf(row));
-			}
-			else
-			{
-				var sql = sqlOf(row);
-				if (sql != null)
-				{
-					Console.WriteLine(sql);
-				}
-			}
+			continue;
 		}
 
+		// 表头
+		if (rowIdx == 0)
+		{
+			//Console.WriteLine(stringOf(row));
+		}
+		else
+		{
+			var sql = sqlOf(row);
+			if (sql != null)
+			{
+				Console.WriteLine(sql);
+			}
+		}
 	}
-
 
 	Console.WriteLine(UpdateCsdm);
 }
@@ -78,8 +71,7 @@ static string sqlOf(IRow row)
 {
 	count++;
 
-	//var uuid = row.GetCell(10).ToString();
-	var uuid = Guid.NewGuid().ToString("N");
+	var uuid = row.GetCell(9).ToString();
 
 	var sb = new StringBuilder();
 	sb.Append(@"REPLACE INTO t_cyry (OBJ_ID, CSMC, CSDM, CYRY_XM, CYRY_ZJHM, CYRY_LXDH, YLTH_GWMC, CREATE_TIME, IS_UPLOAD, DATA_SOURCES, SJC, OPT_STATE, STATE, BZ2) VALUES ");
@@ -94,7 +86,7 @@ static string sqlOf(IRow row)
 	// CYRY_XM
 	sb.Append($"'{row.GetCell(3).ToString()}', ");
 	// CYRY_ZJHM
-	sb.Append($"'{row.GetCell(7).ToString()}', ");
+	sb.Append($"'{row.GetCell(7)?.ToString()}', ");
 	// CYRY_LXDH
 	sb.Append($"'{row.GetCell(8)?.ToString()}', ");
 	// YLTH_GWMC
