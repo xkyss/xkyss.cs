@@ -1,0 +1,11 @@
+{
+	"Name": "MaCard",
+	"Git": {
+		"Url": "https://github.com/xkyii/MaCard.git"
+	},
+	"Svn": {
+		"Url": "file:///E/Repo/Code",
+		"TrunkPath": "trunk/xkyii/MaCard",
+		"DevelopPath": "branches/develop/xkyii/MaCard"
+	}
+}
