@@ -1,11 +1,12 @@
 {
-	"Name": "MaCard",
+	"Name": "Spry",
+	"ParentDir": "D:/Codet/trunk/xkyii",
 	"Git": {
-		"Url": "https://github.com/xkyii/MaCard.git"
+		"Url": "https://github.com/xkyii/Spry.git"
 	},
 	"Svn": {
 		"Url": "file:///E/Repo/Code",
-		"TrunkPath": "trunk/xkyii/MaCard",
-		"DevelopPath": "branches/develop/xkyii/MaCard"
+		"TrunkPath": "trunk/xkyii/Spry",
+		"DevelopPath": "branches/develop/xkyii/Spry"
 	}
 }

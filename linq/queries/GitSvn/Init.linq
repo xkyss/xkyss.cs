@@ -23,7 +23,11 @@ void Main()
 	var config = JsonNode.Parse(configJsonString);
 	var template = razorEngine.Compile(templateContent);
 	var result = template.Run(config);
-	result.Dump();
+	//result.Dump();
+
+	File.WriteAllText(Path.Combine(scriptPath, $"Init{config["Name"].GetValue<string>()}.ps1"), result);
+	
+	Console.WriteLine("done");
 }
 
 

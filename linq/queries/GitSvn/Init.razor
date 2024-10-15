@@ -1,10 +1,11 @@
+cd @Model["ParentDir"]
 mkdir @Model["Name"]
 cd @Model["Name"]
 
 git svn init --trunk=@Model["Svn"]["TrunkPath"] --prefix=svn/ @Model["Svn"]["Url"]
 git svn fetch
 
-git remote add origin @Model["Svn"]["Url"]
+git remote add origin @Model["Git"]["Url"]
 # git remote -v
 
 git fetch origin main
