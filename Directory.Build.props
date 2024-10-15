@@ -2,7 +2,7 @@
 	<PropertyGroup>
 		<Product>Ks.Core</Product>
 		<Authors>xkyss</Authors>
-		<Copyright>Copyright 2022-$([System.DateTime]::Now.Year) (c) xkyss</Copyright>
+		<Copyright>Copyright 2023-$([System.DateTime]::Now.Year) (c) xkyss</Copyright>
 		<Version>0.2.2.2</Version>
 	</PropertyGroup>
 
@@ -12,10 +12,11 @@
 		<TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
 		<PackageOutputPath>$(MSBuildProjectDirectory)\..\..\build\nupkg</PackageOutputPath>
 	</PropertyGroup>
-	
+
 	<ItemGroup>
-		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
 			<_Parameter1>$(MSBuildProjectName).Test</_Parameter1>
+			<_Parameter1>LINQPadQuery</_Parameter1>
 		</AssemblyAttribute>
 	</ItemGroup>
 </Project>
