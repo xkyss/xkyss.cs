@@ -1,0 +1,24 @@
+cd @Model["ParentDir"]
+mkdir @Model["Name"]
+cd @Model["Name"]
+
+git svn init --trunk=@Model["Svn"]["TrunkPath"] --prefix=svn/ @Model["Svn"]["Url"]
+git svn fetch
+
+git remote add origin @Model["Git"]["Url"]
+# git remote -v
+
+git fetch origin main
+git merge -Xtheirs -m "Merge to svn" --allow-unrelated-histories origin/main
+
+git svn dcommit
+
+## develop 分支
+git config --add svn-remote.svn/develop.url @Model["Svn"]["Url"]
+git config --add svn-remote.svn/develop.fetch @Model["Svn"]["DevelopPath"]:refs/remotes/svn/develop
+git svn fetch svn/develop
+git checkout -b develop svn/develop
+
+git fetch origin develop
+git merge -Xtheirs -m "Merge to svn" --allow-unrelated-histories origin/develop
+git svn dcommit
