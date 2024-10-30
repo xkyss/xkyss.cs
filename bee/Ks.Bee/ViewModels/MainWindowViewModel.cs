@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Ke.Bee.Localization.Localizer.Abstractions;
 using Ks.Bee.Models;
 using Ks.Bee.Models.Menu;
 using Ks.Bee.ViewModels.Menu;
@@ -13,21 +15,31 @@ using Microsoft.Extensions.Options;
 
 namespace Ks.Bee.ViewModels;
 
-
 public partial class MainWindowViewModel : ViewModelBase
 {
     /// <summary>
     /// 工具栏按钮集合
     /// </summary>
     [ObservableProperty]
-    private ObservableCollection<MenuItemViewModel> _toolbarMenus;
+    private ObservableCollection<MenuItemViewModel>? _toolbarMenus;
     /// <summary>
     /// 设置菜单集合
     /// </summary>
     [ObservableProperty]
-    private ObservableCollection<MenuItemViewModel> _settingMenus;
+    private ObservableCollection<MenuItemViewModel>? _settingMenus;
+    /// <summary>
+    /// 本地化资源
+    /// </summary>
+    private readonly ILocalizer _l;
+    /// <summary>
+    /// 菜单数据
+    /// </summary>
+    private readonly MenuItem[] _menuItems;
 
-    private Func<MenuItem, MenuItemViewModel> _menuItemToViewModel => x => new MenuItemViewModel(x.LocaleKey)
+    /// <summary>
+    /// MenuItem 到 MenuItemViewModel 的转换器
+    /// </summary>
+    private Func<MenuItem, MenuItemViewModel> _menuItemToViewModel => x => new MenuItemViewModel(_l[x.LocaleKey])
     {
         Key = x.Key,
         IsActive = x.IsActive == true,
@@ -61,7 +73,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
 
                 // 清除之前选中项
-                var beforeActived = ToolbarMenus.FirstOrDefault(x => x.IsActive);
+                var beforeActived = ToolbarMenus?.FirstOrDefault(x => x.IsActive);
                 if (beforeActived != null)
                 {
                     beforeActived.IsActive = false;
@@ -94,10 +106,20 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 var url = menuItem?.CommandParameter;
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                 {
-                     FileName = url,
-                     UseShellExecute = true
-                 });
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }),
+
+            // 切换本地化语言
+            MenuClickCommandType.SwitchLanguage => new RelayCommand<MenuItemViewModel>((MenuItemViewModel? menuItem) =>
+            {
+                _l.CurrentCulture = _l.AvailableCultures.FirstOrDefault(f => f.IetfLanguageTag == menuItem?.CommandParameter) ??
+                    Thread.CurrentThread.CurrentCulture
+                    ;
+
+                Reload();
             }),
 
             // 返回 null
@@ -105,12 +127,20 @@ public partial class MainWindowViewModel : ViewModelBase
         };
     }
 
-    public MainWindowViewModel(IOptions<MenuItem[]> menuItems)
+    public MainWindowViewModel(IOptions<MenuItem[]> menuItems, ILocalizer localizer)
     {
-        var toolbarMenus = menuItems.Value.Where(x => x.Group == "Toolbar").Select(_menuItemToViewModel);
+        _l = localizer;
+        _menuItems = menuItems.Value;
+        Reload();
+    }
+
+    private void Reload()
+    {
+        var toolbarMenus = _menuItems.Where(x => x.Group == "Toolbar").Select(_menuItemToViewModel);
         ToolbarMenus = new ObservableCollection<MenuItemViewModel>(toolbarMenus);
-        var settingMenus = menuItems.Value.Where(x => x.Group == "Settings").Select(_menuItemToViewModel);
+        var settingMenus = _menuItems.Where(x => x.Group == "Settings").Select(_menuItemToViewModel);
         SettingMenus = new ObservableCollection<MenuItemViewModel>(settingMenus);
     }
 }
+
 

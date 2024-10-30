@@ -24,5 +24,9 @@ public enum MenuClickCommandType
     /// <summary>
     /// 导航命令
     /// </summary>
-    Navigate
+    Navigate,
+    /// <summary>
+    /// 切换语言命令
+    /// </summary>
+    SwitchLanguage
 }
