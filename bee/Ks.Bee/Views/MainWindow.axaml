@@ -7,7 +7,12 @@
         x:Class="Ks.Bee.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="Ks.Bee">
+        Title="Ks.Bee"
+        Width="1440"
+        Height="900"
+        MinWidth="1440"
+        MinHeight="600"
+>
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
@@ -15,6 +20,18 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+        <TextBlock Text="{Binding Greeting}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Background="{DynamicResource BgBody}"
+                   Foreground="{DynamicResource TextPrimary}"
+                   Padding="50"
+        />
+        <Button
+            Content="切换主题"
+            Command="{Binding ChangeThemeCommand}"
+        />
+    </StackPanel>
 
 </Window>
