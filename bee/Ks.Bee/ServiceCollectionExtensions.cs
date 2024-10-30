@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 using Ks.Bee.Models;
+using Ks.Bee.Models.Menu;
 using Ks.Bee.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 
-namespace Ks.Bee.Models;
+namespace Ks.Bee.Models.Menu;
+
 
 /// <summary>
 /// 菜单项实体
@@ -31,4 +32,16 @@ public class MenuItem
     /// 子菜单
     /// </summary>
     public ICollection<MenuItem> Items { get; set; } = [];
+    /// <summary>
+    /// 菜单分组
+    /// </summary>
+    public string? Group { get; set; }
+    /// <summary>
+    /// 命令类型
+    /// </summary>
+    public string? CommandType { get; set; }
+    /// <summary>
+    /// 命令参数
+    /// </summary>
+    public string? CommandParameter { get; set; }
 }
