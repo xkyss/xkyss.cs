@@ -1,37 +1,128 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:Ks.Bee.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        x:Class="Ks.Bee.Views.MainWindow"
-        x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="Ks.Bee"
-        Width="1440"
-        Height="900"
-        MinWidth="1440"
-        MinHeight="600"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Ks.Bee.ViewModels"
+    xmlns:menu="using:Ks.Bee.ViewModels.Menu"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="Ks.Bee.Views.MainWindow"
+    x:DataType="vm:MainWindowViewModel"
+    Icon="/Assets/avalonia-logo.ico"
+    Title="Ks.Bee"
+    Width="1440"
+    Height="900"
+    MinWidth="1440"
+    MinHeight="600"
 >
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel/>
+             to set the actual DataContext for runtime, set the DataContext property in code (look at
+        App.axaml.cs) -->
+        <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-        <TextBlock Text="{Binding Greeting}"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   Background="{DynamicResource BgBody}"
-                   Foreground="{DynamicResource TextPrimary}"
-                   Padding="50"
-        />
-        <Button
-            Content="切换主题"
-            Command="{Binding ChangeThemeCommand}"
-        />
-    </StackPanel>
+    <!--
+    DockPanel: 布局控件。将子控件沿指定边缘（顶部、底部、左侧、右侧）排列，并使其中一个填充剩余空间
+    DynamicResource: 延迟加载一个键控资源，该资源将在变体资源改变时更新
+    -->
+    <DockPanel Background="{DynamicResource BgBody}">
+
+        <!-- 工具栏
+        BorderThickness: (0,0,1,0) 表示右边框宽度 1，数字分别代表 左、上、右、下 边框的宽度
+        -->
+        <Border x:Name="AppToolbar"
+            Width="70"
+            Background="{DynamicResource BgToolbar}"
+            BorderBrush="{DynamicResource BorderColor}"
+            BorderThickness="0,0,1,0"
+            DockPanel.Dock="Left"
+        >
+            <DockPanel>
+                <!--
+                DockPanel.Dock="Top" 要设置到 DockPanel 的直接子元素上
+                -->
+                <ItemsControl ItemsSource="{Binding ToolbarMenus}" DockPanel.Dock="Top">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Classes="ToolbarIconButton" Classes.Active="{Binding IsActive}"
+                                Command="{Binding MenuClickCommand}"
+                                CommandParameter="{Binding Key}">
+                                <StackPanel>
+                                    <PathIcon Data="{Binding Icon}" />
+                                    <TextBlock Text="{Binding Text}" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!--设置菜单-->
+                <ItemsControl ItemsSource="{Binding SettingMenus}" DockPanel.Dock="Bottom">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Classes="ToolbarIconButton">
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="Top" ItemsSource="{Binding Items}">
+                                        <MenuFlyout.ItemContainerTheme>
+                                            <ControlTheme TargetType="MenuItem"
+                                                BasedOn="{StaticResource {x:Type MenuItem}}"
+                                                x:DataType="menu:MenuItemViewModel">
+                                                <Setter Property="Header" Value="{Binding Text}" />
+                                                <Setter Property="ItemsSource"
+                                                    Value="{Binding Items}" />
+                                                <Setter Property="Icon" Value="{Binding Icon}" />
+                                                <Setter Property="Command"
+                                                    Value="{Binding MenuClickCommand}" />
+                                                <Setter Property="CommandParameter"
+                                                    Value="{Binding Key}" />
+                                            </ControlTheme>
+                                        </MenuFlyout.ItemContainerTheme>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                                <StackPanel>
+                                    <PathIcon Data="{Binding Icon}" />
+                                    <TextBlock Text="{Binding Text}" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 必须始终定义一个最后的子控件（没有停靠属性），否则停靠计算将无法正确进行 -->
+                <Border />
+
+            </DockPanel>
+        </Border>
+
+        <!-- 二级菜单侧栏 -->
+        <Border
+            IsVisible="True"
+            BorderBrush="{DynamicResource BorderColor}"
+            Width="210"
+            BorderThickness="0,0,1,0"
+            DockPanel.Dock="Left"
+            Padding="10"
+        >
+        </Border>
+
+        <!--工作区-->
+        <Border>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Greeting}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource BgBody}"
+                    Foreground="{DynamicResource TextPrimary}"
+                    Padding="50"
+                />
+                <Button
+                    Content="切换主题"
+                    Command="{Binding ChangeThemeCommand}"
+                />
+            </StackPanel>
+        </Border>
+
+    </DockPanel>
 
 </Window>

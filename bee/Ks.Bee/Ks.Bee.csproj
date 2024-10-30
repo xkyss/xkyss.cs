@@ -24,4 +24,15 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
   </ItemGroup>
+
+  <!-- 在 Target 节中不能直接使用通配符 -->
+  <ItemGroup>
+    <source1 Include="Configs\*.json" />
+  </ItemGroup>
+
+  <!-- 复制自定义内容到输出目录 -->
+  <Target Name="CopyCustomContent" AfterTargets="AfterBuild">
+    <Copy SourceFiles="@(source1)" DestinationFolder="$(OutDir)\Configs\" />
+  </Target>
+
 </Project>

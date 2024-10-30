@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
-using Avalonia.Controls;
+using Ks.Bee.Models;
 using Ks.Bee.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -18,7 +18,7 @@ public static class ServiceCollectionExtensions
         var menuItems = JsonSerializer.Deserialize<MenuItem[]>(
             File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Configs", "menus.json"))
         );
-        services.AddSingleton(Options.Create(menuItems!));
+        services.AddSingleton(Options.Create(menuItems));
 
         return services;
     }

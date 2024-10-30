@@ -13,6 +13,7 @@
     <Application.Styles>
         <!--样式主题-->
         <FluentTheme />
+        <StyleInclude Source="avares://Ks.Bee/Assets/Styles.axaml" />
     </Application.Styles>
 
     <Application.Resources>
