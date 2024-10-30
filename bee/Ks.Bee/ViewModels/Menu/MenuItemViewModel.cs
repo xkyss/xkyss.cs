@@ -14,11 +14,15 @@ public partial class MenuItemViewModel : ObservableObject
     /// <summary>
     /// 唯一标识
     /// </summary>
-    public string Key { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty; 
     /// <summary>
     /// 按钮文本
     /// </summary>
     public string Text { get; set; } = string.Empty;
+    /// <summary>
+    /// 菜单分组
+    /// </summary>
+    public string Group { get; set; } = string.Empty;
     /// <summary>
     /// 图标
     /// </summary>

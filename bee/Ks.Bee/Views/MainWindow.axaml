@@ -23,6 +23,7 @@
         <vm:MainWindowViewModel />
     </Design.DataContext>
 
+
     <!--
     DockPanel: 布局控件。将子控件沿指定边缘（顶部、底部、左侧、右侧）排列，并使其中一个填充剩余空间
     DynamicResource: 延迟加载一个键控资源，该资源将在变体资源改变时更新
@@ -100,10 +101,46 @@
             IsVisible="True"
             BorderBrush="{DynamicResource BorderColor}"
             Width="210"
-            BorderThickness="0,0,1,0"
+            BorderThickness="0,0,1,0" 
             DockPanel.Dock="Left"
             Padding="10"
         >
+            <DockPanel>
+                <!--搜索框-->
+                <TextBox Classes="Search" Watermark="{i18n:Localize Search.Placeholder}" KeyUp="SerachMenuKeyUp"
+                    DockPanel.Dock="Top" Margin="0,0,0,5" />
+
+                <!--最后子元素填充剩余的未分配空间-->
+                <ScrollViewer>
+                    <StackPanel>
+                        <ItemsControl ItemsSource="{Binding SidebarMenus}" Margin="0,20,0,10">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,20">
+                                        <TextBlock Classes="SidebarGroupName" Text="{Binding Key}" />
+                                        <ItemsControl ItemsSource="{Binding Value}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button
+                                                        Classes="SidebarMenuItem"
+                                                        Classes.Active="{Binding IsActive}"
+                                                        Command="{Binding MenuClickCommand}"
+                                                        CommandParameter="{Binding}">
+                                                        <WrapPanel>
+                                                            <PathIcon Data="{Binding Icon}" />
+                                                            <TextBlock Text="{Binding Text}" />
+                                                        </WrapPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
 
         <!--工作区-->
