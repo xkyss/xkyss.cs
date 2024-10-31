@@ -2,7 +2,6 @@ using System.Collections.Generic;
 
 namespace Ks.Bee.Models.Menu;
 
-
 /// <summary>
 /// 菜单项实体
 /// </summary>

@@ -4,16 +4,17 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using Ks.Bee.Models.Menu;
+using Ks.Bee.Services.Abstractions.Navigation;
+using Ks.Bee.Services.Impl.Navigation;
+using Ks.Bee.ViewModels;
 using Ke.Bee.Localization.Extensions;
 using Ke.Bee.Localization.Options;
 using Ke.Bee.Localization.Providers;
-using Ks.Bee.Models.Menu;
-using Ks.Bee.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Ks.Bee.Services;
-
 
 public static class ServiceCollectionExtensions
 {
@@ -29,11 +30,13 @@ public static class ServiceCollectionExtensions
         // 从配置文件读取菜单注入到 DI 容器
         var menuItems = JsonSerializer.Deserialize<MenuItem[]>(
             File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Configs", "menus.json"))
-        );
+            );
         services.AddSingleton(Options.Create(menuItems!));
 
         // 注册本地化
         services.AddLocalization();
+        // 注册视图导航器
+        services.AddSingleton<IViewNavigator, DefaultViewNavigator>();
 
         return services;
     }

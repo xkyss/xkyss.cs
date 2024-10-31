@@ -10,7 +10,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
     }
-    
 
     /// <summary>
     /// 搜索菜单输入框键盘抬起事件

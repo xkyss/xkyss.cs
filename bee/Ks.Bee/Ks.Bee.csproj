@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
@@ -16,18 +17,22 @@
     <PackageReference Include="Avalonia" Version="11.1.0" />
     <PackageReference Include="Avalonia.Desktop" Version="11.1.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.1.0" />
-    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.1.0" />
+    <!--Condition
+    below is needed to remove Avalonia.Diagnostics package from build output in Release
+    configuration.-->
+    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics"
+      Version="11.1.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
-    <PackageReference Include="Ke.Bee.Localization" Version="0.1.2" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Ke.Bee.Localization" Version="0.1.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
   </ItemGroup>
+
 
   <!-- 定义需要复制的文件 -->
   <ItemGroup>
     <None Include="Configs\**\*.*" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" />
+      CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- 自定义目标：在构建和发布时复制文件并保留目录结构 -->
@@ -36,11 +41,11 @@
       <ResourcesToCopy Include="Configs\**\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(ResourcesToCopy)"
-          DestinationFiles="@(ResourcesToCopy->'$(OutputPath)\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
+      DestinationFiles="@(ResourcesToCopy->'$(OutputPath)\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(ResourcesToCopy)"
-          DestinationFiles="@(ResourcesToCopy->'$(PublishDir)\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+      DestinationFiles="@(ResourcesToCopy->'$(PublishDir)\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
   </Target>
 
 </Project>

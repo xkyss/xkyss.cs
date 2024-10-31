@@ -5,7 +5,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Ks.Bee.ViewModels.Menu;
 
-
 /// <summary>
 /// 菜单项视图模型
 /// </summary>
@@ -14,7 +13,7 @@ public partial class MenuItemViewModel : ObservableObject
     /// <summary>
     /// 唯一标识
     /// </summary>
-    public string Key { get; set; } = string.Empty; 
+    public string Key { get; set; } = string.Empty;
     /// <summary>
     /// 按钮文本
     /// </summary>

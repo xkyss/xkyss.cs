@@ -1,3 +1,4 @@
+
 namespace Ks.Bee.Models.Menu;
 
 /// <summary>

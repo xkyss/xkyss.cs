@@ -23,7 +23,6 @@
         <vm:MainWindowViewModel />
     </Design.DataContext>
 
-
     <!--
     DockPanel: 布局控件。将子控件沿指定边缘（顶部、底部、左侧、右侧）排列，并使其中一个填充剩余空间
     DynamicResource: 延迟加载一个键控资源，该资源将在变体资源改变时更新
@@ -101,13 +100,13 @@
             IsVisible="True"
             BorderBrush="{DynamicResource BorderColor}"
             Width="210"
-            BorderThickness="0,0,1,0" 
+            BorderThickness="0,0,1,0"
             DockPanel.Dock="Left"
             Padding="10"
         >
             <DockPanel>
                 <!--搜索框-->
-                <TextBox Classes="Search" Watermark="{i18n:Localize Search.Placeholder}" KeyUp="SerachMenuKeyUp"
+                <TextBox Classes="Search" Watermark="{i18n:Localize View.SearchInput.Placeholder}" KeyUp="SerachMenuKeyUp"
                     DockPanel.Dock="Top" Margin="0,0,0,5" />
 
                 <!--最后子元素填充剩余的未分配空间-->
@@ -145,7 +144,7 @@
 
         <!--工作区-->
         <Border>
-
+            <TransitioningContentControl Content="{Binding CurrentPage}" />
         </Border>
 
     </DockPanel>
