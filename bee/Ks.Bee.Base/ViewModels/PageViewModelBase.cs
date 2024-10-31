@@ -1,10 +1,12 @@
 
-namespace Ks.Bee.ViewModels;
+using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace Ks.Bee.Base.ViewModels;
 
 /// <summary>
 /// 视图页面模型基类
 /// </summary>
-public class PageViewModelBase : ViewModelBase
+public class PageViewModelBase : ObservableObject
 {
     /// <summary>
     /// 页面标题

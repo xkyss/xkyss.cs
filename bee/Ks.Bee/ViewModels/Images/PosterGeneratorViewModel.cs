@@ -1,4 +1,6 @@
 
+using Ks.Bee.Base.ViewModels;
+
 namespace Ks.Bee.ViewModels.Images;
 
 /// <summary>

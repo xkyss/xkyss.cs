@@ -1,13 +1,17 @@
 
-using Ks.Bee.Models.Navigation;
+using Ks.Bee.Base.Models.Navigation;
 
-namespace Ks.Bee.Services.Abstractions.Navigation;
+namespace Ks.Bee.Base.Abstractions.Navigation;
 
 /// <summary>
 /// 导航命令接口
 /// </summary>
 public interface INavigationCommand
 {
+    /// <summary>
+    /// 页面唯一标识
+    /// </summary>
+    string Key { get; }
     /// <summary>
     /// 执行导航
     /// </summary>

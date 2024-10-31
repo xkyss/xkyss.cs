@@ -1,5 +1,5 @@
-using Ks.Bee.Models.Navigation;
-using Ks.Bee.Services.Abstractions.Navigation;
+using Ks.Bee.Base.Abstractions.Navigation;
+using Ks.Bee.Base.Models.Navigation;
 using Ks.Bee.ViewModels.Images;
 
 namespace Ks.Bee.Services.Impl.Navigation.Commands;
@@ -9,6 +9,8 @@ namespace Ks.Bee.Services.Impl.Navigation.Commands;
 /// </summary>
 public class PosterGeneratorNavigationCommand : INavigationCommand
 {
+    public string Key => "PosterGenerator";
+
     /// <summary>
     /// 执行导航
     /// </summary>

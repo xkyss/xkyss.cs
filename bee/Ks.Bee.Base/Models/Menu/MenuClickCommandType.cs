@@ -1,5 +1,5 @@
 
-namespace Ks.Bee.Models.Menu;
+namespace Ks.Bee.Base.Models.Menu;
 
 /// <summary>
 /// 菜单按钮点击命令类型

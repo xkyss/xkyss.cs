@@ -1,7 +1,8 @@
 
-using Ks.Bee.Services.Abstractions.Navigation;
 
-namespace Ks.Bee.Models.Navigation;
+using Ks.Bee.Base.Abstractions.Navigation;
+
+namespace Ks.Bee.Base.Models.Navigation;
 
 /// <summary>
 /// 视图导航命令上下文对象

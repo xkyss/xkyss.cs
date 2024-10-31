@@ -1,9 +1,8 @@
 
 using System.ComponentModel;
-using Ks.Bee.Models.Navigation;
-using Ks.Bee.ViewModels;
+using Ks.Bee.Base.ViewModels;
 
-namespace Ks.Bee.Services.Abstractions.Navigation;
+namespace Ks.Bee.Base.Abstractions.Navigation;
 
 /// <summary>
 /// 视图导航器接口
@@ -26,6 +25,6 @@ public interface IViewNavigator
     /// <summary>
     /// 导航到视图
     /// </summary>
-    /// <param name="page"></param>
-    void NavigateTo(ViewPages page);
+    /// <param name="key"></param>
+    void NavigateTo(string key);
 }
