@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Ks.Bee.Services;
 using Ks.Bee.ViewModels;
 using Ks.Bee.Views;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,5 +1,7 @@
 ﻿using Avalonia;
 using System;
+using Avalonia.Media;
+using Ks.Bee.Services;
 
 namespace Ks.Bee;
 
@@ -16,6 +18,13 @@ sealed class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .WithInterFont()
+            .ConfigureFonts(fontManager =>
+            {
+                fontManager.AddFontCollection(new HarmonyOSFontCollection());
+            })
+            .With(new FontManagerOptions()
+            {
+                DefaultFamilyName = "fonts:HarmonyOS Sans#HarmonyOS Sans SC"
+            })
             .LogToTrace();
 }
