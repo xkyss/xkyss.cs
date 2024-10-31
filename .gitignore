@@ -6,3 +6,4 @@ linq/queries/mlcache/home
 linq/queries/mlcache-deploy/home
 linq/queries/mlcache-deploy/*.ps1
 linq/queries/GitSvn/*.ps1
+.build
