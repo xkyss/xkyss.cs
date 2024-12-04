@@ -11,9 +11,9 @@ void Main()
 	var path2 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20241204\zsb2.xlsx";
 	var path3 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20241204\zsb3.xlsx";
 	var map1 = GetMap1(path1);
-	//var map2 = GetMap2(path2);
-	//Fill(map1, map2);
-	//Write(map2, path3);
+	var map2 = GetMap2(path2);
+	Fill(map1, map2);
+	Write(map2, path3);
 }
 
 // You can define other methods, fields, classes and namespaces here
@@ -30,6 +30,8 @@ static Dictionary<string, HashSet<string>> GetMap1(string path)
 
 	// 存放结果
 	var map = new Dictionary<string, HashSet<string>>();
+	// 上一个key
+	var last = (KeyValuePair<string, HashSet<string>>?) null;
 	// 遍历工作表中的每一行
 	for (int rowIdx = 0; rowIdx <= sheet.LastRowNum; rowIdx++)
 	{
@@ -53,10 +55,21 @@ static Dictionary<string, HashSet<string>> GetMap1(string path)
 			{
 				continue;
 			}
-			Console.WriteLine(data?.A);
-			//map.Add(data?.A, data?.B);
+			// 新
+			if (!string.IsNullOrEmpty(data?.Key))
+			{
+				last = data;
+				map.Add(last?.Key, last?.Value);
+				//Console.WriteLine(last?.Key);
+			}
+			// 旧,合并
+			else
+			{
+				last?.Value.UnionWith(data?.Value);
+			}
 		}
 	}
+
 	Console.WriteLine($"总数(表1): {map.Count}");
 
 		//// 打印一下
@@ -109,7 +122,7 @@ static Dictionary<string, HashSet<string>> GetMap2(string path)
 		
 		result.Add(c1.ToString().Trim(), new HashSet<string>());
 	}
-	Console.WriteLine($"总数(表2): {result.Count}");
+	//Console.WriteLine($"总数(表2): {result.Count}");
 	return result;
 }
 
@@ -148,15 +161,67 @@ static void Write(Dictionary<string, HashSet<string>> map, string path)
 
 	var cellStyle = workbook.CreateCellStyle();
 	SetCellStyle(cellStyle);
-	
-	var r = 0;
+
+	// 表头
+	{
+		var row = sheet.CreateRow(0);
+		{
+			var c = row.CreateCell(0);
+			c.CellStyle = cellStyle;
+			c.SetCellValue("序号");
+		}
+		{
+			var c = row.CreateCell(1);
+			c.CellStyle = cellStyle;
+			c.SetCellValue("上级文档中被追踪内容");
+		}
+		{
+			var c = row.CreateCell(2);
+			c.CellStyle = cellStyle;
+			c.SetCellValue("本文档中被追踪内容");
+		}
+		{
+			var c = row.CreateCell(3);
+			c.CellStyle = cellStyle;
+			c.SetCellValue("备注");
+		}
+	}
+	{
+		var row = sheet.CreateRow(1);
+		{
+			var c = row.CreateCell(0);
+			c.CellStyle = cellStyle;
+		}
+		{
+			var c = row.CreateCell(1);
+			c.CellStyle = cellStyle;
+			c.SetCellValue("功能（名称/标识/章节）\n子功能（名称 / 标识）");
+		}
+		{
+			var c = row.CreateCell(2);
+			c.CellStyle = cellStyle;
+			c.SetCellValue("对应功能需求\n（名称 / 章节）");
+		}
+		{
+			var c = row.CreateCell(3);
+			c.CellStyle = cellStyle;
+		}
+	}
+
+	// 内容
+	var r = 2;
 	foreach (var m in map)
 	{
+		if (string.IsNullOrEmpty(m.Key) || m.Key=="-") 
+		{
+			continue;
+		}
+		
 		var row = sheet.CreateRow(r++);
 		{
 			var c = row.CreateCell(0);
 			c.CellStyle = cellStyle;
-			c.SetCellValue(r);
+			c.SetCellValue(r-2);
 		}
 		{
 			var c = row.CreateCell(1);
@@ -175,6 +240,11 @@ static void Write(Dictionary<string, HashSet<string>> map, string path)
 				c.SetCellValue(string.Join("\n", m.Value));
 			}
 		}
+		{
+			var c = row.CreateCell(3);
+			c.CellStyle = cellStyle;
+			c.SetCellValue("-");
+		}
 	}
 
 	// 写入文件
@@ -184,7 +254,7 @@ static void Write(Dictionary<string, HashSet<string>> map, string path)
 }
 
 
-static (string A, HashSet<string> B)? GetData(IRow row)
+static KeyValuePair<string, HashSet<string>>? GetData(IRow row)
 {
 	if (row == null)
 	{
@@ -194,26 +264,50 @@ static (string A, HashSet<string> B)? GetData(IRow row)
 	var index = row.GetCell(0);
 	var cell1 = row.GetCell(1);
 	var cell2 = row.GetCell(2);
-	if (index == null || index.ToString().Trim().Length == 0 || cell1 == null)
+	// cell1是否有值
+	var b1 = cell1 != null && cell1.ToString().Trim().Length > 0;
+	// cell2是否有值
+	var b2 = cell2 != null && cell2.ToString().Trim().Length > 0;
+	
+	if (!b1 && !b2) 
 	{
 		return null;
 	}
-
-	//Console.WriteLine($"{index} {cell1.ToString()} {cell2.ToString()}");
 	
-	var set = new HashSet<string>();
-	if (cell2 == null)
+	// cell1有值, cell2没值, 说明没有对应,也应该返回结果
+	else if (b1 && !b2)
 	{
-		return (index.ToString(), set);
+		return new KeyValuePair<string, HashSet<string>>(cell1?.ToString(), new HashSet<string>());
+	}
+	
+	// cell1没值, cell2有值, 说明是同一格的继续
+	else if (!b1 && b2)
+	{
+		// 获取被追踪项
+		var set = new HashSet<string>();
+		string[] items = cell2.ToString().Split('\n');
+		foreach (string item in items)
+		{
+			set.Add(item.Trim());
+		}
+		return new KeyValuePair<string, HashSet<string>>(string.Empty, set);
 	}
 
-	string[] items = cell2.ToString().Split('\n');
-
-	foreach (string item in items)
+	else if (b1 && b2)
 	{
-		set.Add(item.Trim());
+		// 获取被追踪项
+		var set = new HashSet<string>();
+		string[] items = cell2.ToString().Split('\n');
+		foreach (string item in items)
+		{
+			set.Add(item.Trim());
+		}
+		return new KeyValuePair<string, HashSet<string>>(cell1?.ToString().Trim(), set);
 	}
-	return (cell1.ToString(), set);
+	else
+	{
+		return null;
+	}
 }
 
 /// <summary>打印表头</summary>
