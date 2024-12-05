@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
-        <Product>Ks.Core</Product>
+        <Product>Ks</Product>
         <Authors>xkyss</Authors>
         <Copyright>Copyright 2023-$([System.DateTime]::Now.Year) (c) xkyss</Copyright>
-        <Version>0.2.2.2</Version>
+        <Version>1.24.1</Version>
     </PropertyGroup>
 
     <PropertyGroup>

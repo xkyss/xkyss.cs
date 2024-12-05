@@ -237,7 +237,7 @@ static void Write(Dictionary<string, HashSet<string>> map, string path)
 			}
 			else
 			{
-				c.SetCellValue(string.Join("\n", m.Value));
+				c.SetCellValue(string.Join("\r\n", m.Value));
 			}
 		}
 		{
