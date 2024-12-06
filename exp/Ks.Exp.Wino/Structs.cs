@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace Ks.Exp.StructLayout;
+namespace Ks.Exp.Wino;
 
 // 32
 // => 4 + 4 + 8 + 8 *2

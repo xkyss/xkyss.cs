@@ -1,8 +1,9 @@
-﻿using Windows.Win32;
+﻿using System.Runtime.InteropServices;
+using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
 using Windows.Win32.UI.Input.KeyboardAndMouse;
-
+using Ks.Exp.Wino;
 using static Windows.Win32.PInvoke;
 
 
@@ -25,4 +26,21 @@ using static Windows.Win32.PInvoke;
 	SendMessage(hwnd, WM_LBUTTONDOWN, (WPARAM)0, pos);
 	Thread.Sleep(50);
 	SendMessage(hwnd, WM_LBUTTONUP, (WPARAM)0, pos);
+}
+
+
+
+
+
+var size1 = Marshal.SizeOf(typeof(BaseStruct));
+Console.WriteLine($"BaseStruct Size={size1}");
+
+var size2 = Marshal.SizeOf(typeof(SubStruct));
+Console.WriteLine($"SubStruct Size={size2}");
+
+var ret = new BaseStruct();
+unsafe
+{
+    var p1 = &ret;
+    var p2 = &(ret.Field1);
 }
