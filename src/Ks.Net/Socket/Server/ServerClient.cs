@@ -19,7 +19,7 @@ internal sealed class ServerClient(
     internal ConnectionContext Context { get; set; }
 
     internal PipeWriter Writer => Context.Transport.Output;
-    
+
     public Task WriteAsync<T>(T message)
     {
         if (message == null)
@@ -27,14 +27,14 @@ internal sealed class ServerClient(
             logger.LogWarning("消息为空.");
             return Task.CompletedTask;
         }
-        
+
         var type = message.GetType();
         if (!typeMapper.TryGet(type, out var id))
         {
             logger.LogWarning($"消息{type}未注册.");
             return Task.CompletedTask;
         }
-        
+
         var bodyBytes = encoder.Encode(type, message);
         var headerBytes = encoder.Encode(new SocketRequest
         {
@@ -49,7 +49,7 @@ internal sealed class ServerClient(
             // 确保使用大端序
             Array.Reverse(headerLengthBytes);
         }
-        
+
         Writer.WriteBigEndian(headerBytes.Length);
         Writer.Write(headerBytes);
         Writer.Write(bodyBytes);
@@ -89,8 +89,8 @@ internal sealed class ServerClient(
                 input.AdvanceTo(consumed);
 
                 var response = new SocketResponse();
-                var socketConnect = new SocketContext(this, request, response, context.Features);
-                await net.Invoke(socketConnect);
+                var socketContext = new SocketContext(this, request, response, context.Features);
+                await net.Invoke(socketContext);
             }
             else
             {
@@ -115,7 +115,7 @@ internal sealed class ServerClient(
         {
             return false;
         }
-        
+
         // 检测长度
         if (headLen <= 0)
         {
@@ -136,13 +136,13 @@ internal sealed class ServerClient(
             logger.LogWarning(e, "解析[SocketRequest]失败");
             return false;
         }
-        
+
         // 检测长度
         if (request.MessageLength <= 0)
         {
             return false;
         }
-        
+
         // 读取Message
         if (!reader.TryReadExact(request.MessageLength, out var bodyBytes))
         {
@@ -153,11 +153,11 @@ internal sealed class ServerClient(
         {
             return false;
         }
-        
+
         request.Message = decoder.Decode(type, bodyBytes);
-        
+
         consumed = reader.Position;
         return true;
     }
-    
+
 }

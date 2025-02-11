@@ -7,13 +7,20 @@
 
 void Main()
 {
-	var path1 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20241204\zsb1.xlsx";
-	var path2 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20241204\zsb2.xlsx";
-	var path3 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20241204\zsb3.xlsx";
+	// 逆向追溯表
+	var path1 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20241231\zsb1.xlsx";
+	// 正向追溯表(目录)
+	var path2 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20241231\zsb2.xlsx";
+	// 正向追溯表(生成)
+	var path3 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20241231\zsb3.xlsx";
 	var map1 = GetMap1(path1);
 	var map2 = GetMap2(path2);
 	Fill(map1, map2);
 	Write(map2, path3);
+	
+	// 生成szb3.xlsx之后,复制"被追踪内容"那列
+	// 在word的正向表中,记得全选那一列再粘贴,不然都会挤在一个cell里面
+	// 最后将 ^| 替换为 ^p
 }
 
 // You can define other methods, fields, classes and namespaces here

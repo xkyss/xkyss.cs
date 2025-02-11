@@ -16,12 +16,12 @@ namespace Ks.Net.Socket.Extensions;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
-    
+
     /// <summary>
     /// 添加Socket Client
     /// </summary>
     /// <param name="services"></param>
-    /// <param name="configureOptions"></param> 
+    /// <param name="configureOptions"></param>
     /// <returns></returns>
     public static IServiceCollection AddSocketClient(this IServiceCollection services, Action<ClientOptions> configureOptions)
     {
@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// 添加Socket Client
     /// </summary>
-    /// <param name="services"></param> 
+    /// <param name="services"></param>
     /// <returns></returns>
     public static IServiceCollection AddSocketClient(this IServiceCollection services)
     {
@@ -42,12 +42,12 @@ public static class ServiceCollectionExtensions
         services.AddInternal();
         return services;
     }
-    
+
     /// <summary>
     /// 添加Socket Server
     /// </summary>
     /// <param name="services"></param>
-    /// <param name="configureOptions"></param> 
+    /// <param name="configureOptions"></param>
     /// <returns></returns>
     public static IServiceCollection AddSocketServer(this IServiceCollection services, Action<ServerOptions> configureOptions)
     {
@@ -57,7 +57,7 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// 添加Socket Server
     /// </summary>
-    /// <param name="services"></param> 
+    /// <param name="services"></param>
     /// <returns></returns>
     public static IServiceCollection AddSocketServer(this IServiceCollection services)
     {
@@ -68,7 +68,7 @@ public static class ServiceCollectionExtensions
             })
             .Use<FallbackMiddleware>()
             .Build());
-        
+
         services.AddSingleton<HeartBeatHandler>();
         services.AddTransient<ServerClient>();
         services.AddInternal();
@@ -79,7 +79,7 @@ public static class ServiceCollectionExtensions
     /// 添加Telnet Server
     /// </summary>
     /// <param name="services"></param>
-    /// <param name="configureOptions"></param> 
+    /// <param name="configureOptions"></param>
     /// <returns></returns>
     public static IServiceCollection AddTelnetServer(this IServiceCollection services, Action<ServerOptions> configureOptions)
     {
@@ -89,7 +89,7 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// 添加Socket Server
     /// </summary>
-    /// <param name="services"></param> 
+    /// <param name="services"></param>
     /// <returns></returns>
     public static IServiceCollection AddTelnetServer(this IServiceCollection services)
     {
@@ -98,7 +98,7 @@ public static class ServiceCollectionExtensions
             .Use<ByeMiddleware>()
             .Use<EchoMiddleware>()
             .Build());
-        
+
         services.AddTransient<TelnetClient>();
         return services;
     }
