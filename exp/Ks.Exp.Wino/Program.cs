@@ -3,6 +3,7 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
 using Windows.Win32.UI.Input.KeyboardAndMouse;
+using CliWrap;
 using Ks.Exp.Wino;
 using static Windows.Win32.PInvoke;
 
@@ -44,3 +45,13 @@ unsafe
     var p1 = &ret;
     var p2 = &(ret.Field1);
 }
+
+
+await using var stdOut = Console.OpenStandardOutput();
+await using var stdErr = Console.OpenStandardError();
+
+var cmd = Cli.Wrap("cmd")
+   .WithArguments("/c dir")
+   .WithStandardOutputPipe(PipeTarget.ToStream(stdOut))
+   .WithStandardErrorPipe(PipeTarget.ToStream(stdErr));
+await cmd.ExecuteAsync();
