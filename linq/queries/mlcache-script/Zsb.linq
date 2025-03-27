@@ -8,11 +8,11 @@
 void Main()
 {
 	// 逆向追溯表
-	var path1 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20250218\zsb1.xlsx";
+	var path1 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20250326\zsb1.xlsx";
 	// 正向追溯表(目录)
-	var path2 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20250218\zsb2.xlsx";
+	var path2 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20250326\zsb2.xlsx";
 	// 正向追溯表(生成)
-	var path3 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20250218\zsb3.xlsx";
+	var path3 = @"D:\Code\thzt\mlcache-doc\doc\97.draft\20250326\zsb3.xlsx";
 	var map1 = GetMap1(path1);
 	var map2 = GetMap2(path2);
 	Fill(map1, map2);
