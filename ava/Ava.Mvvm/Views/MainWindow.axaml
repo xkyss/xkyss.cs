@@ -8,6 +8,7 @@
             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
             x:Class="Ava.Mvvm.Views.MainWindow"
             x:DataType="vm:MainWindowViewModel"
+            x:CompileBindings="True"
             Icon="/Assets/avalonia-logo.ico"
             WindowStartupLocation="CenterScreen"
             Title="Ava.Mvvm">
@@ -20,9 +21,6 @@
         <views:TitleBarRightContent />
     </u:UrsaWindow.RightContent>
     
-    <StackPanel Margin="20">
-        <u:TagInput />
-        <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-    </StackPanel>
+    <views:MainView />
 
 </u:UrsaWindow>
