@@ -28,7 +28,6 @@ public partial class MainViewViewModel : ViewModelBase
         _sp = sp;
         Menus = _sp.GetRequiredService<MenuViewModel>();
         WeakReferenceMessenger.Default.Register<MainViewViewModel, string>(this, OnNavigation);
-        OnSettingsCommand = new RelayCommand(() => OnNavigation(this, "Settings"));
     }
 
 
@@ -44,11 +43,4 @@ public partial class MainViewViewModel : ViewModelBase
     
     [ObservableProperty] private bool _isCollapsed;
     
-    [ObservableProperty] private string? _footerText = MenuKeys.MenuKeySettings;
-    partial void OnIsCollapsedChanged(bool value)
-    {
-        FooterText = value ? null : MenuKeys.MenuKeySettings;
-    }
-    
-    public ICommand OnSettingsCommand { get; set; }
 }

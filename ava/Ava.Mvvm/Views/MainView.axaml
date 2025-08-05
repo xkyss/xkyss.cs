@@ -46,15 +46,14 @@
                     </u:NavMenu.Styles>
                     <u:NavMenu.IconTemplate>
                         <DataTemplate x:DataType="x:String">
-                            <u:TwoTonePathIcon
-                                Width="16"
-                                Height="16"
+                            <u:TwoTonePathIcon 
+                                Foreground="{DynamicResource SemiGrey5}"
+                                StrokeBrush="{DynamicResource SemiGrey5}" 
                                 ActiveForeground="{DynamicResource SemiBlue5}"
                                 ActiveStrokeBrush="{DynamicResource SemiBlue5}"
-                                Data="{Binding Converter={StaticResource IconConverter}}"
-                                Foreground="{DynamicResource SemiGrey5}"
                                 IsActive="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=u:NavMenuItem}, Path=IsHighlighted, Mode=TwoWay}"
-                                StrokeBrush="{DynamicResource SemiGrey5}" />
+                                Data="{Binding Converter={StaticResource IconConverter}}"
+                                Width="16" Height="16"/>
                         </DataTemplate>
                     </u:NavMenu.IconTemplate>
                     <u:NavMenu.HeaderTemplate>
@@ -88,17 +87,10 @@
                         </DockPanel>
                     </u:NavMenu.Header>
                     <u:NavMenu.Footer>
-                        <u:IconButton
-                            Content="{Binding FooterText}"
-                            Command="{Binding OnSettingsCommand}"
-                            HorizontalAlignment="Stretch"
-                            Classes="Tertiary"
-                            Icon="{StaticResource SemiIconSetting}"
-                            RenderTransform="{x:Null}"
-                            ToolTip.Tip="Settings"
-                            FontWeight="Normal"
-                            Theme="{DynamicResource BorderlessIconButton}">
-                        </u:IconButton>
+                        <TextBlock 
+                            VerticalAlignment="Center" 
+                            HorizontalAlignment="Center"
+                            Text="v0.1" />
                     </u:NavMenu.Footer>
                 </u:NavMenu>
             </Border>
