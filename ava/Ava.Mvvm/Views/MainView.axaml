@@ -89,7 +89,7 @@
                     </u:NavMenu.Header>
                     <u:NavMenu.Footer>
                         <u:IconButton
-                            Content="Settings"
+                            Content="{Binding FooterText}"
                             Command="{Binding OnSettingsCommand}"
                             HorizontalAlignment="Stretch"
                             Classes="Tertiary"

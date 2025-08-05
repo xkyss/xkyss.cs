@@ -13,7 +13,7 @@ public partial class MainViewViewModel : ViewModelBase
     private readonly IServiceProvider _sp;
     
     public WindowNotificationManager? NotificationManager { get; set; }
-    public MenuViewModel Menus { get; init; }
+    public MenuViewModel Menus { get; }
 
     private object? _content;
 
@@ -44,6 +44,11 @@ public partial class MainViewViewModel : ViewModelBase
     
     [ObservableProperty] private bool _isCollapsed;
     
+    [ObservableProperty] private string? _footerText = MenuKeys.MenuKeySettings;
+    partial void OnIsCollapsedChanged(bool value)
+    {
+        FooterText = value ? null : MenuKeys.MenuKeySettings;
+    }
     
     public ICommand OnSettingsCommand { get; set; }
 }
