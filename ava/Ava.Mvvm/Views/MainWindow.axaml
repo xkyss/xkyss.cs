@@ -4,6 +4,7 @@
             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
             xmlns:u="https://irihi.tech/ursa"
+            xmlns:views="clr-namespace:Ava.Mvvm.Views"
             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
             x:Class="Ava.Mvvm.Views.MainWindow"
             x:DataType="vm:MainWindowViewModel"
@@ -14,6 +15,10 @@
     <Design.DataContext>
         <vm:MainWindowViewModel/>
     </Design.DataContext>
+    
+    <u:UrsaWindow.RightContent>
+        <views:TitleBarRightContent />
+    </u:UrsaWindow.RightContent>
     
     <StackPanel Margin="20">
         <u:TagInput />
