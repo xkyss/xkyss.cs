@@ -18,4 +18,5 @@ public class MenuViewModel : ViewModelBase
 public static class MenuKeys
 {
     public const string MenuKeyIntro = "Intro";
+    public const string MenuKeySettings = "Settings";
 }

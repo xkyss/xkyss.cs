@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Ava.Mvvm.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:DataType="vm:IntroPageViewModel"
-             x:Class="Ava.Mvvm.Pages.IntroPage">
-    Intro
+             x:DataType="vm:SettingsPageViewModel"
+             x:Class="Ava.Mvvm.Pages.SettingsPage">
+    Settings
 </UserControl>
