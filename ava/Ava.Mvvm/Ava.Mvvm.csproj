@@ -24,5 +24,8 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
+    <PackageReference Include="Irihi.Ursa" Version="1.12.0" />
+    <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.12.0" />
+    <PackageReference Include="Semi.Avalonia" Version="11.2.1.9" />
   </ItemGroup>
 </Project>
