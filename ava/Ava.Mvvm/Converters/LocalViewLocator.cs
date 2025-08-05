@@ -1,25 +1,31 @@
 using System;
+using Ava.Mvvm.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 
 namespace Ava.Mvvm.Converters;
 
-public class ViewLocator: IDataTemplate
+public class LocalViewLocator : IDataTemplate
 {
+
     public Control? Build(object? param)
     {
-        if (param is null) return null;
-        var name = param.GetType().Name.Replace("ViewModel", "");
-        var type = Type.GetType("Ava.Mvvm.Pages."+name);
+        if (param is null)
+            return null;
+        
+        var name = param.GetType().FullName!.Replace("ViewModel", "View", StringComparison.Ordinal);
+        var type = Type.GetType(name);
+
         if (type != null)
         {
             return (Control)Activator.CreateInstance(type)!;
         }
+        
         return new TextBlock { Text = "Not Found: " + name };
     }
 
     public bool Match(object? data)
     {
-        return true;
+        return data is ViewModelBase;
     }
 }

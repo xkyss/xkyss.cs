@@ -27,4 +27,8 @@
     <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.12.0" />
     <PackageReference Include="Semi.Avalonia" Version="11.2.1.9" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Converters\ToolBarItemTemplateSelector.cs" />
+  </ItemGroup>
 </Project>

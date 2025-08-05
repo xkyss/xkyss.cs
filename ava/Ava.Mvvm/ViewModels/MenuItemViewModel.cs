@@ -5,13 +5,6 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace Ava.Mvvm.ViewModels;
 
-public enum ControlStatus
-{
-    New,
-    Beta,
-    Stable,
-}
-
 public class MenuItemViewModel: ViewModelBase
 {
     public string? MenuHeader { get; set; }

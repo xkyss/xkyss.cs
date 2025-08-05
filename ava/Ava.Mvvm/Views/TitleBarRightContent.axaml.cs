@@ -2,24 +2,23 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-namespace Ava.Mvvm.Views
+namespace Ava.Mvvm.Views;
+
+public partial class TitleBarRightContent : UserControl
 {
-    public partial class TitleBarRightContent : UserControl
+    public TitleBarRightContent()
     {
-        public TitleBarRightContent()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
+    }
         
-        private async void OpenRepository(object? sender, RoutedEventArgs e)
+    private async void OpenRepository(object? sender, RoutedEventArgs e)
+    {
+        var top = TopLevel.GetTopLevel(this);
+        if (top is null)
         {
-            var top = TopLevel.GetTopLevel(this);
-            if (top is null)
-            {
-                return;
-            }
-            var launcher = top.Launcher;
-            await launcher.LaunchUriAsync(new Uri("https://github.com/xkyss/xkyss.cs"));
+            return;
         }
+        var launcher = top.Launcher;
+        await launcher.LaunchUriAsync(new Uri("https://github.com/xkyss/xkyss.cs"));
     }
 }

@@ -1,7 +1,6 @@
-namespace Ava.Mvvm.ViewModels
+namespace Ava.Mvvm.ViewModels;
+
+public class IntroPageViewModel : ViewModelBase
 {
-    public class IntroPageViewModel : ViewModelBase
-    {
         
-    }
 }

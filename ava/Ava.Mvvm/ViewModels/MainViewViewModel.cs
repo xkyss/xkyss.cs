@@ -1,14 +1,8 @@
 using System;
-using System.Collections.ObjectModel;
 using System.Windows.Input;
-using Avalonia;
-using Avalonia.Controls.Notifications;
-using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Ursa.Themes.Semi;
-using Notification = Ursa.Controls.Notification;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
 
 namespace Ava.Mvvm.ViewModels;

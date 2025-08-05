@@ -4,10 +4,11 @@
              xmlns:local="using:Ava.Mvvm"
              xmlns:semi="https://irihi.tech/semi"
              xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
+             xmlns:converters="clr-namespace:Ava.Mvvm.Converters"
              RequestedThemeVariant="Default">
 
     <Application.DataTemplates>
-        <local:ViewLocator/>
+        <converters:LocalViewLocator/>
     </Application.DataTemplates>
   
     <Application.Styles>

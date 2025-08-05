@@ -1,12 +1,11 @@
 using Avalonia.Controls;
 
-namespace Ava.Mvvm.Pages
+namespace Ava.Mvvm.Pages;
+
+public partial class IntroPage : UserControl
 {
-    public partial class IntroPage : UserControl
+    public IntroPage()
     {
-        public IntroPage()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }
