@@ -12,10 +12,6 @@
             Icon="/Assets/avalonia-logo.ico"
             WindowStartupLocation="CenterScreen"
             Title="Ava.Mvvm">
-
-    <Design.DataContext>
-        <vm:MainWindowViewModel/>
-    </Design.DataContext>
     
     <u:UrsaWindow.RightContent>
         <views:TitleBarRightContent />

@@ -34,7 +34,7 @@ public partial class MainViewViewModel : ViewModelBase
     {
         Content = s switch
         {
-            MenuKeys.MenuKeyToolBar => new ToolBarDemoViewModel(),
+            MenuKeys.MenuKeyIntro => new IntroPageViewModel(),
             _ => throw new ArgumentOutOfRangeException(nameof(s), s, null)
         };
     }

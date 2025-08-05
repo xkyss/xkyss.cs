@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
+             xmlns:iri="https://irihi.tech/shared"
              xmlns:vm="using:Ava.Mvvm.ViewModels"
              xmlns:converters="clr-namespace:Ava.Mvvm.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -32,7 +33,7 @@
                 <u:NavMenu
                     Name="menu"
                     CommandBinding="{Binding ActivateCommand}"
-                    ExpandWidth="300"
+                    ExpandWidth="100"
                     SubMenuBinding="{Binding Children}"
                     HeaderBinding="{Binding}"
                     IconBinding="{Binding MenuHeader}"
@@ -69,20 +70,20 @@
                         </DataTemplate>
                     </u:NavMenu.HeaderTemplate>
                     <u:NavMenu.Header>
-                        <DockPanel Margin="8 32 8 8" HorizontalAlignment="Center" >
+                        <DockPanel Margin="8 24 8 8" HorizontalAlignment="Center" >
                             <Panel
                                 VerticalAlignment="Center"
                                 u:NavMenu.CanToggle="True"
                                 Background="Transparent"
                                 DockPanel.Dock="Left">
-                                <!-- <iri:IrihiLogo Width="32" Fill="{DynamicResource SemiGrey7}" /> -->
+                                <iri:IrihiLogo Width="24" Fill="{DynamicResource SemiGrey7}" />
                             </Panel>
                             <TextBlock
                                 VerticalAlignment="Center"
                                 Classes="H4"
-                                Margin="16 0 0 0"
+                                Margin="8 0 0 0"
                                 IsVisible="{Binding !#menu.IsHorizontalCollapsed}"
-                                Text="Ursa"
+                                Text="Ava"
                                 Theme="{DynamicResource TitleTextBlock}" />
                         </DockPanel>
                     </u:NavMenu.Header>
