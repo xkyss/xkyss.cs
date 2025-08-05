@@ -1,0 +1,27 @@
+<Solution>
+  <Folder Name="/ava/">
+    <Project Path="ava/Ava.App/Ava.App.csproj" />
+  </Folder>
+  <Folder Name="/bee/">
+    <Project Path="bee/Ks.Bee.Base/Ks.Bee.Base.csproj" />
+    <Project Path="bee/Ks.Bee.Plugin.First/Ks.Bee.Plugin.First.csproj" />
+    <Project Path="bee/Ks.Bee/Ks.Bee.csproj" />
+  </Folder>
+  <Folder Name="/exp/">
+    <Project Path="exp/Ks.Exp.AutoMapper/Ks.Exp.AutoMapper.csproj" />
+    <Project Path="exp/Ks.Exp.Wino/Ks.Exp.Wino.csproj" />
+    <Project Path="exp/Ks.Net.SocketClientSample/Ks.Net.SocketClientSample.csproj" />
+    <Project Path="exp/Ks.Net.SocketServerSample/Ks.Net.SocketServerSample.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Ks.Core/Ks.Core.csproj" />
+    <Project Path="src/Ks.Net/Ks.Net.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Ks.Core.Test/Ks.Core.Test.csproj" />
+    <Project Path="test/Ks.Net.Test/Ks.Net.Test.csproj" />
+  </Folder>
+</Solution>
