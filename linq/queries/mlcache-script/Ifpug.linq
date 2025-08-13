@@ -7,9 +7,14 @@
   <Namespace>NPOI.HSSF.Util</Namespace>
 </Query>
 
+
+//#!/usr/bin/dotnet run
+
+// 过滤未匹配到的Ex-Ptr
+// lprun8-x64.exe .\Ifpug.linq | Select-String -Pattern "NOT Exist|Sheet: "
+
 void Main()
 {
-	//#!/usr/bin/dotnet run
 	
 	var path1 = @"D:\Code\thzt\mlcache-doc\doc\07.work\05.功能点统计.xlsx";
 	var path2 = @"D:\Code\thzt\mlcache-doc\doc\07.work\05.功能点统计-Ex.xlsx";
@@ -38,6 +43,12 @@ void Main()
 		Write(sheetOut, cellStyle, ifpug);
 	}
 
+	var csRed = workbookOut.CreateCellStyle();
+	csRed.CloneStyleFrom(cellStyle);
+	csRed.FillForegroundColor = HSSFColor.Red.Index;
+	csRed.FillPattern = FillPattern.SolidForeground;
+	WriteZero(sheetOut, csRed);
+
 	// 保存到文件
 	using var fs = new FileStream(path2, FileMode.Create, FileAccess.Write);
 	workbookOut.Write(fs);
@@ -49,7 +60,7 @@ IfpugInfo Read(ISheet sheet)
 
 	Console.WriteLine();
 	Console.WriteLine("-------------");
-	Console.WriteLine(sheet.SheetName);
+	Console.WriteLine($"Sheet: {sheet.SheetName}");
 
 	// 记录已经处理过的合并区域（避免重复输出）
 	var mergedRegions = new HashSet<CellRangeAddress>();
@@ -186,6 +197,7 @@ void WriteHeader(ISheet sheet, ICellStyle cellStyle)
 	headerRow.CreateCell(3).SetCellValue("EI").With(cellStyle);
 	headerRow.CreateCell(4).SetCellValue("EO").With(cellStyle);
 	headerRow.CreateCell(5).SetCellValue("EQ").With(cellStyle);
+	headerRow.CreateCell(6).SetCellValue("XX").With(cellStyle);
 }
 
 void Write(ISheet sheet, ICellStyle cellStyle, IfpugInfo ifpug)
@@ -194,7 +206,7 @@ void Write(ISheet sheet, ICellStyle cellStyle, IfpugInfo ifpug)
 	// 填充数据行
 	var ftrs = ifpug.Ftrs;
 	var exs = ifpug.Exs;
-	for (int i = 0; i < ftrs.Count; i++)
+	for (var i = 0; i < ftrs.Count; i++)
 	{
 		var ftr = ftrs[i];
 		var row = sheet.CreateRow(i + start + 1);
@@ -205,6 +217,26 @@ void Write(ISheet sheet, ICellStyle cellStyle, IfpugInfo ifpug)
 		row.CreateCell(3).SetCellValue(GetScore(ftr, exs, "EI")).With(cellStyle);
 		row.CreateCell(4).SetCellValue(GetScore(ftr, exs, "EO")).With(cellStyle);
 		row.CreateCell(5).SetCellValue(GetScore(ftr, exs, "EQ")).With(cellStyle);
+		row.CreateCell(6).With(cellStyle);
+	}
+}
+
+void WriteZero(ISheet sheet, ICellStyle cellStyle)
+{
+	for (var rowIndex = 1; rowIndex < sheet.LastRowNum; rowIndex++)
+	{
+		var e3 = GetCellValueByIndex(sheet, rowIndex, 3);
+		var e4 = GetCellValueByIndex(sheet, rowIndex, 4);
+		var e5 = GetCellValueByIndex(sheet, rowIndex, 5);
+
+		var zero = e3 == "0" && e4 == "0" && e5 == "0";
+		Console.WriteLine($"{e3} {e4} {e5} {zero}");
+		if (zero)
+		{
+			var row = sheet.GetRow(rowIndex);
+			row.GetCell(6).With(cellStyle);
+		}
+
 	}
 }
 
