@@ -46,7 +46,11 @@ void Main()
 IfpugInfo Read(ISheet sheet)
 {
 	var ret = new IfpugInfo();
-	
+
+	Console.WriteLine();
+	Console.WriteLine("-------------");
+	Console.WriteLine(sheet.SheetName);
+
 	// 记录已经处理过的合并区域（避免重复输出）
 	var mergedRegions = new HashSet<CellRangeAddress>();
 
@@ -67,6 +71,7 @@ IfpugInfo Read(ISheet sheet)
 
 		// 获取单元格的值
 		var (mr, cv) = GetMergedCellValue(sheet, rowIndex, 0, mergedRegions);
+		cv = cv?.Trim();
 		// 如果不是合并单元格, 表示当前表格已经结束
 		if (!mr && string.IsNullOrEmpty(cv))
 		{
@@ -83,7 +88,7 @@ IfpugInfo Read(ISheet sheet)
 			LineNumber = rowIndex + 1,
 			Content = cv,
 			Name = new string(cv.TakeWhile(c => c != '(').ToArray()).Trim(),
-			SheetName = sheet.SheetName,
+			SheetName = sheet.SheetName.Trim(),
 		};
 
 		if (ftrs.ContainsKey(info.Name))
@@ -109,6 +114,7 @@ IfpugInfo Read(ISheet sheet)
 		}
 
 		var (m0, c0) = GetMergedCellValue(sheet, rowIndex, 0, mergedRegions);
+		c0 = c0?.Trim();
 		
 		// 判断开始
 		if (string.IsNullOrEmpty(type))
@@ -147,6 +153,7 @@ IfpugInfo Read(ISheet sheet)
 
 		// 读取Ex-Ftr
 		var (m1, c1) = GetMergedCellValue(sheet, rowIndex, 1, mergedRegions);
+		c1 = c1?.Trim();
 		if (string.IsNullOrEmpty(c1))
 		{
 			continue;
@@ -156,7 +163,7 @@ IfpugInfo Read(ISheet sheet)
 		if (!ftrs.TryGetValue(c1, out var ftr))
 		{
 			//throw new Exception($"FTR in {type} NOT exist. {c1}");
-			Console.WriteLine($"FTR in {type} NOT exist. {c1}");
+			Console.WriteLine($"{rowIndex + 1}: FTR in {type} NOT exist: {c1}");
 			continue;
 		}
 
@@ -164,7 +171,6 @@ IfpugInfo Read(ISheet sheet)
 		lastEx.Ftrs.Add(ftr);
 	}
 
-	ret.Name = sheet.SheetName;
 	ret.Ftrs = ftrs.Values.ToList();
 	ret.Exs = exs.Values.ToList();
 	return ret;
@@ -379,9 +385,6 @@ class ExInfo
 
 class IfpugInfo
 {
-	/// <summary>模块名, 应该与SheetName保持一致</summary>
-	public string Name { get; set; }
-	
 	/// <summary>FTR 列表</summary>
 	public List<FtrInfo> Ftrs { get; set; }
 	
