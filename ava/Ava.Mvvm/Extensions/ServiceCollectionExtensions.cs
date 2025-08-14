@@ -5,13 +5,13 @@ namespace Ava.Mvvm.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static void AddCommonServices(this IServiceCollection collection) {
-        collection.AddTransient<MainViewViewModel>();
-        collection.AddTransient<MainWindowViewModel>();
-        collection.AddTransient<MenuItemViewModel>();
-        collection.AddTransient<MenuViewModel>();
+    public static void AddCommonServices(this IServiceCollection services) {
+        services.AddTransient<MainViewViewModel>();
+        services.AddTransient<MainWindowViewModel>();
+        services.AddTransient<MenuItemViewModel>();
+        services.AddTransient<MenuViewModel>();
         
-        collection.AddTransient<IntroPageViewModel>();
-        collection.AddTransient<SettingsPageViewModel>();
-    } 
+        services.AddTransient<IntroPageViewModel>();
+        services.AddTransient<SettingsPageViewModel>();
+    }
 }

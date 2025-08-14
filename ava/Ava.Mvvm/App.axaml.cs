@@ -3,6 +3,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using System.Linq;
+using Ava.Mvvm.Base;
+using Ava.Mvvm.Base.Extensions;
 using Ava.Mvvm.Extensions;
 using Avalonia.Markup.Xaml;
 using Ava.Mvvm.ViewModels;
@@ -27,9 +29,13 @@ public partial class App : Application
         // 注册应用程序运行所需的所有服务
         var collection = new ServiceCollection();
         collection.AddCommonServices();
+        collection.AddSettings();
+        collection.AddPlugins();
         
         // 从 collection 提供的 IServiceCollection 中创建包含服务的 ServiceProvider
-        var services = collection.BuildServiceProvider();
+        var sp = collection.BuildServiceProvider();
+        var pluginLoader = sp.GetRequiredService<PluginLoader>();
+        pluginLoader.Load();
         
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -38,7 +44,7 @@ public partial class App : Application
             DisableAvaloniaDataAnnotationValidation();
             desktop.MainWindow = new MainWindow
             {
-                DataContext = services.GetRequiredService<MainViewViewModel>(),
+                DataContext = sp.GetRequiredService<MainViewViewModel>(),
             };
         }
 

@@ -32,4 +32,8 @@
   <ItemGroup>
     <Compile Remove="Converters\ToolBarItemTemplateSelector.cs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ava.Mvvm.Base\Ava.Mvvm.Base.csproj" />
+  </ItemGroup>
 </Project>
