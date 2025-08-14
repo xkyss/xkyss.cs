@@ -35,7 +35,7 @@ void Main()
 	var sheetOut = workbookOut.CreateSheet();
 	WriteHeader(sheetOut, cellStyle);
 
-	for (var i = 1; i <= 6; i++)
+	for (var i = 2; i <= 7; i++)
 	{
 		// 获取工作表
 		var sheetIn = workbookIn.GetSheetAt(i);
@@ -48,6 +48,8 @@ void Main()
 	csRed.FillForegroundColor = HSSFColor.Red.Index;
 	csRed.FillPattern = FillPattern.SolidForeground;
 	WriteZero(sheetOut, csRed);
+	
+	SetColumnWidth(sheetOut);
 
 	// 保存到文件
 	using var fs = new FileStream(path2, FileMode.Create, FileAccess.Write);
@@ -79,7 +81,6 @@ IfpugInfo Read(ISheet sheet)
 			continue;
 		}
 
-
 		// 获取单元格的值
 		var (mr, cv) = GetMergedCellValue(sheet, rowIndex, 0, mergedRegions);
 		cv = cv?.Trim();
@@ -100,6 +101,7 @@ IfpugInfo Read(ISheet sheet)
 			Content = cv,
 			Name = new string(cv.TakeWhile(c => c != '(').ToArray()).Trim(),
 			SheetName = sheet.SheetName.Trim(),
+			Type = GetCellValueByIndex(sheet, rowIndex, 9)?.ToString(), //J列, 类型
 		};
 
 		if (ftrs.ContainsKey(info.Name))
@@ -197,7 +199,16 @@ void WriteHeader(ISheet sheet, ICellStyle cellStyle)
 	headerRow.CreateCell(3).SetCellValue("EI").With(cellStyle);
 	headerRow.CreateCell(4).SetCellValue("EO").With(cellStyle);
 	headerRow.CreateCell(5).SetCellValue("EQ").With(cellStyle);
-	headerRow.CreateCell(6).SetCellValue("XX").With(cellStyle);
+}
+
+void SetColumnWidth(ISheet sheet)
+{
+	// 设置A到F列的宽度, 单位：字符
+	int[] widths = { 14, 4, 40, 8, 5, 5 }; 
+	for (int i = 0; i < widths.Length; i++)
+	{
+		sheet.SetColumnWidth(i, widths[i] * 256);
+	}
 }
 
 void Write(ISheet sheet, ICellStyle cellStyle, IfpugInfo ifpug)
@@ -217,7 +228,6 @@ void Write(ISheet sheet, ICellStyle cellStyle, IfpugInfo ifpug)
 		row.CreateCell(3).SetCellValue(GetScore(ftr, exs, "EI")).With(cellStyle);
 		row.CreateCell(4).SetCellValue(GetScore(ftr, exs, "EO")).With(cellStyle);
 		row.CreateCell(5).SetCellValue(GetScore(ftr, exs, "EQ")).With(cellStyle);
-		row.CreateCell(6).With(cellStyle);
 	}
 }
 
@@ -234,9 +244,8 @@ void WriteZero(ISheet sheet, ICellStyle cellStyle)
 		if (zero)
 		{
 			var row = sheet.GetRow(rowIndex);
-			row.GetCell(6).With(cellStyle);
+			row.GetCell(2).With(cellStyle);
 		}
-
 	}
 }
 

@@ -29,9 +29,9 @@ public partial class App : Application
         services.AddServices();
 
         // 从 collection 提供的 IServiceCollection 中创建包含服务的 ServiceProvider
-        var service = services.BuildServiceProvider();
+        var sp = services.BuildServiceProvider();
 
-        var vm = service.GetRequiredService<MainWindowViewModel>();
+        var vm = sp.GetRequiredService<MainWindowViewModel>();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
