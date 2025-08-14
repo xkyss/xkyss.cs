@@ -1,0 +1,107 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:iri="https://irihi.tech/shared"
+             xmlns:vm="using:Ks.Ava.Mvvm.ViewModels"
+             xmlns:converters="clr-namespace:Ks.Ava.Mvvm.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:CompileBindings="True"
+             x:DataType="vm:MainViewViewModel"
+             x:Class="Ks.Ava.Mvvm.Views.MainView">
+
+    <Design.DataContext>
+        <vm:MainViewViewModel />
+    </Design.DataContext>
+    
+    <UserControl.Resources>
+        <converters:IconNameToPathConverter x:Key="IconConverter" />
+    </UserControl.Resources>
+    
+    <Panel>
+        <Panel.Styles>
+            <Style Selector="Grid.Blur">
+                <Setter Property="Effect" Value="blur(10)" />
+            </Style>
+        </Panel.Styles>
+        <Grid Classes.Blur="{Binding $parent[u:UrsaWindow].(u:OverlayDialogHost.IsInModalStatus)}" ColumnDefinitions="Auto, *">
+            <Border
+                Padding="8,4"
+                VerticalAlignment="Stretch"
+                Theme="{DynamicResource CardBorder}">
+                <u:NavMenu
+                    Name="menu"
+                    ExpandWidth="150"
+                    CommandBinding="{Binding ActivateCommand}"
+                    SubMenuBinding="{Binding Children}"
+                    HeaderBinding="{Binding}"
+                    IconBinding="{Binding MenuHeader}"
+                    IsHorizontalCollapsed="{Binding IsCollapsed, Mode=TwoWay}"
+                    ItemsSource="{Binding Menus.MenuItems}">
+                    <u:NavMenu.Styles>
+                        <Style x:DataType="vm:MenuItemViewModel" Selector="u|NavMenuItem">
+                            <Setter Property="IsSeparator" Value="{Binding IsSeparator}" />
+                        </Style>
+                    </u:NavMenu.Styles>
+                    <u:NavMenu.IconTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <u:TwoTonePathIcon 
+                                Foreground="{DynamicResource SemiGrey5}"
+                                StrokeBrush="{DynamicResource SemiGrey5}" 
+                                ActiveForeground="{DynamicResource SemiBlue5}"
+                                ActiveStrokeBrush="{DynamicResource SemiBlue5}"
+                                IsActive="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=u:NavMenuItem}, Path=IsHighlighted, Mode=TwoWay}"
+                                Data="{Binding Converter={StaticResource IconConverter}}"
+                                Width="16" Height="16"/>
+                        </DataTemplate>
+                    </u:NavMenu.IconTemplate>
+                    <u:NavMenu.HeaderTemplate>
+                        <DataTemplate x:DataType="vm:MenuItemViewModel">
+                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource SemiSpacingExtraTight}">
+                                <TextBlock HorizontalAlignment="Left" Text="{Binding MenuHeader}" />
+                                <Label
+                                    Theme="{StaticResource TagLabel}"
+                                    Classes="Purple"
+                                    Content="{Binding Status}"
+                                    IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </u:NavMenu.HeaderTemplate>
+                    <u:NavMenu.Header>
+                        <DockPanel Margin="8 24 8 8" HorizontalAlignment="Center" >
+                            <Panel
+                                VerticalAlignment="Center"
+                                u:NavMenu.CanToggle="True"
+                                Background="Transparent"
+                                DockPanel.Dock="Left">
+                                <iri:IrihiLogo Width="24" Fill="{DynamicResource SemiGrey7}" />
+                            </Panel>
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Classes="H4"
+                                Margin="8 0 0 0"
+                                IsVisible="{Binding !#menu.IsHorizontalCollapsed}"
+                                Text="Ava"
+                                Theme="{DynamicResource TitleTextBlock}" />
+                        </DockPanel>
+                    </u:NavMenu.Header>
+                    <u:NavMenu.Footer>
+                        <TextBlock 
+                            VerticalAlignment="Center" 
+                            HorizontalAlignment="Center"
+                            Text="v0.1" />
+                    </u:NavMenu.Footer>
+                </u:NavMenu>
+            </Border>
+            <ContentControl
+                Grid.Column="1"
+                Margin="12,36,12,12"
+                Content="{Binding Content}">
+                <ContentControl.ContentTemplate>
+                    <converters:PageViewLocator />
+                </ContentControl.ContentTemplate>
+            </ContentControl>
+        </Grid>
+    </Panel>
+</UserControl>

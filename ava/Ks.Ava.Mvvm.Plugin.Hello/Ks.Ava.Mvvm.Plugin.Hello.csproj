@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <CopyToDirectory>$(MSBuildProjectDirectory)\..\..\.build\Ks.Ava.Mvvm\bin\$(Configuration)\$(TargetFramework)\Plugins\Hello</CopyToDirectory>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Ks.Ava.Mvvm.Base\Ks.Ava.Mvvm.Base.csproj" />
+    </ItemGroup>
+
+    <Target Name="CopyFilesToDestination" AfterTargets="Build">
+        <ItemGroup>
+            <FilesToCopy Include="$(OutputPath)**\Ks.Ava.Mvvm.Plugin.Hello.dll" />
+            <FilesToCopy Include="$(OutputPath)**\Ks.Ava.Mvvm.Plugin.Hello.pdb" />
+            <FilesToCopy Include="$(OutputPath)**\Ks.Ava.Mvvm.Plugin.Hello.deps.json" />
+        </ItemGroup>
+        <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(CopyToDirectory)\%(RecursiveDir)" />
+    </Target>
+</Project>

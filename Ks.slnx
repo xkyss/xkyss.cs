@@ -1,9 +1,9 @@
 <Solution>
   <Folder Name="/ava/">
-    <Project Path="ava/Ava.App/Ava.App.csproj" />
-    <Project Path="ava/Ava.Mvvm/Ava.Mvvm.csproj" />
-    <Project Path="ava\Ava.Mvvm.Base\Ava.Mvvm.Base.csproj" Type="Classic C#" />
-    <Project Path="ava\Ava.Mvvm.Plugin.Hello\Ava.Mvvm.Plugin.Hello.csproj" Type="Classic C#" />
+    <Project Path="ava\Ks.Ava.App\Ks.Ava.App.csproj" />
+    <Project Path="ava\Ks.Ava.Mvvm.Base\Ks.Ava.Mvvm.Base.csproj" Type="Classic C#" />
+    <Project Path="ava\Ks.Ava.Mvvm.Plugin.Hello\Ks.Ava.Mvvm.Plugin.Hello.csproj" Type="Classic C#" />
+    <Project Path="ava\Ks.Ava.Mvvm\Ks.Ava.Mvvm.csproj" />
   </Folder>
   <Folder Name="/bee/">
     <Project Path="bee/Ks.Bee.Base/Ks.Bee.Base.csproj" />
