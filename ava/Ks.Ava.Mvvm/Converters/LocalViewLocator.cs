@@ -1,6 +1,7 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Ks.Ava.Mvvm.Base.ViewModels;
 using Ks.Ava.Mvvm.ViewModels;
 
 namespace Ks.Ava.Mvvm.Converters;

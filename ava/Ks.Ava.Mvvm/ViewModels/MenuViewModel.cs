@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Ks.Ava.Mvvm.Base.ViewModels;
 
 namespace Ks.Ava.Mvvm.ViewModels;
 

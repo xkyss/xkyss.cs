@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Ks.Ava.Mvvm.Base.ViewModels;
 
 namespace Ks.Ava.Mvvm.ViewModels;
 

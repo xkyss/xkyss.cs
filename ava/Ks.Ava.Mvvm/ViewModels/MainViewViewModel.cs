@@ -1,6 +1,7 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Ks.Ava.Mvvm.Base.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
 

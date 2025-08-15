@@ -11,6 +11,13 @@
       <ProjectReference Include="..\Ks.Ava.Mvvm.Base\Ks.Ava.Mvvm.Base.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Update="Views\HelloPage.axaml.cs">
+        <DependentUpon>HelloPage.axaml</DependentUpon>
+        <SubType>Code</SubType>
+      </Compile>
+    </ItemGroup>
+
     <Target Name="CopyFilesToDestination" AfterTargets="Build">
         <ItemGroup>
             <FilesToCopy Include="$(OutputPath)**\Ks.Ava.Mvvm.Plugin.Hello.dll" />
