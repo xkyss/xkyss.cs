@@ -2,6 +2,8 @@ namespace Ks.Ava.Mvvm.Base
 {
     public class BaseSettings
     {
+        public static readonly string Tag = "BASE";
+        
         /// <summary>
         /// 全局输出目录
         /// </summary>

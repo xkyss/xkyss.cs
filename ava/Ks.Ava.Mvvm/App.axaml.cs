@@ -1,14 +1,14 @@
+using System.IO;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using System.Linq;
-using Ks.Ava.Mvvm.Base;
 using Ks.Ava.Mvvm.Base.Extensions;
 using Ks.Ava.Mvvm.Extensions;
 using Avalonia.Markup.Xaml;
 using Ks.Ava.Mvvm.ViewModels;
 using Ks.Ava.Mvvm.Views;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -30,12 +30,22 @@ public partial class App : Application
         BindingPlugins.DataValidators.RemoveAt(0);
 
         _host = Host.CreateDefaultBuilder()
-            // 注册应用程序运行所需的服务
-            .ConfigureServices(sc =>
+            // 配置
+            .ConfigureAppConfiguration((context, builder) =>
             {
-                sc.AddCommonServices();
-                sc.AddSettings();
-                sc.AddPlugins();
+                var env = context.HostingEnvironment;
+                var contentRootPath = context.HostingEnvironment.ContentRootPath;
+                
+                builder.AddJsonFile("appsettings.json", true);
+                builder.AddJsonFile(Path.Combine(contentRootPath, "appsettings.json"), true);
+                builder.AddJsonFile(Path.Combine(contentRootPath, $"appsettings.{env.EnvironmentName}.json"), true);
+            })
+            // 注册应用程序运行所需的服务
+            .ConfigureServices(services =>
+            {
+                services.AddCommonServices();
+                services.AddSettings();
+                services.AddPlugins();
             })
             .Build();
         

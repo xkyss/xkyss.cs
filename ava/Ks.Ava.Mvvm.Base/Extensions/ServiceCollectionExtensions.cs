@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -20,14 +21,10 @@ namespace Ks.Ava.Mvvm.Base.Extensions
         /// </summary>
         /// <param name="services"></param>
         /// <returns></returns>
-        public static IServiceCollection AddSettings(this IServiceCollection services)
+        public static IServiceCollection AddSettings(this IServiceCollection services, IConfiguration configuration)
         {
-            var appSettings = Options.Create(new BaseSettings
-            {
-                OutputPath = Path.Combine(AppContext.BaseDirectory, "output"),
-                PluginPath = Path.Combine(AppContext.BaseDirectory, "Plugins")
-            });
-            services.AddSingleton(appSettings);
+            services.Configure<BaseSettings>(configuration.GetSection(BaseSettings.Tag));
+            
             return services;
         }
     }

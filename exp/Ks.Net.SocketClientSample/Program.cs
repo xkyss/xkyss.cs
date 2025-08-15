@@ -1,6 +1,4 @@
-﻿using Ks.Net.Socket;
-using Ks.Net.Socket.Client;
-using Ks.Net.Socket.Extensions;
+﻿using Ks.Net.Socket.Extensions;
 using Serilog.Events;
 using Serilog;
 using Ks.Net.SocketClientSample;
@@ -31,7 +29,7 @@ await Host.CreateDefaultBuilder(args)
         var contentRootPath = context.HostingEnvironment.ContentRootPath;
 
         Log.Information(" EnvironmentName: {env}", env.EnvironmentName);
-
+        
         builder.SetBasePath(folder);
         builder.AddJsonFile("appsettings.json", true);
         builder.AddJsonFile(Path.Combine(contentRootPath, "appsettings.json"), true);
