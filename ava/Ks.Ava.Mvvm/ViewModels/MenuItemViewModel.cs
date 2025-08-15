@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
@@ -11,6 +12,8 @@ public class MenuItemViewModel: ViewModelBase
     public string? MenuHeader { get; set; }
     public string? MenuIconName { get; set; }
     public string? Key { get; set; }
+    
+    public Type? ViewModelType { get; set; }
     public string? Status { get; set; }
     
     public bool IsSeparator { get; set; }
@@ -25,7 +28,10 @@ public class MenuItemViewModel: ViewModelBase
 
     private void OnActivate()
     {
-        if (IsSeparator || Key is null) return;
-        WeakReferenceMessenger.Default.Send(Key);
+        if (IsSeparator || ViewModelType is null)
+        {
+            return;
+        }
+        WeakReferenceMessenger.Default.Send(ViewModelType);
     }
 }

@@ -4,7 +4,6 @@ namespace Ks.Ava.Mvvm.Views;
 
 public partial class MainWindow : UrsaWindow
 {
-
     public WindowNotificationManager? NotificationManager { get; set; }
 
     public MainWindow()

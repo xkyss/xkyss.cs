@@ -20,7 +20,9 @@ public partial class MainView : UserControl
         _viewModel = DataContext as MainViewViewModel;
         var topLevel = TopLevel.GetTopLevel(this);
         if (topLevel is null || _viewModel is null)
+        {
             return;
+        }
         _viewModel.NotificationManager = WindowNotificationManager.TryGetNotificationManager(topLevel, out var manager)
             ? manager
             : new WindowNotificationManager(topLevel);

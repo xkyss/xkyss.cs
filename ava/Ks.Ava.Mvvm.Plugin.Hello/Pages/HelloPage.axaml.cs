@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace Ks.Ava.Mvvm.Plugin.Hello.Views
+namespace Ks.Ava.Mvvm.Plugin.Hello.Pages
 {
     public partial class HelloPage : UserControl
     {

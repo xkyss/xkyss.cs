@@ -26,18 +26,13 @@ public partial class MainViewViewModel : ViewModelBase
     {
         _sp = sp;
         Menus = _sp.GetRequiredService<MenuViewModel>();
-        WeakReferenceMessenger.Default.Register<MainViewViewModel, string>(this, OnNavigation);
+        WeakReferenceMessenger.Default.Register<MainViewViewModel, Type>(this, OnNavigation);
     }
 
 
-    private void OnNavigation(MainViewViewModel vm, string s)
+    private void OnNavigation(MainViewViewModel @this, Type type)
     {
-        Content = s switch
-        {
-            MenuKeys.MenuKeyIntro => _sp.GetRequiredService<IntroPageViewModel>(),
-            MenuKeys.MenuKeySettings => _sp.GetRequiredService<SettingsPageViewModel>(),
-            _ => throw new ArgumentOutOfRangeException(nameof(s), s, null)
-        };
+        Content = _sp.GetRequiredService(type);
     }
     
     [ObservableProperty] private bool _isCollapsed;
