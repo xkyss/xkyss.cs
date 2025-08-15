@@ -41,11 +41,11 @@ public partial class App : Application
                 builder.AddJsonFile(Path.Combine(contentRootPath, $"appsettings.{env.EnvironmentName}.json"), true);
             })
             // 注册应用程序运行所需的服务
-            .ConfigureServices(services =>
+            .ConfigureServices((context, services) =>
             {
                 services.AddCommonServices();
-                services.AddSettings();
-                services.AddPlugins();
+                services.AddBaseSettings(context.Configuration);
+                services.AddPlugins(context.Configuration);
             })
             .Build();
         
