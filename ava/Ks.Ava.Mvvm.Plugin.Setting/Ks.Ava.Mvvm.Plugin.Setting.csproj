@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <CopyToDirectory>$(MSBuildProjectDirectory)\..\..\.build\Ks.Ava.Mvvm\bin\$(Configuration)\$(TargetFramework)\Plugins\Setting</CopyToDirectory>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Ks.Ava.Mvvm.Base\Ks.Ava.Mvvm.Base.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="Views\SettingPage.axaml.cs">
+        <DependentUpon>SettingPage.axaml</DependentUpon>
+        <SubType>Code</SubType>
+      </Compile>
+    </ItemGroup>
+
+    <Target Name="CopyFilesToDestination" AfterTargets="Build">
+        <ItemGroup>
+            <FilesToCopy Include="$(OutputPath)**\Ks.Ava.Mvvm.Plugin.Setting.dll" />
+            <FilesToCopy Include="$(OutputPath)**\Ks.Ava.Mvvm.Plugin.Setting.pdb" />
+            <FilesToCopy Include="$(OutputPath)**\Ks.Ava.Mvvm.Plugin.Setting.deps.json" />
+        </ItemGroup>
+        <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(CopyToDirectory)\%(RecursiveDir)" />
+    </Target>
+</Project>

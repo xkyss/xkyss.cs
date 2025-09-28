@@ -10,8 +10,5 @@ public static class ServiceCollectionExtensions
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<MenuItemViewModel>();
         services.AddTransient<MenuViewModel>();
-        
-        services.AddTransient<IntroPageViewModel>();
-        services.AddTransient<SettingsPageViewModel>();
     }
 }

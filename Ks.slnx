@@ -3,6 +3,8 @@
     <Project Path="ava\Ks.Ava.App\Ks.Ava.App.csproj" />
     <Project Path="ava\Ks.Ava.Mvvm.Base\Ks.Ava.Mvvm.Base.csproj" Type="Classic C#" />
     <Project Path="ava\Ks.Ava.Mvvm.Plugin.Hello\Ks.Ava.Mvvm.Plugin.Hello.csproj" Type="Classic C#" />
+    <Project Path="ava\Ks.Ava.Mvvm.Plugin.Intro\Ks.Ava.Mvvm.Plugin.Intro.csproj" Type="Classic C#" />
+    <Project Path="ava\Ks.Ava.Mvvm.Plugin.Setting\Ks.Ava.Mvvm.Plugin.Setting.csproj" Type="Classic C#" />
     <Project Path="ava\Ks.Ava.Mvvm\Ks.Ava.Mvvm.csproj" />
   </Folder>
   <Folder Name="/bee/">
