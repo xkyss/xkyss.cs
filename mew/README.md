@@ -1,1 +1,98 @@
-# MewPad — 通用桌面 GUI Shell 框架\n\n基于 **MewUI** 和 **.NET 10** 构建，参考 VS Code 布局的跨平台 GUI 框架。\n\n## 📋 项目文档\n\n### 设计文档（优先阅读）\n\n| 文档 | 说明 |\n|------|------|\n| [doc/01-overview.md](doc/01-overview.md) | 🎯 项目定位与总览 |\n| [doc/02-layout.md](doc/02-layout.md) | 🎨 整体布局分区、交互规则 |\n| [doc/03-components.md](doc/03-components.md) | 🧩 各分区组件设计、ShellContext API |\n| [doc/04-extensibility.md](doc/04-extensibility.md) | 🔌 扩展机制、插件接口设计 |\n| [doc/05-global-features.md](doc/05-global-features.md) | 🌍 主题、多语言、设置系统 |\n\n### 开发文档（开始编码前阅读）\n\n| 文档 | 说明 |\n|------|------|\n| [doc/06-development-plan.md](doc/06-development-plan.md) | 📅 详细开发计划、8周里程碑 |\n| [doc/07-quick-start.md](doc/07-quick-start.md) | 🚀 项目初始化、编码快速指南 |\n| [doc/IMPLEMENTATION_TODO.md](doc/IMPLEMENTATION_TODO.md) | ✅ 可执行 TODO 清单（开发过程中更新） |\n\n---\n\n## 🏗️ 项目布局\n\n```\nMewPad/\n├── src/\n│   ├── MewPad.Core/              # 核心库（Shell 框架）\n│   └── MewPad.Hosting/           # 应用宿主 + 示例\n├── doc/                          # 设计与开发文档\n├── MewPad.sln                    # 解决方案文件\n└── README.md                     # 本文件\n```\n\n---\n\n## 🎯 MVP 功能\n\n✅ **布局与导航**\n- VS Code 风格的分区布局（ActivityBar / SideBar / ContentArea / PanelArea）\n- 可折叠区域，拖动分割线调整尺寸\n- 状态持久化\n\n✅ **全局功能**\n- Light / Dark 主题快速切换（TitleBar）\n- 多语言支持（i18n）\n- 统一设置面板\n\n✅ **扩展机制**\n- 注册式插件模型\n- `IActivityItem` / `IPanelItem` / `IContentItem` 接口\n- 自定义设置分类\n\n✅ **技术特性**\n- .NET 10，支持 NativeAOT\n- 跨平台（Windows / Linux / macOS）\n- 代码优先，无 XAML\n\n---\n\n## 🚀 快速开始\n\n### 前置条件\n\n- .NET 10 SDK\n- Windows 10+（或 Linux/macOS）\n- 代码编辑器：VS Code / Visual Studio 2022\n\n### 初始化项目\n\n```bash\ncd d:\\Code\\xkyss\\xkyss.cs\\mew\n\n# 创建解决方案\ndotnet new sln -n MewPad\n\n# 创建项目\nmkdir -p src\\MewPad.Core\nmkdir -p src\\MewPad.Hosting\n\ncd src\\MewPad.Core\ndotnet new classlib -n MewPad.Core -f net10.0\n\ncd ..\\MewPad.Hosting\ndotnet new winexe -n MewPad.Hosting -f net10.0\n\ncd ..\\.\n\n# 添加到解决方案\ndotnet sln add MewPad.Core\\MewPad.Core.csproj\ndotnet sln add MewPad.Hosting\\MewPad.Hosting.csproj\n```\n\n### 编译 & 运行\n\n```bash\ndotnet build\ndotnet run --project src\\MewPad.Hosting\n```\n\n详见 [doc/07-quick-start.md](doc/07-quick-start.md)\n\n---\n\n## 📖 开发流程\n\n### Phase 1：核心框架与基础 UI（Weeks 1-2）\n\n- 项目初始化\n- 接口定义 + ShellContext\n- UI 骨架搭建\n- 主题系统\n\n**目标**：主窗口显示，主题切换工作\n\n### Phase 2：多语言与设置（Weeks 3-4）\n\n- i18n 系统\n- SettingsPanel\n- 配置持久化\n\n**目标**：设置面板打开，语言切换生效\n\n### Phase 3：高级交互（Weeks 5-6）\n\n- 折叠/展开精细化\n- 状态恢复\n- 菜单栏\n\n**目标**：完整用户体验\n\n### Phase 4：测试与文档（Weeks 7-8）\n\n- 单元 + 集成测试\n- 文档完善\n- 性能优化\n- Release v0.1.0\n\n详见 [doc/06-development-plan.md](doc/06-development-plan.md)\n\n---\n\n## 🔧 技术栈\n\n| 组件 | 版本 | 说明 |\n|------|------|------|\n| .NET | 10.0 | 目标运行时 |\n| MewUI | Latest | UI 框架 |\n| System.Text.Json | 内置 | 配置序列化 |\n\n---\n\n## 📝 编码规范\n\n- **语言**：C# 13，启用 Nullable Reference Types\n- **命名**：PascalCase (public)，camelCase (private)\n- **注释**：XML 文档注释 + 行注释\n- **依赖注入**：Program.cs 集中配置\n\n---\n\n## 🎨 设计哲学\n\n1. **Shell 与内容分离** — Shell 不耦合业务逻辑\n2. **注册即接入** — 所有扩展通过接口注册\n3. **最小接口** — 扩展者只需实现简单接口\n4. **状态透明** — 所有状态变更可观察\n5. **主题响应式** — UI 自动跟随主题切换\n\n---\n\n## 📚 相关资源\n\n- [MewUI GitHub](https://github.com/aprillz/MewUI)\n- [MewUI 文档](https://github.com/aprillz/MewUI/tree/main/docs)\n- VS Code 架构参考：https://github.com/microsoft/vscode\n\n---\n\n## ✍️ 贡献\n\n本项目目前为个人学习项目。设计与开发过程完全记录在 `doc/` 目录。\n\n---\n\n## 📄 许可证\n\n待定（参考 MewUI 的 MIT 许可证）\n\n---\n\n## 🎯 当前状态\n\n- ✅ 设计阶段完成（5 份设计文档）\n- ✅ 开发计划制定（8 周路线图）\n- ✅ 快速开始指南准备就绪\n- → **即将开始 Phase 1 编码**\n\n**预计 v0.1.0 发布时间**：8 周内（2026 年 7 月初）\n\n---\n\n## 💡 下一步\n\n1. 阅读 [doc/01-overview.md](doc/01-overview.md) 了解项目\n2. 阅读 [doc/06-development-plan.md](doc/06-development-plan.md) 了解计划\n3. 按 [doc/07-quick-start.md](doc/07-quick-start.md) 初始化项目\n4. 更新 [doc/IMPLEMENTATION_TODO.md](doc/IMPLEMENTATION_TODO.md) 并开始编码\n\n---\n\n**开工日期**：2026 年 5 月 9 日  \n**预计完成**：2026 年 7 月初\n"
+# MewPad
+
+基于 MewUI 和 .NET 10 的桌面 Shell 框架，提供 VS Code 风格布局、主题与语言切换、设置系统、可扩展活动栏/面板/内容区。
+
+## 当前状态
+
+- P0-P4 已完成
+- P5 已完成发布链路准备（含 NativeAOT x64 验证）
+- 测试现状：45/45 通过
+
+## 目录结构
+
+```text
+src/
+	MewPad.Core/
+	MewPad.Hosting/
+tests/
+	MewPad.Tests/
+doc/
+```
+
+## 本地开发
+
+```powershell
+dotnet restore
+dotnet build
+dotnet test tests\MewPad.Tests\MewPad.Tests.csproj
+dotnet run --project .\src\MewPad.Hosting\
+```
+
+## 发布说明（P5）
+
+### 1) 常规 Release 构建
+
+```powershell
+pwsh .\build-release.ps1 -Version 0.1.0-preview
+```
+
+输出目录：`.build\release\framework`
+
+### 2) NativeAOT x64 发布
+
+已参考 Resty 的方式实现：先初始化 VS Build Tools 环境，再执行 AOT publish。
+
+```cmd
+publish-aot.cmd
+```
+
+或透传 dotnet publish 参数：
+
+```cmd
+publish-aot.cmd -v minimal
+```
+
+核心实现文件：
+
+- `publish-aot.cmd`
+- `src/MewPad.Hosting/Properties/PublishProfiles/win-x64-aot.pubxml`
+
+默认依赖路径：
+
+- `D:\Scoop\apps\vsbuildtools2022\current\vs\Common7\Tools\VsDevCmd.bat`
+
+### 3) 一键完整发布（含 AOT）
+
+```powershell
+pwsh .\build-release.ps1 -Version 0.1.0-preview
+```
+
+输出目录：
+
+- `.build\release\framework`
+- `.build\release\aot-win-x64`
+- `.build\release\MewPad-<version>-win-x64-aot.zip`
+- `.build\release\CHECKSUMS.txt`
+
+如仅做常规发布，跳过 AOT：
+
+```powershell
+pwsh .\build-release.ps1 -Version 0.1.0-preview -SkipAot
+```
+
+## 已验证结果
+
+- NativeAOT 发布命令执行成功
+- 产物位于：`.build\MewPad.Hosting\bin\Release\net10.0\win-x64\publish`
+- 主程序：`MewPad.Hosting.exe`
+
+## 文档索引
+
+- `doc/01-overview.md`
+- `doc/02-layout.md`
+- `doc/03-components.md`
+- `doc/04-extensibility.md`
+- `doc/05-global-features.md`
+- `doc/06-development-plan.md`
+- `doc/07-quick-start.md`
+- `doc/07-tasks.md`

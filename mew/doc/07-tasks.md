@@ -87,9 +87,9 @@
 
 ## P5 发布准备
 
-- [ ] 补 README 与扩展开发说明
-- [ ] 验证 NativeAOT x64 发布
-- [ ] 整理 VERSION / CHANGELOG / RELEASE_NOTES
+- [x] 补 README 与扩展开发说明
+- [x] 验证 NativeAOT x64 发布
+- [x] 整理 VERSION / CHANGELOG / RELEASE_NOTES
 
 验收标准：能够稳定产出内部测试版本。
 
@@ -122,5 +122,5 @@
 ## 后续优先任务
 
 - [ ] P2：StatusBar 真实读取错误/警告计数
-- [ ] P4：ShellContext / ConfigurationService 单元测试
-- [ ] P5：README 完善与 NativeAOT 发布验证
+- [x] P4：ShellContext / ConfigurationService 单元测试
+- [x] P5：README 完善与 NativeAOT 发布验证

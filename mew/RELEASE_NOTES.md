@@ -31,6 +31,12 @@ This is the **first preview release**, showcasing the core framework architectur
 - **Nullable reference types** enabled for safety
 - **C# 13** language features support
 
+### 📦 Release Pipeline (P5)
+- Added one-click NativeAOT publish script (`publish-aot.cmd`)
+- Added AOT publish profile (`win-x64-aot.pubxml`)
+- Updated `build-release.ps1` for framework + AOT packaging
+- Added checksum generation for release archive
+
 ## 📦 What's Included
 
 ```
@@ -98,7 +104,7 @@ shell.RegisterActivity(new MyActivity());
 - No drag-and-drop support yet
 - Limited keyboard shortcut system
 - Command palette not implemented
-- No settings persistence (v0.2.0)
+- NativeAOT build emits trimming/AOT analysis warnings in `ConfigurationService`
 
 ## 📚 Documentation
 
@@ -138,6 +144,8 @@ dotnet test
 - [x] LocalizationService supports en-US and zh-CN
 - [x] ShellContext registers extensions
 - [x] Built-in activities display correctly
+- [x] 45 automated tests pass
+- [x] NativeAOT x64 publish succeeds
 
 ## 🤝 Contributing
 
