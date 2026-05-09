@@ -49,13 +49,45 @@ internal class Program
             StatusBarSlot.Right,
             Priority: 10));
 
-        // Load external runtime plugins from "plugins" directory.
-        var pluginsDir = Path.Combine(AppContext.BaseDirectory, "plugins");
-        var loadSummary = PluginLoader.LoadFromDirectory(shell, pluginsDir);
-        if (loadSummary.LoadedPlugins > 0 || loadSummary.FailedPlugins > 0)
+        // Load runtime plugins from default and development fallback directories.
+        var pluginDirectories = new List<string>
         {
-            Console.WriteLine($"[Plugins] Loaded={loadSummary.LoadedPlugins}, Failed={loadSummary.FailedPlugins}, Dir={loadSummary.Directory}");
-            foreach (var error in loadSummary.Errors)
+            Path.Combine(AppContext.BaseDirectory, "plugins")
+        };
+
+        var repoRoot = FindRepoRoot(Directory.GetCurrentDirectory());
+        if (repoRoot != null)
+        {
+            pluginDirectories.Add(Path.Combine(repoRoot, ".build", "QuickLaunch.Plugin", "bin", "Debug", "net10.0"));
+            pluginDirectories.Add(Path.Combine(repoRoot, ".build", "QuickLaunch.Plugin", "bin", "Release", "net10.0"));
+        }
+
+        var totalLoaded = 0;
+        var totalFailed = 0;
+        var allErrors = new List<string>();
+
+        foreach (var dir in pluginDirectories.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var summary = PluginLoader.LoadFromDirectory(shell, dir);
+            totalLoaded += summary.LoadedPlugins;
+            totalFailed += summary.FailedPlugins;
+            foreach (var err in summary.Errors)
+                allErrors.Add($"{Path.GetFileName(dir)}: {err}");
+        }
+
+        if (totalLoaded > 0)
+        {
+            shell.RegisterStatusBarItem(new StatusBarItem(
+                "plugins-count",
+                () => new Label { Text = $"  Plugins {totalLoaded}  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center },
+                StatusBarSlot.Right,
+                Priority: 5));
+        }
+
+        if (totalLoaded > 0 || totalFailed > 0)
+        {
+            Console.WriteLine($"[Plugins] Loaded={totalLoaded}, Failed={totalFailed}");
+            foreach (var error in allErrors)
                 Console.WriteLine($"[Plugins] {error}");
         }
 
@@ -93,5 +125,21 @@ internal class Program
         {
             return "main";
         }
+    }
+
+    private static string? FindRepoRoot(string startDirectory)
+    {
+        var current = new DirectoryInfo(startDirectory);
+        while (current != null)
+        {
+            var hasSolution = File.Exists(Path.Combine(current.FullName, "MewPad.slnx"));
+            var hasSrc = Directory.Exists(Path.Combine(current.FullName, "src", "MewPad.Hosting"));
+            if (hasSolution && hasSrc)
+                return current.FullName;
+
+            current = current.Parent;
+        }
+
+        return null;
     }
 }

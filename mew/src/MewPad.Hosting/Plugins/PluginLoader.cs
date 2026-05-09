@@ -58,6 +58,8 @@ internal static class PluginLoader
 
         foreach (var type in exportedTypes)
         {
+            var registeredViaIPlugin = false;
+
             // Contract-based plugin
             if (typeof(IPlugin).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract)
             {
@@ -67,6 +69,7 @@ internal static class PluginLoader
                     {
                         plugin.Register(shell);
                         registeredCount++;
+                        registeredViaIPlugin = true;
                     }
                 }
                 catch (Exception ex)
@@ -74,6 +77,9 @@ internal static class PluginLoader
                     errors.Add($"IPlugin register failed: {type.FullName} => {ex.Message}");
                 }
             }
+
+            if (registeredViaIPlugin)
+                continue;
 
             // Convention-based plugin entrypoint
             var registerMethod = type.GetMethod(

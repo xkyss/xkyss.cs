@@ -23,4 +23,22 @@
     </None>
   </ItemGroup>
 
+  <Target Name="BuildAndCopySampleQuickLaunchPlugin" AfterTargets="Build">
+    <MSBuild
+      Projects="$(MSBuildProjectDirectory)\..\..\samples\QuickLaunch.Plugin\QuickLaunch.Plugin.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration)" />
+
+    <ItemGroup>
+      <QuickLaunchPluginDll Include="$(MSBuildProjectDirectory)\..\..\.build\QuickLaunch.Plugin\bin\$(Configuration)\net10.0\QuickLaunch.Plugin.dll" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(OutputPath)plugins" />
+    <Copy
+      SourceFiles="@(QuickLaunchPluginDll)"
+      DestinationFolder="$(OutputPath)plugins"
+      SkipUnchangedFiles="true"
+      Condition="Exists('%(QuickLaunchPluginDll.Identity)')" />
+  </Target>
+
 </Project>
