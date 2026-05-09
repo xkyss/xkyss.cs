@@ -23,6 +23,11 @@ public interface ISettingsService
     ISettingsCategory? GetCategory(string id);
 
     /// <summary>
+    /// Register the handler that opens the settings panel (wired by the shell host).
+    /// </summary>
+    void SetOpenHandler(Action<string> handler);
+
+    /// <summary>
     /// Open the settings panel with a specific category.
     /// </summary>
     void OpenSettings(string categoryId = "appearance");

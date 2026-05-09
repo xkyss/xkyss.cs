@@ -31,9 +31,20 @@ public static class AppWindowBuilder
     // ── Shell Construction ────────────────────────────────────────
     private static void BuildShell(NativeCustomWindow window, ShellContext shell)
     {
+        // ── Restore persisted state ───────────────────────────────
+        var cfg = shell.Configuration;
+        var savedTheme = cfg.GetConfig<string>("ui.theme");
+        if (savedTheme == "Dark") shell.Theme.Set(AppTheme.Dark);
+        else if (savedTheme == "Light") shell.Theme.Set(AppTheme.Light);
+
+        var savedLang = cfg.GetConfig<string>("ui.language");
+        if (!string.IsNullOrEmpty(savedLang)) shell.Localization.SetLanguage(savedLang);
+
         // ── State ────────────────────────────────────────────────
-        double cachedSideBarWidth = 240;
-        double cachedPanelHeight = 200;
+        double cachedSideBarWidth = cfg.GetConfig("ui.sidebarWidth", 240.0);
+        double cachedPanelHeight  = cfg.GetConfig("ui.panelHeight", 200.0);
+        bool startSideBarCollapsed = cfg.GetConfig("ui.sidebarCollapsed", false);
+        bool startPanelCollapsed   = cfg.GetConfig("ui.panelCollapsed", false);
 
         SplitPanel? mainSplit = null;
         SplitPanel? contentAndPanel = null;
@@ -104,10 +115,14 @@ public static class AppWindowBuilder
                 ToggleSideBar();
         }
 
-        void OpenSettings()
+        void OpenSettings(string categoryId = "appearance")
         {
-            shell.OpenContent(new SettingsContentItem(shell));
+            var item = new SettingsContentItem(shell, categoryId);
+            shell.OpenContent(item);
         }
+
+        // Wire SettingsService opener so shell.Settings.OpenSettings() works from anywhere
+        shell.Settings.SetOpenHandler(id => OpenSettings(id));
 
         // ── ActivityBar ───────────────────────────────────────────
         var allActivities = shell.GetActivities();
@@ -168,7 +183,7 @@ public static class AppWindowBuilder
             Content = new Label { Text = "⚙", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
             MinWidth = 48,
             MinHeight = 46,
-        }.OnClick(OpenSettings);
+        }.OnClick(() => OpenSettings());
 
         var bottomFixed = new StackPanel().Vertical();
         bottomFixed.Children(accountBtn, settingsBtn);
@@ -218,6 +233,8 @@ public static class AppWindowBuilder
             foreach (var t in openTabItems.ToList())
             {
                 var tab = t;
+                var isActive = tab.Id == activeTabId;
+
                 var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
                 if (tab.Icon != null)
                     titleRow.Children(new Label { Text = tab.Icon.ToString()!, FontSize = 12, Margin = new Thickness(0, 0, 4, 0) });
@@ -248,13 +265,24 @@ public static class AppWindowBuilder
                     titleRow.Children(closeBtn);
                 }
 
-                row.Children(new Button { Content = titleRow }.OnClick(() =>
+                var tabBtn = new Button
+                {
+                    Content = titleRow,
+                    Padding = new Thickness(10, 4),
+                };
+                // Active tab: slightly lighter/highlighted background
+                if (isActive)
+                    tabBtn.Background = Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF);
+
+                tabBtn.OnClick(() =>
                 {
                     activeTabId = tab.Id;
                     if (contentCache.TryGetValue(tab.Id, out var c))
                         contentBodyBorder.Child = c;
                     RebuildTabHeaders();
-                }));
+                });
+
+                row.Children(tabBtn);
             }
             tabHeadersBorder.Child = row;
         }
@@ -391,12 +419,38 @@ public static class AppWindowBuilder
         window.Content = root;
         window.Padding = new Thickness(0);
 
-        // ── Default activation ────────────────────────────────────
+        // ── Persist config on window close ────────────────────────
+        window.Closed += () =>
+        {
+            cfg.SetConfig("ui.theme", shell.Theme.Current.ToString());
+            cfg.SetConfig("ui.language", shell.Localization.CurrentLanguage);
+            cfg.SetConfig("ui.sidebarCollapsed", shell.SideBarCollapsed.Value);
+            cfg.SetConfig("ui.panelCollapsed", shell.PanelCollapsed.Value);
+            if (mainSplit!.FirstLength.IsAbsolute && mainSplit.FirstLength.Value > 0)
+                cfg.SetConfig("ui.sidebarWidth", mainSplit.FirstLength.Value);
+            if (contentAndPanel!.SecondLength.IsAbsolute && contentAndPanel.SecondLength.Value > 0)
+                cfg.SetConfig("ui.panelHeight", contentAndPanel.SecondLength.Value);
+            cfg.Save();
+        };
+
+        // ── Default activation + restore sidebar/panel state ─────
         var firstActivity = topActivities.Count > 0 ? topActivities[0]
             : bottomActivities.Count > 0 ? bottomActivities[0]
             : null;
         if (firstActivity != null)
             ActivateActivity(firstActivity.Id);
+
+        // Apply persisted collapse states after initial activation
+        if (startSideBarCollapsed)
+        {
+            shell.SideBarCollapsed.Value = false; // ensure toggle flips correctly
+            ToggleSideBar();
+        }
+        if (startPanelCollapsed)
+        {
+            shell.PanelCollapsed.Value = false;
+            TogglePanel();
+        }
     }
 
     // ── MenuBar ───────────────────────────────────────────────────

@@ -11,8 +11,13 @@ using MewPad.Core.Shell;
 public sealed class SettingsContentItem : IContentItem
 {
     private readonly ShellContext _shell;
+    private readonly string _initialCategoryId;
 
-    public SettingsContentItem(ShellContext shell) => _shell = shell;
+    public SettingsContentItem(ShellContext shell, string initialCategoryId = "appearance")
+    {
+        _shell = shell;
+        _initialCategoryId = initialCategoryId;
+    }
 
     public string Id => "mewpad.settings";
     public string Title => "Settings";
@@ -25,27 +30,43 @@ public sealed class SettingsContentItem : IContentItem
 
         var categoryList = new StackPanel().Vertical();
         var contentArea = new Border { Padding = new Thickness(12) };
+        ISettingsCategory? activeCategory = null;
 
         void SelectCategory(ISettingsCategory cat)
         {
+            activeCategory = cat;
             contentArea.Child = cat.CreateView();
+            // Rebuild list to update highlight
+            RebuildCategoryList();
         }
 
-        foreach (var cat in categories)
+        void RebuildCategoryList()
         {
-            var c = cat;
-            categoryList.Children(
-                new Button()
-                    .Content(new Label
-                    {
-                        Text = c.Icon != null ? $"{c.Icon}  {c.Title}" : c.Title,
-                        HorizontalAlignment = HorizontalAlignment.Left,
-                    })
-                    .OnClick(() => SelectCategory(c)));
+            categoryList.Children().Clear();
+            foreach (var cat in categories)
+            {
+                var c = cat;
+                var isActive = activeCategory?.Id == c.Id;
+                var label = new Label
+                {
+                    Text = c.Icon != null ? $"{c.Icon}  {c.Title}" : c.Title,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(0, 2),
+                };
+                var btn = new Button { Content = label, Padding = new Thickness(8, 6) };
+                if (isActive)
+                    btn.Background = Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF);
+                btn.OnClick(() => SelectCategory(c));
+                categoryList.Children(btn);
+            }
         }
 
-        if (categories.Count > 0)
-            SelectCategory(categories[0]);
+        RebuildCategoryList();
+
+        // Activate initial category
+        var initCat = categories.FirstOrDefault(c => c.Id == _initialCategoryId) ?? categories.FirstOrDefault();
+        if (initCat != null)
+            SelectCategory(initCat);
         else
             contentArea.Child = new Label { Text = "No settings categories registered." };
 

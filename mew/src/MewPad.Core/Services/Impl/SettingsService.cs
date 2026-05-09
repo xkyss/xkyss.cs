@@ -18,5 +18,9 @@ internal class SettingsService : ISettingsService
     public ISettingsCategory? GetCategory(string id)
         => _categories.FirstOrDefault(c => c.Id == id);
 
-    public void OpenSettings(string categoryId = "appearance") { }
+    private Action<string>? _openHandler;
+
+    public void SetOpenHandler(Action<string> handler) => _openHandler = handler;
+
+    public void OpenSettings(string categoryId = "appearance") => _openHandler?.Invoke(categoryId);
 }
