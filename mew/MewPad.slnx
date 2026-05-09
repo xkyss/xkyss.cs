@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MewPad.Core/MewPad.Core.csproj" />
+    <Project Path="src/MewPad.Hosting/MewPad.Hosting.csproj" />
+  </Folder>
+</Solution>
