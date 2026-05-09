@@ -70,6 +70,7 @@ public static class AppWindowBuilder
         var settingsCategories = shell.Settings.Categories.OrderBy(c => c.Order).ToList();
         string activeSettingsCategoryId = settingsCategories.FirstOrDefault()?.Id ?? "appearance";
         Action<string> openSettingsAction = _ => { };
+        bool isSettingsOpen = false;  // Track settings visibility
 
         // ── Local Functions ───────────────────────────────────────
         void ToggleSideBar()
@@ -239,12 +240,26 @@ public static class AppWindowBuilder
             topStack.Children(MakeActivityButton(activity));
 
         // Bottom fixed items: Settings
+        Action? closeSettings = null;
         var settingsBtn = new Button
         {
             Content = new Label { Text = "⚙", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
             MinWidth = 48,
             MinHeight = 46,
-        }.OnClick(() => OpenSettings());
+        }.OnClick(() =>
+        {
+            // Toggle settings: click once to open, click again to close
+            if (isSettingsOpen && closeSettings != null)
+            {
+                isSettingsOpen = false;
+                closeSettings();
+            }
+            else
+            {
+                isSettingsOpen = true;
+                OpenSettings();
+            }
+        });
 
         var bottomFixed = new StackPanel().Vertical();
         bottomFixed.Children(settingsBtn);
@@ -319,6 +334,13 @@ public static class AppWindowBuilder
             var content = item.CreateContent();
             activeTabId = null;  // Settings is not part of the tab system
             contentBodyBorder.Child = content;
+        };
+
+        closeSettings = () =>
+        {
+            RestorePrimarySideBar();
+            contentBodyBorder.Child = welcomeContent;
+            activeTabId = null;
         };
 
         void RebuildTabHeaders()
