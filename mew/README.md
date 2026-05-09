@@ -96,3 +96,10 @@ pwsh .\build-release.ps1 -Version 0.1.0-preview -SkipAot
 - `doc/06-development-plan.md`
 - `doc/07-quick-start.md`
 - `doc/07-tasks.md`
+- `doc/08-plugin-development-guide.md`
+- `doc/09-plugin-development-plan.md`
+
+## 插件开发示例
+
+- `samples/QuickLaunch.Plugin/README.md`
+- `samples/QuickLaunch.Plugin/QuickLaunchPluginEntrypoint.cs`
