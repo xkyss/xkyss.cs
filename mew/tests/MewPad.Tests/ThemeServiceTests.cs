@@ -1,3 +1,4 @@
+using MewPad.Core;
 using MewPad.Core.Services;
 using MewPad.Core.Services.Impl;
 using Xunit;

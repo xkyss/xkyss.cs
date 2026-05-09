@@ -11,4 +11,8 @@
     <PackageReference Include="Aprillz.MewUI" Version="*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="MewPad.Tests" />
+  </ItemGroup>
+
 </Project>

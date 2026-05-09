@@ -1,3 +1,4 @@
+using MewPad.Core;
 using MewPad.Core.Shell;
 using MewPad.Core.Interfaces;
 using MewPad.Core.Services;
