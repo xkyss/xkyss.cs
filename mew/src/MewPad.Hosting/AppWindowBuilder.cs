@@ -71,6 +71,7 @@ public static class AppWindowBuilder
         var settingsCategories = shell.Settings.Categories.OrderBy(c => c.Order).ToList();
         string activeSettingsCategoryId = settingsCategories.FirstOrDefault()?.Id ?? "appearance";
         Action<string> openSettingsAction = _ => { };
+        Action? closeSettings = null;
         bool isSettingsOpen = false;  // Track settings visibility
 
         // ── Local Functions ───────────────────────────────────────
@@ -112,6 +113,14 @@ public static class AppWindowBuilder
 
         void ActivateActivity(string activityId)
         {
+            // Leaving settings mode when switching to a normal activity keeps
+            // the workspace in the expected "SideBar + ContentArea" layout.
+            if (isSettingsOpen && closeSettings != null)
+            {
+                isSettingsOpen = false;
+                closeSettings();
+            }
+
             if (shell.ActiveActivityId.Value == activityId)
             {
                 ToggleSideBar();
@@ -241,7 +250,6 @@ public static class AppWindowBuilder
             topStack.Children(MakeActivityButton(activity));
 
         // Bottom fixed items: Settings
-        Action? closeSettings = null;
         var settingsBtn = new Button
         {
             Content = new Label { Text = "⚙", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
@@ -323,6 +331,7 @@ public static class AppWindowBuilder
         contentBodyBorder.Child = welcomeContent;
         // Mark to collapse SideBar when showing welcome page (will be applied after mainSplit is initialized)
         bool shouldCollapseSideBar = true;
+        bool shouldCollapsePanel = true;
 
         openSettingsAction = categoryId =>
         {
@@ -332,6 +341,11 @@ public static class AppWindowBuilder
             var selectedCategory = settingsCategories.FirstOrDefault(c => c.Id == categoryId) ?? settingsCategories[0];
             activeSettingsCategoryId = selectedCategory.Id;
             ShowSettingsSideBar();
+
+            // Settings should also show SideBar + ContentArea together.
+            shouldCollapseSideBar = false;
+            if (mainSplit != null && shell.SideBarCollapsed.Value)
+                ToggleSideBar();
 
             var item = new SettingsContentItem(shell, selectedCategory.Id);
             var content = item.CreateContent();
@@ -344,10 +358,13 @@ public static class AppWindowBuilder
             RestorePrimarySideBar();
             contentBodyBorder.Child = welcomeContent;
             activeTabId = null;
-            // Collapse SideBar when showing welcome page
+            // Collapse SideBar/Panel when showing welcome page
             shouldCollapseSideBar = true;
+            shouldCollapsePanel = true;
             if (!shell.SideBarCollapsed.Value)
                 ToggleSideBar();
+            if (!shell.PanelCollapsed.Value)
+                TogglePanel();
         };
 
         void RebuildTabHeaders()
@@ -420,10 +437,13 @@ public static class AppWindowBuilder
             {
                 activeTabId = null;
                 contentBodyBorder.Child = welcomeContent;
-                // Collapse SideBar when showing welcome page
+                // Collapse SideBar/Panel when showing welcome page
                 shouldCollapseSideBar = true;
+                shouldCollapsePanel = true;
                 if (!shell.SideBarCollapsed.Value)
                     ToggleSideBar();
+                if (!shell.PanelCollapsed.Value)
+                    TogglePanel();
                 RebuildTabHeaders();
                 return;
             }
@@ -516,6 +536,12 @@ public static class AppWindowBuilder
             Height = cachedPanelHeight,
             Child = panelContainer,
         };
+
+        if (shouldCollapsePanel)
+        {
+            panelShell.Height = 0;
+            shell.PanelCollapsed.Value = true;
+        }
 
         // ── StatusBar ─────────────────────────────────────────────
         var statusBar = BuildStatusBar(shell);
