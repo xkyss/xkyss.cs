@@ -68,7 +68,7 @@ public class ThemeAndLanguageSwitchIntegrationTests
 
         // Act
         themeService.Changed.Subscribe(_ => notificationCount++);
-        
+
         // 模拟运行时切换
         themeService.Toggle();
         themeService.Toggle();

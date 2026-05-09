@@ -37,7 +37,7 @@ public class AppStartupIntegrationTests
         var themeService = new ThemeService();
         var localizationService = new LocalizationService();
         var settingsService = new SettingsService();
-        
+
         var shell = new ShellContext(themeService, localizationService, settingsService, configService);
 
         // Assert - ShellContext 可用
@@ -83,7 +83,7 @@ public class AppStartupIntegrationTests
 
         var shell = new ShellContext(themeService, localizationService, settingsService, configService);
         var activity = new MockActivityItem("test-activity-123", "Test Activity");
-        
+
         // Act
         shell.RegisterActivity(activity);
         shell.ActiveActivityId.Value = "test-activity-123";

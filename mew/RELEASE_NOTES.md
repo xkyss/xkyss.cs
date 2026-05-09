@@ -76,7 +76,7 @@ public class MyActivity : IActivityItem
     public string Id => "myactivity";
     public object Icon => "🔍";
     public string Title => "My Tool";
-    
+
     public FrameworkElement CreateContent()
     {
         return new Label().Text("Hello World");
@@ -168,6 +168,6 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Version**: 0.1.0-preview  
-**Release Date**: 2026-05-09  
+**Version**: 0.1.0-preview
+**Release Date**: 2026-05-09
 **Status**: ✅ Preview Ready for Feedback
