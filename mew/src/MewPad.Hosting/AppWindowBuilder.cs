@@ -320,6 +320,8 @@ public static class AppWindowBuilder
         );
 
         contentBodyBorder.Child = welcomeContent;
+        // Mark to collapse SideBar when showing welcome page (will be applied after mainSplit is initialized)
+        bool shouldCollapseSideBar = true;
 
         openSettingsAction = categoryId =>
         {
@@ -341,6 +343,10 @@ public static class AppWindowBuilder
             RestorePrimarySideBar();
             contentBodyBorder.Child = welcomeContent;
             activeTabId = null;
+            // Collapse SideBar when showing welcome page
+            shouldCollapseSideBar = true;
+            if (!shell.SideBarCollapsed.Value)
+                ToggleSideBar();
         };
 
         void RebuildTabHeaders()
@@ -413,6 +419,10 @@ public static class AppWindowBuilder
             {
                 activeTabId = null;
                 contentBodyBorder.Child = welcomeContent;
+                // Collapse SideBar when showing welcome page
+                shouldCollapseSideBar = true;
+                if (!shell.SideBarCollapsed.Value)
+                    ToggleSideBar();
                 RebuildTabHeaders();
                 return;
             }
@@ -490,6 +500,15 @@ public static class AppWindowBuilder
             First = sideBarPanel,
             Second = contentTabs,
         };
+
+        // Apply initial state: collapse SideBar for welcome page
+        if (shouldCollapseSideBar && mainSplit!.FirstLength.IsAbsolute && mainSplit.FirstLength.Value > 0)
+        {
+            cachedSideBarWidth = mainSplit.FirstLength.Value;
+            mainSplit.FirstLength = GridLength.Pixels(0);
+            mainSplit.MinFirst = 0;
+            shell.SideBarCollapsed.Value = true;
+        }
 
         panelShell = new Border
         {
