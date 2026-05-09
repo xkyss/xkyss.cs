@@ -126,6 +126,7 @@ public class NativeCustomWindow : Window
 
         Activated += UpdateChromeAppearance;
         Deactivated += UpdateChromeAppearance;
+        ThemeChanged += (_, _) => UpdateChromeAppearance();
         Loaded += OnLoaded;
     }
 
@@ -165,6 +166,9 @@ public class NativeCustomWindow : Window
     private void UpdateChromeAppearance()
     {
         var p = Theme.Palette;
+        Background = p.WindowBackground;
+        Foreground = p.WindowText;
+        _contentArea.Background = p.WindowBackground;
         BorderBrush = IsActive ? p.Accent : p.ControlBorder;
         _titleText.Foreground = IsActive ? p.WindowText : p.DisabledText;
     }

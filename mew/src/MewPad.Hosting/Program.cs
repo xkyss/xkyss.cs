@@ -4,6 +4,7 @@ using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using MewPad.Core.Shell;
 using MewPad.Hosting.Extensions;
+using System.Diagnostics;
 
 /// <summary>
 /// Application entry point for MewPad.
@@ -22,17 +23,16 @@ internal class Program
         var shell = new ShellContext();
 
         // Register built-in extensions
-        shell.RegisterActivity(new ExplorerActivity());
-        shell.RegisterActivity(new SearchActivity());
-        shell.RegisterActivity(new WelcomeActivity());
         shell.Settings.RegisterCategory(new AppearanceSettings(shell.Theme));
         shell.Settings.RegisterCategory(new LanguageSettings(shell.Localization));
         shell.Settings.RegisterCategory(new AboutSettings());
 
+        var gitBranch = GetGitBranch();
+
         // Register built-in StatusBar items
         shell.RegisterStatusBarItem(new StatusBarItem(
             "git-branch",
-            () => new Label { Text = "  ⎇ main  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center },
+            () => new Label { Text = $"  ⎇ {gitBranch}  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center },
             StatusBarSlot.Left,
             Priority: 10));
 
@@ -53,5 +53,34 @@ internal class Program
 
         // Run application
         Application.Run(window);
+    }
+
+    private static string GetGitBranch()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = "branch --show-current",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = AppContext.BaseDirectory,
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process == null)
+                return "main";
+
+            var branch = process.StandardOutput.ReadToEnd().Trim();
+            process.WaitForExit(2000);
+            return string.IsNullOrWhiteSpace(branch) ? "main" : branch;
+        }
+        catch
+        {
+            return "main";
+        }
     }
 }

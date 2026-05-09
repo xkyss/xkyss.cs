@@ -4,7 +4,7 @@ using MewPad.Core.Services;
 
 internal class ThemeService : IThemeService
 {
-    private readonly ObservableValue<Theme> _current = new(Theme.Light);
+    private readonly ObservableValue<Theme> _current = new(Theme.Dark);
 
     public Theme Current => _current.Value;
     public IObservable<Theme> Changed => _current.Changed;

@@ -23,7 +23,6 @@ public static class AppWindowBuilder
         var window = new NativeCustomWindow();
         window.Title = "MewPad";
         window.Resizable(1200, 800, minWidth: 600, minHeight: 400);
-        window.StartCenterScreen();
         BuildShell(window, shell);
         return window;
     }
@@ -34,8 +33,10 @@ public static class AppWindowBuilder
         // ── Restore persisted state ───────────────────────────────
         var cfg = shell.Configuration;
         var savedTheme = cfg.GetConfig<string>("ui.theme");
-        if (savedTheme == "Dark") shell.Theme.Set(AppTheme.Dark);
-        else if (savedTheme == "Light") shell.Theme.Set(AppTheme.Light);
+        if (savedTheme == "Light") shell.Theme.Set(AppTheme.Light);
+        else shell.Theme.Set(AppTheme.Dark);  // Default to Dark theme
+
+        ThemeManager.Default = shell.Theme.Current == AppTheme.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
 
         var savedLang = cfg.GetConfig<string>("ui.language");
         if (!string.IsNullOrEmpty(savedLang)) shell.Localization.SetLanguage(savedLang);
@@ -45,14 +46,30 @@ public static class AppWindowBuilder
         double cachedPanelHeight  = cfg.GetConfig("ui.panelHeight", 200.0);
         bool startSideBarCollapsed = cfg.GetConfig("ui.sidebarCollapsed", false);
         bool startPanelCollapsed   = cfg.GetConfig("ui.panelCollapsed", false);
+        double savedWindowWidth = cfg.GetConfig("ui.windowWidth", 1200.0);
+        double savedWindowHeight = cfg.GetConfig("ui.windowHeight", 800.0);
+        double savedWindowX = cfg.GetConfig("ui.windowX", double.NaN);
+        double savedWindowY = cfg.GetConfig("ui.windowY", double.NaN);
+        bool savedWindowMaximized = cfg.GetConfig("ui.windowMaximized", false);
+
+        window.Resizable(savedWindowWidth, savedWindowHeight, minWidth: 600, minHeight: 400);
+        if (!double.IsNaN(savedWindowX) && !double.IsNaN(savedWindowY) && !savedWindowMaximized)
+            window.StartManualPosition(savedWindowX, savedWindowY);
+        else if (!savedWindowMaximized)
+            window.StartCenterScreen();
+        if (savedWindowMaximized)
+            window.WindowState = WindowState.Maximized;
 
         SplitPanel? mainSplit = null;
-        SplitPanel? contentAndPanel = null;
+        Border? panelShell = null;
         SplitPanel? sideBarPanel = null;
 
         Label sideBarTitle = new() { Text = "", FontSize = 11, FontWeight = FontWeight.SemiBold, Margin = new Thickness(8, 0) };
         var activityContentCache = new Dictionary<string, FrameworkElement>();
         var activityIndicators = new Dictionary<string, Border>();
+        var settingsCategories = shell.Settings.Categories.OrderBy(c => c.Order).ToList();
+        string activeSettingsCategoryId = settingsCategories.FirstOrDefault()?.Id ?? "appearance";
+        Action<string> openSettingsAction = _ => { };
 
         // ── Local Functions ───────────────────────────────────────
         void ToggleSideBar()
@@ -79,15 +96,15 @@ public static class AppWindowBuilder
             shell.PanelCollapsed.Value = collapsed;
             if (collapsed)
             {
-                if (contentAndPanel!.SecondLength.IsAbsolute && contentAndPanel.SecondLength.Value > 0)
-                    cachedPanelHeight = contentAndPanel.SecondLength.Value;
-                contentAndPanel.SecondLength = GridLength.Pixels(0);
-                contentAndPanel.MinSecond = 0;
+                if (panelShell != null && panelShell.Height > 0)
+                    cachedPanelHeight = panelShell.Height;
+                if (panelShell != null)
+                    panelShell.Height = 0;
             }
             else
             {
-                contentAndPanel!.SecondLength = GridLength.Pixels(cachedPanelHeight);
-                contentAndPanel.MinSecond = 80;
+                if (panelShell != null)
+                    panelShell.Height = cachedPanelHeight;
             }
         }
 
@@ -115,10 +132,60 @@ public static class AppWindowBuilder
                 ToggleSideBar();
         }
 
+        FrameworkElement BuildSettingsSideBar()
+        {
+            var navStack = new StackPanel().Vertical();
+            foreach (var category in settingsCategories)
+            {
+                var c = category;
+                var isActive = c.Id == activeSettingsCategoryId;
+                var btn = new Button
+                {
+                    Content = new Label
+                    {
+                        Text = c.Icon != null ? $"{c.Icon}  {c.Title}" : c.Title,
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                    },
+                    Padding = new Thickness(8, 6),
+                    Margin = new Thickness(0, 2),
+                };
+                if (isActive)
+                    btn.Background = Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF);
+                btn.OnClick(() => OpenSettings(c.Id));
+                navStack.Children(btn);
+            }
+
+            return new Border
+            {
+                Padding = new Thickness(4),
+                Child = navStack,
+            };
+        }
+
+        void RestorePrimarySideBar()
+        {
+            var activityId = shell.ActiveActivityId.Value;
+            if (!string.IsNullOrEmpty(activityId) && activityContentCache.TryGetValue(activityId, out var content))
+            {
+                var activity = shell.GetActivity(activityId);
+                sideBarTitle.Text = activity?.Title.ToUpperInvariant() ?? string.Empty;
+                sideBarPanel!.Second = content;
+                return;
+            }
+
+            sideBarTitle.Text = string.Empty;
+            sideBarPanel!.Second = new Label { Text = "Select an activity", Margin = new Thickness(8) };
+        }
+
+        void ShowSettingsSideBar()
+        {
+            sideBarTitle.Text = "SETTINGS";
+            sideBarPanel!.Second = BuildSettingsSideBar();
+        }
+
         void OpenSettings(string categoryId = "appearance")
         {
-            var item = new SettingsContentItem(shell, categoryId);
-            shell.OpenContent(item);
+            openSettingsAction(categoryId);
         }
 
         // Wire SettingsService opener so shell.Settings.OpenSettings() works from anywhere
@@ -171,13 +238,7 @@ public static class AppWindowBuilder
         foreach (var activity in bottomActivities)
             topStack.Children(MakeActivityButton(activity));
 
-        // Bottom fixed items: Account + Settings
-        var accountBtn = new Button
-        {
-            Content = new Label { Text = "👤", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
-            MinWidth = 48,
-            MinHeight = 46,
-        };
+        // Bottom fixed items: Settings
         var settingsBtn = new Button
         {
             Content = new Label { Text = "⚙", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
@@ -186,7 +247,7 @@ public static class AppWindowBuilder
         }.OnClick(() => OpenSettings());
 
         var bottomFixed = new StackPanel().Vertical();
-        bottomFixed.Children(accountBtn, settingsBtn);
+        bottomFixed.Children(settingsBtn);
 
         var activityBar = new DockPanel();
         activityBar.Width = 48;
@@ -221,11 +282,44 @@ public static class AppWindowBuilder
         {
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(24),
         }.Vertical().Children(
-            new Label { Text = "Welcome to MewPad", FontSize = 22, FontWeight = FontWeight.Bold },
-            new Label { Text = "Universal desktop shell workspace", FontSize = 13, Margin = new Thickness(0, 8, 0, 0) });
+            new Label { Text = "Welcome to MewPad", FontSize = 24, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center },
+            new Label { Text = "Universal desktop shell workspace", FontSize = 13, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Center },
+            new Label { Text = "No page is open right now.", FontSize = 11, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Center },
+            new StackPanel().Horizontal().Children(
+                new Button { Content = new Label { Text = "Open Settings" }, MinWidth = 120, Margin = new Thickness(0, 16, 8, 0) }.OnClick(() => shell.Settings.OpenSettings()),
+                new Button { Content = new Label { Text = "Switch Theme" }, MinWidth = 120, Margin = new Thickness(0, 16, 0, 0) }.OnClick(() => shell.Theme.Toggle())
+            ),
+            new Border
+            {
+                Margin = new Thickness(0, 16, 0, 0),
+                Padding = new Thickness(14, 10),
+                Child = new StackPanel().Vertical().Children(
+                    new Label { Text = "Quick Start", FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 6) },
+                    new Label { Text = "- Open Settings to configure language and appearance", FontSize = 11 },
+                    new Label { Text = "- Use the ActivityBar to switch shell areas", FontSize = 11 },
+                    new Label { Text = "- Open content from future extensions here", FontSize = 11 }
+                )
+            }
+        );
 
         contentBodyBorder.Child = welcomeContent;
+
+        openSettingsAction = categoryId =>
+        {
+            if (settingsCategories.Count == 0)
+                return;
+
+            var selectedCategory = settingsCategories.FirstOrDefault(c => c.Id == categoryId) ?? settingsCategories[0];
+            activeSettingsCategoryId = selectedCategory.Id;
+            ShowSettingsSideBar();
+
+            var item = new SettingsContentItem(shell, selectedCategory.Id);
+            var content = item.CreateContent();
+            activeTabId = null;  // Settings is not part of the tab system
+            contentBodyBorder.Child = content;
+        };
 
         void RebuildTabHeaders()
         {
@@ -260,6 +354,8 @@ public static class AppWindowBuilder
                             contentBodyBorder.Child = activeTabId != null && contentCache.TryGetValue(activeTabId, out var prev)
                                 ? prev : welcomeContent;
                         }
+                        if (tab.Id == "mewpad.settings")
+                            RestorePrimarySideBar();
                         RebuildTabHeaders();
                     };
                     titleRow.Children(closeBtn);
@@ -362,17 +458,6 @@ public static class AppWindowBuilder
         panelContainer.Add(panelTools);
 
         // ── Layout ────────────────────────────────────────────────
-        contentAndPanel = new SplitPanel
-        {
-            Orientation = Orientation.Vertical,
-            FirstLength = GridLength.Stars(1),
-            SecondLength = GridLength.Pixels(cachedPanelHeight),
-            MinFirst = 200,
-            MinSecond = 80,
-            First = contentTabs,
-            Second = panelContainer,
-        };
-
         mainSplit = new SplitPanel
         {
             Orientation = Orientation.Horizontal,
@@ -381,23 +466,39 @@ public static class AppWindowBuilder
             MinFirst = 120,
             MinSecond = 200,
             First = sideBarPanel,
-            Second = contentAndPanel,
+            Second = contentTabs,
         };
 
-        var mainArea = new DockPanel();
-        DockPanel.SetDock(activityBar, Dock.Left);
-        mainArea.Add(activityBar);
-        mainArea.Add(mainSplit);
+        panelShell = new Border
+        {
+            Height = cachedPanelHeight,
+            Child = panelContainer,
+        };
 
         // ── StatusBar ─────────────────────────────────────────────
         var statusBar = BuildStatusBar(shell);
 
         // ── Root ──────────────────────────────────────────────────
         var root = new Grid();
-        root.Rows("*,auto");
-        Grid.SetRow(mainArea, 0);
-        Grid.SetRow(statusBar, 1);
-        root.Add(mainArea);
+        root.Rows("*,auto,auto");
+        root.Columns("48,*");
+
+        Grid.SetRow(activityBar, 0);
+        Grid.SetColumn(activityBar, 0);
+        Grid.SetRowSpan(activityBar, 2);
+        root.Add(activityBar);
+
+        Grid.SetRow(mainSplit, 0);
+        Grid.SetColumn(mainSplit, 1);
+        root.Add(mainSplit);
+
+        Grid.SetRow(panelShell, 1);
+        Grid.SetColumn(panelShell, 1);
+        root.Add(panelShell);
+
+        Grid.SetRow(statusBar, 2);
+        Grid.SetColumn(statusBar, 0);
+        Grid.SetColumnSpan(statusBar, 2);
         root.Add(statusBar);
 
         // ── TitleBar ──────────────────────────────────────────────
@@ -409,12 +510,50 @@ public static class AppWindowBuilder
             VerticalAlignment = VerticalAlignment.Center,
         });
         window.TitleBarLeft.Add(BuildMenuBar(shell, ToggleSideBar, TogglePanel));
-        window.TitleBarRight.Add(new Button
+        var themeToggleLabel = new Label
         {
-            Content = new Label { Text = "🌙", FontSize = 13 },
-            MinWidth = 32,
-            MinHeight = 28,
-        }.OnClick(() => shell.Theme.Toggle()));
+            Text = shell.Theme.Current == AppTheme.Dark ? "☀" : "◐",
+            FontSize = 11,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var themeToggleButton = new Button
+        {
+            Content = themeToggleLabel,
+            MinWidth = 46,
+            MinHeight = 32,
+            StyleName = "chrome",
+        }.OnClick(() => shell.Theme.Toggle());
+        window.TitleBarRight.Add(themeToggleButton);
+
+        shell.Theme.Changed.Subscribe(t =>
+        {
+            themeToggleLabel.Text = t == AppTheme.Dark ? "☀" : "◐";
+
+            if (Application.IsRunning)
+                Application.Current.SetTheme(t == AppTheme.Dark ? ThemeVariant.Dark : ThemeVariant.Light);
+        });
+
+        // Global keyboard shortcuts
+        window.KeyBindings.Add(new KeyBinding(new KeyGesture(Key.B, ModifierKeys.Primary), ToggleSideBar));
+        window.OnPreviewKeyDown(e =>
+        {
+            if (!e.PrimaryKey)
+                return;
+
+            if (e.PlatformKey == 0xBC)
+            {
+                shell.Settings.OpenSettings();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.PlatformKey == 0xC0)
+            {
+                TogglePanel();
+                e.Handled = true;
+            }
+        });
 
         window.Content = root;
         window.Padding = new Thickness(0);
@@ -428,8 +567,17 @@ public static class AppWindowBuilder
             cfg.SetConfig("ui.panelCollapsed", shell.PanelCollapsed.Value);
             if (mainSplit!.FirstLength.IsAbsolute && mainSplit.FirstLength.Value > 0)
                 cfg.SetConfig("ui.sidebarWidth", mainSplit.FirstLength.Value);
-            if (contentAndPanel!.SecondLength.IsAbsolute && contentAndPanel.SecondLength.Value > 0)
-                cfg.SetConfig("ui.panelHeight", contentAndPanel.SecondLength.Value);
+            if (panelShell != null && panelShell.Height > 0)
+                cfg.SetConfig("ui.panelHeight", panelShell.Height);
+            var restoreBounds = window.WindowState == WindowState.Maximized ? window.RestoreBounds : default;
+            var windowBounds = window.WindowState == WindowState.Maximized && restoreBounds.Width > 0 && restoreBounds.Height > 0
+                ? restoreBounds
+                : new Rect(window.Position.X, window.Position.Y, window.ClientSize.Width, window.ClientSize.Height);
+            cfg.SetConfig("ui.windowX", windowBounds.X);
+            cfg.SetConfig("ui.windowY", windowBounds.Y);
+            cfg.SetConfig("ui.windowWidth", windowBounds.Width);
+            cfg.SetConfig("ui.windowHeight", windowBounds.Height);
+            cfg.SetConfig("ui.windowMaximized", window.WindowState == WindowState.Maximized);
             cfg.Save();
         };
 
@@ -467,7 +615,7 @@ public static class AppWindowBuilder
             .Item("Dark Theme", () => shell.Theme.Set(AppTheme.Dark));
 
         var helpMenu = new Menu()
-            .Item("About MewPad", () => { });
+            .Item("About MewPad", () => shell.Settings.OpenSettings("about"));
 
         var bar = new MenuBar();
         bar.Background = TransparentColor;
