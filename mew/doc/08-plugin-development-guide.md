@@ -9,6 +9,11 @@
 1. 第一阶段：进程内插件（最小可用）
 2. 第二阶段：动态加载器（目录扫描 + 反射加载）
 
+当前状态（P6 MVP）：
+
+1. 已支持从 `plugins` 目录动态加载 DLL
+2. 已支持两种入口：`IPlugin` 实现类、`public static void Register(ShellContext)`
+
 ---
 
 ## 当前可用扩展点
@@ -75,6 +80,37 @@ public static class PluginEntrypoint
 6. 插件 UI 随 Shell 一起工作
 
 后续会补充 Unload/Dispose 约定，用于热重载或停用插件。
+
+---
+
+## 本地验证动态加载（MVP）
+
+1. 先构建宿主与示例插件
+
+```powershell
+dotnet build src\MewPad.Hosting\MewPad.Hosting.csproj
+dotnet build samples\QuickLaunch.Plugin\QuickLaunch.Plugin.csproj
+```
+
+2. 将插件 DLL 复制到宿主输出目录的 `plugins` 子目录
+
+```powershell
+$hostOut = ".build\MewPad.Hosting\bin\Debug\net10.0"
+$pluginOut = ".build\QuickLaunch.Plugin\bin\Debug\net10.0\QuickLaunch.Plugin.dll"
+New-Item -ItemType Directory -Force -Path (Join-Path $hostOut "plugins") | Out-Null
+Copy-Item $pluginOut (Join-Path $hostOut "plugins") -Force
+```
+
+3. 启动宿主
+
+```powershell
+dotnet run --project .\src\MewPad.Hosting\
+```
+
+4. 验收结果
+
+1. ActivityBar 出现 ⚡ 快捷启动
+2. StatusBar 右侧出现 `⚡ QuickLaunch`
 
 ---
 

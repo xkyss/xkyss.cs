@@ -3,6 +3,7 @@ namespace QuickLaunch.Plugin;
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using MewPad.Core.Interfaces;
+using MewPad.Core.Plugins;
 using MewPad.Core.Shell;
 
 /// <summary>
@@ -14,6 +15,16 @@ using MewPad.Core.Shell;
 public static class QuickLaunchPluginEntrypoint
 {
     public static void Register(ShellContext shell)
+    {
+        new QuickLaunchPlugin().Register(shell);
+    }
+}
+
+public sealed class QuickLaunchPlugin : IPlugin
+{
+    public string Id => "quicklaunch.plugin";
+
+    public void Register(ShellContext shell)
     {
         shell.RegisterActivity(new QuickLaunchActivity(shell));
         shell.RegisterStatusBarItem(new StatusBarItem(

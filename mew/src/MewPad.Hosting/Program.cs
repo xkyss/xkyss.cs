@@ -4,6 +4,7 @@ using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using MewPad.Core.Shell;
 using MewPad.Hosting.Extensions;
+using MewPad.Hosting.Plugins;
 using System.Diagnostics;
 
 /// <summary>
@@ -47,6 +48,16 @@ internal class Program
             () => new Label { Text = "  UTF-8  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center },
             StatusBarSlot.Right,
             Priority: 10));
+
+        // Load external runtime plugins from "plugins" directory.
+        var pluginsDir = Path.Combine(AppContext.BaseDirectory, "plugins");
+        var loadSummary = PluginLoader.LoadFromDirectory(shell, pluginsDir);
+        if (loadSummary.LoadedPlugins > 0 || loadSummary.FailedPlugins > 0)
+        {
+            Console.WriteLine($"[Plugins] Loaded={loadSummary.LoadedPlugins}, Failed={loadSummary.FailedPlugins}, Dir={loadSummary.Directory}");
+            foreach (var error in loadSummary.Errors)
+                Console.WriteLine($"[Plugins] {error}");
+        }
 
         // Create main window
         var window = AppWindowBuilder.CreateMainWindow(shell);
