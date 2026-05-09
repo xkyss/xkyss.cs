@@ -69,8 +69,8 @@
 
 - [x] 恢复窗口大小、位置、最大化状态
 - [x] 恢复 SideBar / Panel 的折叠状态
-- [ ] 恢复上次激活内容页
-- [ ] 配置保存做基础节流，关闭时兜底保存
+- [x] 恢复上次激活内容页（Activity 恢复）
+- [x] 配置保存做基础节流，关闭时兜底保存
 
 验收标准：重启后工作现场尽量完整恢复。
 
@@ -108,3 +108,18 @@
 - [x] 移除独立 `WelcomeActivity`，改用主窗口欢迎页
 - [x] 清理 `Program.cs` 的无用 Activity 注册
 - [x] 为后续调整 `PanelArea` 与设置页结构预留任务切口
+
+## 本轮额外改进（最新）
+
+- [x] 默认使用 Dark 主题，Light 主题配色改进
+- [x] 简化设置页面（移除内部标签栏）
+- [x] 设置按钮切换功能（点击打开，再次点击关闭）
+- [x] Welcome 页面打开时自动关闭 SideBar
+- [x] 恢复上次激活的 Activity
+- [x] 配置自动保存（活动切换时立即保存）
+
+## 后续优先任务
+
+- [ ] P2：StatusBar 真实读取错误/警告计数
+- [ ] P4：ShellContext / ConfigurationService 单元测试
+- [ ] P5：README 完善与 NativeAOT 发布验证
