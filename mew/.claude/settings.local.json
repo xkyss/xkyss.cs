@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir *)",
+      "Bash(python3 *)",
+      "Bash(cmd.exe *)",
+      "Bash(where git *)",
+      "Bash(python *)",
+      "Bash(cd /d D:/Code/xkyss/xkyss.cs)",
+      "Bash(type NUL)",
+      "Bash(git clean *)"
+    ]
+  }
+}
