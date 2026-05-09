@@ -76,9 +76,10 @@
 
 ## P4 稳定性与测试
 
-- [ ] ShellContext 单元测试
-- [ ] ConfigurationService 单元测试
-- [ ] SettingsService 打开路由测试
+- [x] ShellContext 单元测试（13 个测试用例）
+- [x] ConfigurationService 单元测试（11 个测试用例）
+- [x] ThemeService 单元测试（6 个测试用例）
+- [x] SettingsService 单元测试（7 个测试用例）
 - [ ] 启动流程集成测试
 - [ ] 主题与语言切换集成测试
 
