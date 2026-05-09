@@ -98,6 +98,7 @@ pwsh .\build-release.ps1 -Version 0.1.0-preview -SkipAot
 - `doc/07-tasks.md`
 - `doc/08-plugin-development-guide.md`
 - `doc/09-plugin-development-plan.md`
+- `doc/10-plugin-template-and-release.md`
 
 ## 插件开发示例
 

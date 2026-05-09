@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="MewPad.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Resources\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -31,12 +35,19 @@
 
     <ItemGroup>
       <QuickLaunchPluginDll Include="$(MSBuildProjectDirectory)\..\..\.build\QuickLaunch.Plugin\bin\$(Configuration)\net10.0\QuickLaunch.Plugin.dll" />
+      <QuickLaunchPluginManifest Include="$(MSBuildProjectDirectory)\..\..\samples\QuickLaunch.Plugin\plugin.json" />
     </ItemGroup>
 
-    <MakeDir Directories="$(OutputPath)plugins" />
+    <MakeDir Directories="$(OutputPath)plugins\QuickLaunch" />
     <Copy
       SourceFiles="@(QuickLaunchPluginDll)"
-      DestinationFolder="$(OutputPath)plugins"
+      DestinationFolder="$(OutputPath)plugins\QuickLaunch"
+      SkipUnchangedFiles="true"
+      Condition="Exists('%(QuickLaunchPluginDll.Identity)')" />
+
+    <Copy
+      SourceFiles="@(QuickLaunchPluginManifest)"
+      DestinationFolder="$(OutputPath)plugins\QuickLaunch"
       SkipUnchangedFiles="true"
       Condition="Exists('%(QuickLaunchPluginDll.Identity)')" />
   </Target>

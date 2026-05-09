@@ -21,6 +21,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MewPad.Core\MewPad.Core.csproj" />
+    <ProjectReference Include="..\..\src\MewPad.Hosting\MewPad.Hosting.csproj" />
+    <ProjectReference Include="..\..\samples\QuickLaunch.Plugin\QuickLaunch.Plugin.csproj" />
   </ItemGroup>
 
 </Project>

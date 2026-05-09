@@ -72,6 +72,7 @@ public static class AppWindowBuilder
         string activeSettingsCategoryId = settingsCategories.FirstOrDefault()?.Id ?? "appearance";
         Action<string> openSettingsAction = _ => { };
         Action? closeSettings = null;
+        Action? showNoActivityState = null;
         bool isSettingsOpen = false;  // Track settings visibility
 
         // ── Local Functions ───────────────────────────────────────
@@ -123,7 +124,7 @@ public static class AppWindowBuilder
 
             if (shell.ActiveActivityId.Value == activityId)
             {
-                ToggleSideBar();
+                // Re-selecting the same non-settings activity should be a no-op.
                 return;
             }
             var activity = shell.GetActivity(activityId);
@@ -262,6 +263,7 @@ public static class AppWindowBuilder
             {
                 isSettingsOpen = false;
                 closeSettings();
+                showNoActivityState?.Invoke();
             }
             else
             {
@@ -340,10 +342,10 @@ public static class AppWindowBuilder
 
             var selectedCategory = settingsCategories.FirstOrDefault(c => c.Id == categoryId) ?? settingsCategories[0];
             activeSettingsCategoryId = selectedCategory.Id;
+            shell.ActiveActivityId.Value = "mewpad.settings";
             ShowSettingsSideBar();
 
             // Settings should also show SideBar + ContentArea together.
-            shouldCollapseSideBar = false;
             if (mainSplit != null && shell.SideBarCollapsed.Value)
                 ToggleSideBar();
 
@@ -358,9 +360,16 @@ public static class AppWindowBuilder
             RestorePrimarySideBar();
             contentBodyBorder.Child = welcomeContent;
             activeTabId = null;
-            // Collapse SideBar/Panel when showing welcome page
+        };
+
+        showNoActivityState = () =>
+        {
+            shell.ActiveActivityId.Value = null;
+            contentBodyBorder.Child = welcomeContent;
+            activeTabId = null;
             shouldCollapseSideBar = true;
             shouldCollapsePanel = true;
+
             if (!shell.SideBarCollapsed.Value)
                 ToggleSideBar();
             if (!shell.PanelCollapsed.Value)
@@ -437,13 +446,16 @@ public static class AppWindowBuilder
             {
                 activeTabId = null;
                 contentBodyBorder.Child = welcomeContent;
-                // Collapse SideBar/Panel when showing welcome page
-                shouldCollapseSideBar = true;
-                shouldCollapsePanel = true;
-                if (!shell.SideBarCollapsed.Value)
-                    ToggleSideBar();
-                if (!shell.PanelCollapsed.Value)
-                    TogglePanel();
+                // Only collapse to welcome empty-state when no ActivityBar item is selected.
+                if (shell.ActiveActivityId.Value == null && !isSettingsOpen)
+                {
+                    shouldCollapseSideBar = true;
+                    shouldCollapsePanel = true;
+                    if (!shell.SideBarCollapsed.Value)
+                        ToggleSideBar();
+                    if (!shell.PanelCollapsed.Value)
+                        TogglePanel();
+                }
                 RebuildTabHeaders();
                 return;
             }

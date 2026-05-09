@@ -47,15 +47,16 @@ public class ThemeAndLanguageSwitchIntegrationTests
         // Arrange
         var configService1 = new ConfigurationService();
         var themeService1 = new ThemeService();
+        var key = "theme.persistence." + Guid.NewGuid();
 
         // Act
         themeService1.Set(Theme.Light);
-        configService1.SetConfig("theme", Theme.Light);
+        configService1.SetConfig(key, Theme.Light);
         configService1.Save();
 
         // Assert - 新实例应能读取
         var configService2 = new ConfigurationService();
-        var savedTheme = configService2.GetConfig<Theme>("theme");
+        var savedTheme = configService2.GetConfig<Theme>(key);
         Assert.Equal(Theme.Light, savedTheme);
     }
 

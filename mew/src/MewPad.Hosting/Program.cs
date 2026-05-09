@@ -12,6 +12,8 @@ using System.Diagnostics;
 /// </summary>
 internal class Program
 {
+    private const string HostVersion = "0.1.0-preview";
+
     [System.STAThread]
     static void Main(string[] args)
     {
@@ -62,18 +64,25 @@ internal class Program
             pluginDirectories.Add(Path.Combine(repoRoot, ".build", "QuickLaunch.Plugin", "bin", "Release", "net10.0"));
         }
 
+        var disabledPluginIds = PluginConfig.GetDisabledPluginIds(shell.Configuration);
         var totalLoaded = 0;
         var totalFailed = 0;
         var allErrors = new List<string>();
+        var allItems = new List<PluginLoadItem>();
 
         foreach (var dir in pluginDirectories.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            var summary = PluginLoader.LoadFromDirectory(shell, dir);
+            var summary = PluginLoader.LoadFromDirectory(shell, dir, new PluginLoadOptions(HostVersion, disabledPluginIds));
             totalLoaded += summary.LoadedPlugins;
             totalFailed += summary.FailedPlugins;
+            allItems.AddRange(summary.Items);
             foreach (var err in summary.Errors)
                 allErrors.Add($"{Path.GetFileName(dir)}: {err}");
         }
+
+        shell.Settings.RegisterCategory(new PluginManagementSettings(
+            shell.Configuration,
+            new PluginLoadSummary("multi", totalLoaded, totalFailed, allErrors, allItems)));
 
         if (totalLoaded > 0)
         {

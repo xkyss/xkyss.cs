@@ -123,6 +123,45 @@ dotnet run --project .\src\MewPad.Hosting\
 - MinHostVersion
 - TargetFramework
 
+---
+
+## plugin.json 规范（P6.3）
+
+插件目录结构：
+
+```text
+plugins/
+    QuickLaunch/
+        plugin.json
+        QuickLaunch.Plugin.dll
+```
+
+`plugin.json` 字段：
+
+1. `id`：插件唯一标识（必填）
+2. `name`：显示名称（必填）
+3. `version`：插件版本（必填）
+4. `minHostVersion`：宿主最低版本（必填）
+5. `entryAssembly`：入口程序集文件名（必填）
+
+示例：
+
+```json
+{
+    "id": "quicklaunch.plugin",
+    "name": "QuickLaunch",
+    "version": "0.1.0",
+    "minHostVersion": "0.1.0",
+    "entryAssembly": "QuickLaunch.Plugin.dll"
+}
+```
+
+说明：
+
+1. 版本比较默认按语义版本前缀解析（如 `0.1.0-preview` 取 `0.1.0`）
+2. 不兼容版本会被拒绝加载并记录错误
+3. 可通过配置项 `plugins.disabledIds` 启用/禁用插件（重启生效）
+
 宿主侧在动态加载时做最低版本校验，避免接口不兼容。
 
 ---

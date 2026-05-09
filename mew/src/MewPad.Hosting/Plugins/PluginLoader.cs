@@ -13,15 +13,87 @@ using MewPad.Core.Shell;
 /// </summary>
 internal static class PluginLoader
 {
-    public static PluginLoadSummary LoadFromDirectory(ShellContext shell, string pluginsDirectory)
+    public static PluginLoadSummary LoadFromDirectory(ShellContext shell, string pluginsDirectory, PluginLoadOptions? options = null)
     {
-        if (!Directory.Exists(pluginsDirectory))
-            return new PluginLoadSummary(pluginsDirectory, 0, 0, []);
+        options ??= new PluginLoadOptions();
 
-        var dllFiles = Directory.GetFiles(pluginsDirectory, "*.dll", SearchOption.TopDirectoryOnly);
+        if (!Directory.Exists(pluginsDirectory))
+            return new PluginLoadSummary(pluginsDirectory, 0, 0, [], []);
+
         var loadedPlugins = 0;
         var failedPlugins = 0;
         var errors = new List<string>();
+        var items = new List<PluginLoadItem>();
+
+        // Manifest-based plugins: plugins/<plugin>/plugin.json
+        foreach (var pluginDir in Directory.GetDirectories(pluginsDirectory))
+        {
+            var manifestPath = Path.Combine(pluginDir, "plugin.json");
+            if (!File.Exists(manifestPath))
+                continue;
+
+            if (!PluginManifest.TryLoad(manifestPath, out var manifest, out var manifestError) || manifest == null)
+            {
+                failedPlugins++;
+                var msg = $"Manifest parse failed: {Path.GetFileName(pluginDir)} => {manifestError}";
+                errors.Add(msg);
+                items.Add(new PluginLoadItem(Path.GetFileName(pluginDir), Path.GetFileName(pluginDir), "unknown", false, false, manifestError ?? "manifest parse failed"));
+                continue;
+            }
+
+            if (options.DisabledPluginIds.Contains(manifest.Id))
+            {
+                items.Add(new PluginLoadItem(manifest.Id, manifest.Name, manifest.Version, false, false, null));
+                continue;
+            }
+
+            if (!manifest.IsHostVersionCompatible(options.HostVersion))
+            {
+                failedPlugins++;
+                var msg = $"Version incompatible: {manifest.Id} requires >= {manifest.MinHostVersion}, host={options.HostVersion}";
+                errors.Add(msg);
+                items.Add(new PluginLoadItem(manifest.Id, manifest.Name, manifest.Version, true, false, msg));
+                continue;
+            }
+
+            var assemblyPath = Path.Combine(pluginDir, manifest.EntryAssembly);
+            if (!File.Exists(assemblyPath))
+            {
+                failedPlugins++;
+                var msg = $"Entry assembly missing: {manifest.Id} => {assemblyPath}";
+                errors.Add(msg);
+                items.Add(new PluginLoadItem(manifest.Id, manifest.Name, manifest.Version, true, false, msg));
+                continue;
+            }
+
+            try
+            {
+                var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(assemblyPath));
+                var count = RegisterFromAssembly(shell, assembly, assemblyPath, errors);
+                if (count > 0)
+                {
+                    loadedPlugins += count;
+                    items.Add(new PluginLoadItem(manifest.Id, manifest.Name, manifest.Version, true, true, null));
+                }
+                else
+                {
+                    failedPlugins++;
+                    var msg = $"No valid entrypoint found: {manifest.Id}";
+                    errors.Add(msg);
+                    items.Add(new PluginLoadItem(manifest.Id, manifest.Name, manifest.Version, true, false, msg));
+                }
+            }
+            catch (Exception ex)
+            {
+                failedPlugins++;
+                var msg = $"Load failed: {manifest.Id} => {ex.Message}";
+                errors.Add(msg);
+                items.Add(new PluginLoadItem(manifest.Id, manifest.Name, manifest.Version, true, false, msg));
+            }
+        }
+
+        // Backward-compatible direct DLL scan in top-level plugins directory.
+        var dllFiles = Directory.GetFiles(pluginsDirectory, "*.dll", SearchOption.TopDirectoryOnly);
 
         foreach (var dllPath in dllFiles)
         {
@@ -30,15 +102,18 @@ internal static class PluginLoader
                 var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(dllPath));
                 var count = RegisterFromAssembly(shell, assembly, dllPath, errors);
                 loadedPlugins += count;
+                if (count > 0)
+                    items.Add(new PluginLoadItem(Path.GetFileNameWithoutExtension(dllPath), Path.GetFileNameWithoutExtension(dllPath), "legacy", true, true, null));
             }
             catch (Exception ex)
             {
                 failedPlugins++;
                 errors.Add($"Load failed: {Path.GetFileName(dllPath)} => {ex.Message}");
+                items.Add(new PluginLoadItem(Path.GetFileNameWithoutExtension(dllPath), Path.GetFileNameWithoutExtension(dllPath), "legacy", true, false, ex.Message));
             }
         }
 
-        return new PluginLoadSummary(pluginsDirectory, loadedPlugins, failedPlugins, errors);
+        return new PluginLoadSummary(pluginsDirectory, loadedPlugins, failedPlugins, errors, items);
     }
 
     private static int RegisterFromAssembly(ShellContext shell, Assembly assembly, string sourcePath, List<string> errors)
@@ -107,8 +182,24 @@ internal static class PluginLoader
     }
 }
 
+internal sealed record PluginLoadOptions(
+    string HostVersion = "0.1.0-preview",
+    HashSet<string>? DisabledPluginIds = null)
+{
+    public HashSet<string> DisabledPluginIds { get; } = DisabledPluginIds ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+}
+
 internal sealed record PluginLoadSummary(
     string Directory,
     int LoadedPlugins,
     int FailedPlugins,
-    IReadOnlyList<string> Errors);
+    IReadOnlyList<string> Errors,
+    IReadOnlyList<PluginLoadItem> Items);
+
+internal sealed record PluginLoadItem(
+    string Id,
+    string Name,
+    string Version,
+    bool Enabled,
+    bool Loaded,
+    string? Error);

@@ -24,6 +24,17 @@ dotnet build
 QuickLaunch.Plugin.QuickLaunchPluginEntrypoint.Register(shell);
 ```
 
+## 动态加载（推荐）
+
+1. 使用 `plugin.json` 描述插件元数据
+2. 宿主会扫描 `plugins/<插件目录>/plugin.json`
+3. 依据 `entryAssembly` 加载插件 DLL
+
+本示例包含：
+
+- `plugin.json`
+- `QuickLaunch.Plugin.dll`
+
 ## 后续动态加载方式（规划中）
 
 后续 PluginLoader 完成后，插件将支持目录扫描与反射加载，无需改宿主 Program.cs。
