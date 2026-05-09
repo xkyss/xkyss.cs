@@ -2,57 +2,187 @@
 
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
+using MewPad.Core;
 using MewPad.Core.Interfaces;
 using MewPad.Core.Shell;
+using MewPad.Hosting.Extensions;
+using MewPad.Hosting.Infrastructure;
+using AppTheme = MewPad.Core.Services.Theme;
 
 /// <summary>
 /// Builds the main shell window according to the layout design.
 /// </summary>
 public static class AppWindowBuilder
 {
+    // Accent color for ActivityBar active indicator and StatusBar background
+    private static readonly Color AccentColor = Color.FromRgb(0x00, 0x7A, 0xCC);
+    private static readonly Color TransparentColor = Color.FromRgb(0, 0, 0).WithAlpha(0);
+
     public static Window CreateMainWindow(ShellContext shell)
     {
-        var root = new Grid();
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Stars(1) });
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
-
-        var layout = BuildMainLayout(shell);
-
-        Grid.SetRow(layout.TitleBar, 0);
-        Grid.SetRow(layout.MainArea, 1);
-        Grid.SetRow(layout.StatusBar, 2);
-
-        root.Add(layout.TitleBar);
-        root.Add(layout.MainArea);
-        root.Add(layout.StatusBar);
-
-        return new Window()
-            .Title("MewPad - Universal Desktop Framework")
-            .Resizable(1280, 800)
-            .Content(root);
+        var window = new NativeCustomWindow();
+        window.Title = "MewPad";
+        window.Resizable(1200, 800, minWidth: 600, minHeight: 400);
+        window.StartCenterScreen();
+        BuildShell(window, shell);
+        return window;
     }
 
-    private static (FrameworkElement TitleBar, FrameworkElement MainArea, FrameworkElement StatusBar) BuildMainLayout(ShellContext shell)
+    // ── Shell Construction ────────────────────────────────────────
+    private static void BuildShell(NativeCustomWindow window, ShellContext shell)
     {
-        var sideBarTitle = new Label { Text = "" };
-        var panelState = new Label { Text = "Panel: expanded" };
-        var statusInfo = new Label { Text = "Ready" };
-
+        // ── State ────────────────────────────────────────────────
         double cachedSideBarWidth = 240;
         double cachedPanelHeight = 200;
 
         SplitPanel? mainSplit = null;
         SplitPanel? contentAndPanel = null;
+        SplitPanel? sideBarPanel = null;
 
-        // Cache activity content to avoid recreating on every switch
+        Label sideBarTitle = new() { Text = "", FontSize = 11, FontWeight = FontWeight.SemiBold, Margin = new Thickness(8, 0) };
         var activityContentCache = new Dictionary<string, FrameworkElement>();
+        var activityIndicators = new Dictionary<string, Border>();
 
-        var panelTabs = CreatePanelTabs(shell);
-        var contentTabs = CreateContentTabs();
+        // ── Local Functions ───────────────────────────────────────
+        void ToggleSideBar()
+        {
+            var collapsed = !shell.SideBarCollapsed.Value;
+            shell.SideBarCollapsed.Value = collapsed;
+            if (collapsed)
+            {
+                if (mainSplit!.FirstLength.IsAbsolute && mainSplit.FirstLength.Value > 0)
+                    cachedSideBarWidth = mainSplit.FirstLength.Value;
+                mainSplit.FirstLength = GridLength.Pixels(0);
+                mainSplit.MinFirst = 0;
+            }
+            else
+            {
+                mainSplit!.FirstLength = GridLength.Pixels(cachedSideBarWidth);
+                mainSplit.MinFirst = 120;
+            }
+        }
 
-        // SideBar: SplitPanel(Vertical) so we can swap Second for dynamic activity content
-        var sideBar = new SplitPanel
+        void TogglePanel()
+        {
+            var collapsed = !shell.PanelCollapsed.Value;
+            shell.PanelCollapsed.Value = collapsed;
+            if (collapsed)
+            {
+                if (contentAndPanel!.SecondLength.IsAbsolute && contentAndPanel.SecondLength.Value > 0)
+                    cachedPanelHeight = contentAndPanel.SecondLength.Value;
+                contentAndPanel.SecondLength = GridLength.Pixels(0);
+                contentAndPanel.MinSecond = 0;
+            }
+            else
+            {
+                contentAndPanel!.SecondLength = GridLength.Pixels(cachedPanelHeight);
+                contentAndPanel.MinSecond = 80;
+            }
+        }
+
+        void ActivateActivity(string activityId)
+        {
+            if (shell.ActiveActivityId.Value == activityId)
+            {
+                ToggleSideBar();
+                return;
+            }
+            var activity = shell.GetActivity(activityId);
+            if (activity == null) return;
+
+            shell.ActiveActivityId.Value = activityId;
+            sideBarTitle.Text = activity.Title.ToUpperInvariant();
+
+            if (!activityContentCache.TryGetValue(activityId, out var content))
+            {
+                content = activity.CreateContent();
+                activityContentCache[activityId] = content;
+            }
+            sideBarPanel!.Second = content;
+
+            if (shell.SideBarCollapsed.Value)
+                ToggleSideBar();
+        }
+
+        void OpenSettings()
+        {
+            shell.OpenContent(new SettingsContentItem(shell));
+        }
+
+        // ── ActivityBar ───────────────────────────────────────────
+        var allActivities = shell.GetActivities();
+        var topActivities = allActivities.Where(a => a.Section == ActivityBarSection.Top).ToList();
+        var bottomActivities = allActivities.Where(a => a.Section == ActivityBarSection.Bottom).ToList();
+
+        // Subscribe to active activity changes → update indicators
+        shell.ActiveActivityId.Changed.Subscribe(activeId =>
+        {
+            foreach (var (id, indicator) in activityIndicators)
+                indicator.Background = id == activeId ? AccentColor : TransparentColor;
+        });
+
+        FrameworkElement MakeActivityButton(IActivityItem activity)
+        {
+            var id = activity.Id;
+            var iconText = activity.Icon.ToString() ?? activity.Title[..1];
+
+            var indicator = new Border { Width = 2, Background = TransparentColor };
+            activityIndicators[id] = indicator;
+
+            var btn = new Button
+            {
+                Content = new Label
+                {
+                    Text = iconText,
+                    FontSize = 16,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+                MinWidth = 46,
+                MinHeight = 46,
+            }.OnClick(() => ActivateActivity(id));
+
+            var row = new DockPanel();
+            DockPanel.SetDock(indicator, Dock.Left);
+            row.Add(indicator);
+            row.Add(btn);
+            return row;
+        }
+
+        var topStack = new StackPanel().Vertical();
+        foreach (var activity in topActivities)
+            topStack.Children(MakeActivityButton(activity));
+
+        foreach (var activity in bottomActivities)
+            topStack.Children(MakeActivityButton(activity));
+
+        // Bottom fixed items: Account + Settings
+        var accountBtn = new Button
+        {
+            Content = new Label { Text = "👤", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            MinWidth = 48,
+            MinHeight = 46,
+        };
+        var settingsBtn = new Button
+        {
+            Content = new Label { Text = "⚙", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            MinWidth = 48,
+            MinHeight = 46,
+        }.OnClick(OpenSettings);
+
+        var bottomFixed = new StackPanel().Vertical();
+        bottomFixed.Children(accountBtn, settingsBtn);
+
+        var activityBar = new DockPanel();
+        activityBar.Width = 48;
+        activityBar.MinWidth = 48;
+        activityBar.MaxWidth = 48;
+        DockPanel.SetDock(bottomFixed, Dock.Bottom);
+        activityBar.Add(bottomFixed);
+        activityBar.Add(topStack);
+
+        // ── SideBar ───────────────────────────────────────────────
+        sideBarPanel = new SplitPanel
         {
             Orientation = Orientation.Vertical,
             FirstLength = GridLength.Pixels(28),
@@ -60,10 +190,150 @@ public static class AppWindowBuilder
             MinFirst = 28,
             MinSecond = 0,
             First = sideBarTitle,
-            Second = new Label { Text = "Select an activity" }
+            Second = new Label { Text = "Select an activity", Margin = new Thickness(8) },
         };
-        sideBar.MinWidth = 120;
+        sideBarPanel.MinWidth = 120;
 
+        // ── ContentArea — custom tab bar + content border ─────────
+        var openTabItems = new List<IContentItem>();
+        var contentCache = new Dictionary<string, FrameworkElement>();
+        string? activeTabId = null;
+
+        var tabHeadersBorder = new Border();
+        var contentBodyBorder = new Border();
+
+        FrameworkElement welcomeContent = new StackPanel
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        }.Vertical().Children(
+            new Label { Text = "Welcome to MewPad", FontSize = 22, FontWeight = FontWeight.Bold },
+            new Label { Text = "Universal desktop shell workspace", FontSize = 13, Margin = new Thickness(0, 8, 0, 0) });
+
+        contentBodyBorder.Child = welcomeContent;
+
+        void RebuildTabHeaders()
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var t in openTabItems.ToList())
+            {
+                var tab = t;
+                var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+                if (tab.Icon != null)
+                    titleRow.Children(new Label { Text = tab.Icon.ToString()!, FontSize = 12, Margin = new Thickness(0, 0, 4, 0) });
+                titleRow.Children(new Label { Text = tab.Title });
+
+                if (tab.CanClose)
+                {
+                    titleRow.Children(new Label { Text = "  " });
+                    var closeBtn = new Button
+                    {
+                        Content = new Label { Text = "×", FontSize = 10 },
+                        MinWidth = 16,
+                        MinHeight = 14,
+                    };
+                    closeBtn.Click += () =>
+                    {
+                        shell.CloseContent(tab.Id);
+                        openTabItems.Remove(tab);
+                        contentCache.Remove(tab.Id);
+                        if (activeTabId == tab.Id)
+                        {
+                            activeTabId = openTabItems.LastOrDefault()?.Id;
+                            contentBodyBorder.Child = activeTabId != null && contentCache.TryGetValue(activeTabId, out var prev)
+                                ? prev : welcomeContent;
+                        }
+                        RebuildTabHeaders();
+                    };
+                    titleRow.Children(closeBtn);
+                }
+
+                row.Children(new Button { Content = titleRow }.OnClick(() =>
+                {
+                    activeTabId = tab.Id;
+                    if (contentCache.TryGetValue(tab.Id, out var c))
+                        contentBodyBorder.Child = c;
+                    RebuildTabHeaders();
+                }));
+            }
+            tabHeadersBorder.Child = row;
+        }
+
+        RebuildTabHeaders();
+
+        shell.ActiveContentId.Changed.Subscribe(id =>
+        {
+            if (id == null)
+            {
+                activeTabId = null;
+                contentBodyBorder.Child = welcomeContent;
+                RebuildTabHeaders();
+                return;
+            }
+
+            var item = shell.GetContent(id);
+            if (item == null) return;
+
+            if (!openTabItems.Any(t => t.Id == id))
+                openTabItems.Add(item);
+
+            if (!contentCache.TryGetValue(id, out var content))
+            {
+                content = item.CreateContent();
+                contentCache[id] = content;
+            }
+
+            activeTabId = id;
+            contentBodyBorder.Child = content;
+            RebuildTabHeaders();
+        });
+
+        var contentTabs = new DockPanel();
+        DockPanel.SetDock(tabHeadersBorder, Dock.Top);
+        contentTabs.Add(tabHeadersBorder);
+        contentTabs.Add(contentBodyBorder);
+
+        // ── PanelArea with tool buttons overlay ───────────────────
+        var panelTabs = new TabControl();
+        foreach (var panel in shell.GetPanels())
+        {
+            var p = panel;
+            panelTabs.AddTabs(new TabItem
+            {
+                Header = new Label { Text = p.Title },
+                Content = p.CreateContent(),
+            });
+        }
+        panelTabs.AddTabs(
+            new TabItem { Header = new Label { Text = "Terminal" }, Content = new Label { Text = "Terminal panel" } },
+            new TabItem { Header = new Label { Text = "Output" }, Content = new Label { Text = "Output panel" } }
+        );
+
+        // Overlay collapse button at top-right of the panel area
+        var panelCollapseBtn = new Button
+        {
+            Content = new Label { Text = "⊟", FontSize = 11 },
+            MinWidth = 26,
+            MinHeight = 22,
+        }.OnClick(TogglePanel);
+
+        var panelTools = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 2, 4, 0),
+        };
+        panelTools.Children(panelCollapseBtn);
+
+        var panelContainer = new Grid();
+        panelContainer.Rows("*");
+        Grid.SetRow(panelTabs, 0);
+        panelContainer.Add(panelTabs);
+        Grid.SetRow(panelTools, 0);
+        panelContainer.Add(panelTools);
+
+        // ── Layout ────────────────────────────────────────────────
         contentAndPanel = new SplitPanel
         {
             Orientation = Orientation.Vertical,
@@ -72,7 +342,7 @@ public static class AppWindowBuilder
             MinFirst = 200,
             MinSecond = 80,
             First = contentTabs,
-            Second = panelTabs,
+            Second = panelContainer,
         };
 
         mainSplit = new SplitPanel
@@ -82,198 +352,112 @@ public static class AppWindowBuilder
             SecondLength = GridLength.Stars(1),
             MinFirst = 120,
             MinSecond = 200,
-            First = sideBar,
+            First = sideBarPanel,
             Second = contentAndPanel,
         };
-
-        void ToggleSideBar()
-        {
-            var collapsed = !shell.SideBarCollapsed.Value;
-            shell.SideBarCollapsed.Value = collapsed;
-
-            if (collapsed)
-            {
-                if (mainSplit!.FirstLength.IsAbsolute && mainSplit.FirstLength.Value > 0)
-                    cachedSideBarWidth = mainSplit.FirstLength.Value;
-
-                mainSplit.FirstLength = GridLength.Pixels(0);
-                mainSplit.MinFirst = 0;
-                statusInfo.Text = "SideBar collapsed";
-                return;
-            }
-
-            mainSplit!.FirstLength = GridLength.Pixels(cachedSideBarWidth);
-            mainSplit.MinFirst = 120;
-            statusInfo.Text = "SideBar expanded";
-        }
-
-        void TogglePanel()
-        {
-            var collapsed = !shell.PanelCollapsed.Value;
-            shell.PanelCollapsed.Value = collapsed;
-
-            if (collapsed)
-            {
-                if (contentAndPanel!.SecondLength.IsAbsolute && contentAndPanel.SecondLength.Value > 0)
-                    cachedPanelHeight = contentAndPanel.SecondLength.Value;
-
-                contentAndPanel.SecondLength = GridLength.Pixels(0);
-                contentAndPanel.MinSecond = 0;
-                panelState.Text = "Panel: collapsed";
-                statusInfo.Text = "Panel collapsed";
-                return;
-            }
-
-            contentAndPanel!.SecondLength = GridLength.Pixels(cachedPanelHeight);
-            contentAndPanel.MinSecond = 80;
-            panelState.Text = "Panel: expanded";
-            statusInfo.Text = "Panel expanded";
-        }
-
-        void ActivateActivity(string activityId)
-        {
-            // Clicking the already-active activity toggles SideBar visibility
-            if (shell.ActiveActivityId.Value == activityId)
-            {
-                ToggleSideBar();
-                return;
-            }
-
-            var activity = shell.GetActivity(activityId);
-            if (activity == null)
-            {
-                statusInfo.Text = $"Activity '{activityId}' not found";
-                return;
-            }
-
-            shell.ActiveActivityId.Value = activityId;
-            sideBarTitle.Text = activity.Title;
-
-            // Load activity content (cached to preserve state across switches)
-            if (!activityContentCache.TryGetValue(activityId, out var content))
-            {
-                content = activity.CreateContent();
-                activityContentCache[activityId] = content;
-            }
-
-            // Swap SideBar content
-            sideBar.Second = content;
-
-            // Expand SideBar if it was collapsed
-            if (shell.SideBarCollapsed.Value)
-                ToggleSideBar();
-
-            statusInfo.Text = "Switched to " + activity.Title;
-        }
-
-        // Build ActivityBar dynamically from all registered activities
-        var allActivities = shell.GetActivities();
-        var topActivities = allActivities.Where(a => a.Section == ActivityBarSection.Top).ToList();
-        var bottomActivities = allActivities.Where(a => a.Section == ActivityBarSection.Bottom).ToList();
-
-        var activityBar = new StackPanel().Vertical();
-        activityBar.Width = 48;
-        activityBar.MinWidth = 48;
-        activityBar.MaxWidth = 48;
-
-        foreach (var activity in topActivities)
-        {
-            var id = activity.Id;
-            var iconText = activity.Icon?.ToString() ?? activity.Title[..1];
-            activityBar.Children(new Button().Content(iconText).OnClick(() => ActivateActivity(id)));
-        }
-
-        if (topActivities.Count > 0 && bottomActivities.Count > 0)
-            activityBar.Children(new Label { Text = "-" });
-
-        foreach (var activity in bottomActivities)
-        {
-            var id = activity.Id;
-            var iconText = activity.Icon?.ToString() ?? activity.Title[..1];
-            activityBar.Children(new Button().Content(iconText).OnClick(() => ActivateActivity(id)));
-        }
-
-        // Activate the first activity by default
-        if (topActivities.Count > 0)
-            ActivateActivity(topActivities[0].Id);
-        else if (bottomActivities.Count > 0)
-            ActivateActivity(bottomActivities[0].Id);
 
         var mainArea = new DockPanel();
         DockPanel.SetDock(activityBar, Dock.Left);
         mainArea.Add(activityBar);
         mainArea.Add(mainSplit);
 
-        var titleBar = new StackPanel()
-            .Horizontal()
-            .Children(
-                new Label { Text = "[App] MewPad" },
-                new Label { Text = "  File  Edit  View  Help" },
-                new Button().Content("Toggle Theme").OnClick(() =>
-                {
-                    shell.Theme.Toggle();
-                    statusInfo.Text = $"Theme: {shell.Theme.Current}";
-                }),
-                new Button().Content("Toggle Panel").OnClick(TogglePanel)
-            );
+        // ── StatusBar ─────────────────────────────────────────────
+        var statusBar = BuildStatusBar(shell);
 
-        var statusBar = new StackPanel()
-            .Horizontal()
-            .Children(
-                new Label { Text = "Git: main" },
-                new Label { Text = "Errors: 0 Warnings: 0" },
-                panelState,
-                statusInfo,
-                new Label { Text = "UTF-8" }
-            );
+        // ── Root ──────────────────────────────────────────────────
+        var root = new Grid();
+        root.Rows("*,auto");
+        Grid.SetRow(mainArea, 0);
+        Grid.SetRow(statusBar, 1);
+        root.Add(mainArea);
+        root.Add(statusBar);
 
-        return (titleBar, mainArea, statusBar);
-    }
-
-    private static TabControl CreateContentTabs()
-    {
-        var tabs = new TabControl();
-        tabs.AddTabs(
-            new TabItem
-            {
-                Header = new Label { Text = "Welcome" },
-                Content = new StackPanel().Vertical().Children(
-                    new Label { Text = "Welcome to MewPad" },
-                    new Label { Text = "Universal desktop shell workspace" })
-            }
-        );
-        return tabs;
-    }
-
-    private static TabControl CreatePanelTabs(ShellContext shell)
-    {
-        var tabs = new TabControl();
-
-        // Add registered panel items
-        foreach (var panel in shell.GetPanels())
+        // ── TitleBar ──────────────────────────────────────────────
+        window.TitleBarLeft.Add(new Label
         {
-            var p = panel;
-            tabs.AddTabs(new TabItem
-            {
-                Header = new Label { Text = p.Title },
-                Content = p.CreateContent()
-            });
-        }
+            Text = "🐾",
+            FontSize = 14,
+            Margin = new Thickness(8, 0, 4, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        window.TitleBarLeft.Add(BuildMenuBar(shell, ToggleSideBar, TogglePanel));
+        window.TitleBarRight.Add(new Button
+        {
+            Content = new Label { Text = "🌙", FontSize = 13 },
+            MinWidth = 32,
+            MinHeight = 28,
+        }.OnClick(() => shell.Theme.Toggle()));
 
-        // Always include Terminal and Output as built-in panels
-        tabs.AddTabs(
-            new TabItem
-            {
-                Header = new Label { Text = "Terminal" },
-                Content = new Label { Text = "Terminal panel" }
-            },
-            new TabItem
-            {
-                Header = new Label { Text = "Output" },
-                Content = new Label { Text = "Output panel" }
-            }
-        );
+        window.Content = root;
+        window.Padding = new Thickness(0);
 
-        return tabs;
+        // ── Default activation ────────────────────────────────────
+        var firstActivity = topActivities.Count > 0 ? topActivities[0]
+            : bottomActivities.Count > 0 ? bottomActivities[0]
+            : null;
+        if (firstActivity != null)
+            ActivateActivity(firstActivity.Id);
+    }
+
+    // ── MenuBar ───────────────────────────────────────────────────
+    private static FrameworkElement BuildMenuBar(ShellContext shell, Action toggleSideBar, Action togglePanel)
+    {
+        var fileMenu = new Menu()
+            .Item("Exit", () => Application.Quit());
+
+        var viewMenu = new Menu()
+            .Item("Toggle SideBar", toggleSideBar)
+            .Item("Toggle Panel", togglePanel)
+            .Separator()
+            .Item("Light Theme", () => shell.Theme.Set(AppTheme.Light))
+            .Item("Dark Theme", () => shell.Theme.Set(AppTheme.Dark));
+
+        var helpMenu = new Menu()
+            .Item("About MewPad", () => { });
+
+        var bar = new MenuBar();
+        bar.Background = TransparentColor;
+        bar.Add(new MenuItem("File(_F)").Menu(fileMenu));
+        bar.Add(new MenuItem("View(_V)").Menu(viewMenu));
+        bar.Add(new MenuItem("Help(_H)").Menu(helpMenu));
+        return bar;
+    }
+
+    // ── StatusBar ─────────────────────────────────────────────────
+    private static FrameworkElement BuildStatusBar(ShellContext shell)
+    {
+        var leftItems = shell.GetStatusBarItems(StatusBarSlot.Left);
+        var rightItems = shell.GetStatusBarItems(StatusBarSlot.Right);
+
+        var leftStack = new StackPanel().Horizontal();
+        foreach (var item in leftItems)
+            leftStack.Children(item.CreateElement());
+
+        // Default left items when nothing registered
+        if (leftItems.Count == 0)
+            leftStack.Children(
+                new Label { Text = "  ⎇ main  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center },
+                new Label { Text = "⊗ 0  ⚠ 0  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center });
+
+        var rightStack = new StackPanel().Horizontal();
+        foreach (var item in rightItems)
+            rightStack.Children(item.CreateElement());
+
+        // Default right items when nothing registered
+        if (rightItems.Count == 0)
+            rightStack.Children(
+                new Label { Text = "  UTF-8  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center });
+
+        var barDock = new DockPanel();
+        DockPanel.SetDock(rightStack, Dock.Right);
+        barDock.Add(rightStack);
+        barDock.Add(leftStack);
+
+        var bar = new Border { Height = 22, Background = AccentColor, Child = barDock };
+
+        // Update background when theme changes
+        shell.Theme.Changed.Subscribe(_ => bar.Background = AccentColor);
+
+        return bar;
     }
 }
