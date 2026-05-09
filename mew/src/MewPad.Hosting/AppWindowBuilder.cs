@@ -46,6 +46,7 @@ public static class AppWindowBuilder
         double cachedPanelHeight  = cfg.GetConfig("ui.panelHeight", 200.0);
         bool startSideBarCollapsed = cfg.GetConfig("ui.sidebarCollapsed", false);
         bool startPanelCollapsed   = cfg.GetConfig("ui.panelCollapsed", false);
+        string? lastActiveActivityId = cfg.GetConfig<string>("ui.lastActiveActivityId");
         double savedWindowWidth = cfg.GetConfig("ui.windowWidth", 1200.0);
         double savedWindowHeight = cfg.GetConfig("ui.windowHeight", 800.0);
         double savedWindowX = cfg.GetConfig("ui.windowX", double.NaN);
@@ -606,6 +607,7 @@ public static class AppWindowBuilder
             cfg.SetConfig("ui.language", shell.Localization.CurrentLanguage);
             cfg.SetConfig("ui.sidebarCollapsed", shell.SideBarCollapsed.Value);
             cfg.SetConfig("ui.panelCollapsed", shell.PanelCollapsed.Value);
+            cfg.SetConfig("ui.lastActiveActivityId", shell.ActiveActivityId.Value);
             if (mainSplit!.FirstLength.IsAbsolute && mainSplit.FirstLength.Value > 0)
                 cfg.SetConfig("ui.sidebarWidth", mainSplit.FirstLength.Value);
             if (panelShell != null && panelShell.Height > 0)
@@ -623,11 +625,27 @@ public static class AppWindowBuilder
         };
 
         // ── Default activation + restore sidebar/panel state ─────
-        var firstActivity = topActivities.Count > 0 ? topActivities[0]
-            : bottomActivities.Count > 0 ? bottomActivities[0]
-            : null;
-        if (firstActivity != null)
-            ActivateActivity(firstActivity.Id);
+        // Try to restore last active Activity, otherwise use first available
+        string? activityToActivate = null;
+        if (!string.IsNullOrEmpty(lastActiveActivityId))
+        {
+            var lastActivity = allActivities.FirstOrDefault(a => a.Id == lastActiveActivityId);
+            if (lastActivity != null)
+                activityToActivate = lastActiveActivityId;
+        }
+        if (string.IsNullOrEmpty(activityToActivate))
+        {
+            var firstActivity = topActivities.Count > 0 ? topActivities[0]
+                : bottomActivities.Count > 0 ? bottomActivities[0]
+                : null;
+            if (firstActivity != null)
+                activityToActivate = firstActivity.Id;
+        }
+        if (!string.IsNullOrEmpty(activityToActivate))
+            ActivateActivity(activityToActivate);
+
+        // Auto-save configuration periodically (basic throttling: on state changes)
+        shell.ActiveActivityId.Changed.Subscribe(_ => cfg.SetConfig("ui.lastActiveActivityId", shell.ActiveActivityId.Value));
 
         // Apply persisted collapse states after initial activation
         if (startSideBarCollapsed)
