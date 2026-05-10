@@ -794,7 +794,6 @@ public static class AppWindowBuilder
         var viewMenuItem = new MenuItem("(_V)iew").Menu(viewMenu);
         var helpMenuItem = new MenuItem("(_H)elp").Menu(helpMenu);
         bar.Background = TransparentColor;
-        bar.WithTheme((t, b) => b.Foreground = ResolveTextColor(shell, t));
 
         bar.Add(fileMenuItem);
         bar.Add(viewMenuItem);
