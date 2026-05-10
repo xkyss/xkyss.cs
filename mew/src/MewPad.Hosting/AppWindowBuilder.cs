@@ -42,6 +42,9 @@ public static class AppWindowBuilder
         };
         shell.Theme.Set(initialTheme);
         ThemeManager.Default = ToThemeVariant(shell.Theme.Current);
+        // Keep MewUI default seeds for balanced contrast/spacing behavior.
+        ThemeManager.DefaultLightSeed = ThemeSeed.DefaultLight;
+        ThemeManager.DefaultDarkSeed = ThemeSeed.DefaultDark;
 
         var savedLang = cfg.GetConfig<string>("ui.language");
         if (!string.IsNullOrEmpty(savedLang)) shell.Localization.SetLanguage(savedLang);
@@ -170,7 +173,13 @@ public static class AppWindowBuilder
                     Margin = new Thickness(0, 2),
                 };
                 if (isActive)
-                    btn.Background = Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF);
+                {
+                    btn.WithTheme((t, b) =>
+                    {
+                        var alpha = t.IsDark ? (byte)0x55 : (byte)0x33;
+                        b.Background = t.Palette.Accent.WithAlpha(alpha);
+                    });
+                }
                 btn.OnClick(() => OpenSettings(c.Id));
                 navStack.Children(btn);
             }
@@ -219,27 +228,37 @@ public static class AppWindowBuilder
         // Subscribe to active activity changes → update indicators
         shell.ActiveActivityId.Changed.Subscribe(activeId =>
         {
+            var accent = Application.IsRunning ? Application.Current.Theme.Palette.Accent : AccentColor;
             foreach (var (id, indicator) in activityIndicators)
-                indicator.Background = id == activeId ? AccentColor : TransparentColor;
+                indicator.Background = id == activeId ? accent : TransparentColor;
+        });
+
+        shell.Theme.Changed.Subscribe(_ =>
+        {
+            var activeId = shell.ActiveActivityId.Value;
+            var accent = Application.IsRunning ? Application.Current.Theme.Palette.Accent : AccentColor;
+            foreach (var (id, indicator) in activityIndicators)
+                indicator.Background = id == activeId ? accent : TransparentColor;
         });
 
         FrameworkElement MakeActivityButton(IActivityItem activity)
         {
             var id = activity.Id;
             var iconText = activity.Icon.ToString() ?? activity.Title[..1];
+            var iconLabel = new Label
+            {
+                Text = iconText,
+                FontSize = 16,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            }.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
 
             var indicator = new Border { Width = 2, Background = TransparentColor };
             activityIndicators[id] = indicator;
 
             var btn = new Button
             {
-                Content = new Label
-                {
-                    Text = iconText,
-                    FontSize = 16,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                },
+                Content = iconLabel,
                 MinWidth = 46,
                 MinHeight = 46,
             }.OnClick(() => ActivateActivity(id));
@@ -259,9 +278,17 @@ public static class AppWindowBuilder
             topStack.Children(MakeActivityButton(activity));
 
         // Bottom fixed items: Settings
+        var settingsIconLabel = new Label
+        {
+            Text = "⚙",
+            FontSize = 16,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        }.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
+
         var settingsBtn = new Button
         {
-            Content = new Label { Text = "⚙", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            Content = settingsIconLabel,
             MinWidth = 48,
             MinHeight = 46,
         }.OnClick(() =>
@@ -461,7 +488,13 @@ public static class AppWindowBuilder
                 };
                 // Active tab: slightly lighter/highlighted background
                 if (isActive)
-                    tabBtn.Background = Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF);
+                {
+                    tabBtn.WithTheme((t, b) =>
+                    {
+                        var alpha = t.IsDark ? (byte)0x40 : (byte)0x28;
+                        b.Background = t.Palette.Accent.WithAlpha(alpha);
+                    });
+                }
 
                 tabBtn.OnClick(() =>
                 {
@@ -620,21 +653,23 @@ public static class AppWindowBuilder
         root.Add(statusBar);
 
         // ── TitleBar ──────────────────────────────────────────────
-        window.TitleBarLeft.Add(new Label
+        var appIconLabel = new Label
         {
             Text = "🐾",
             FontSize = 14,
             Margin = new Thickness(8, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
-        });
-        window.TitleBarLeft.Add(BuildMenuBar(shell, ToggleSideBar, TogglePanel));
+        }.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
+        window.TitleBarLeft.Add(appIconLabel);
+        var titleMenuBar = BuildMenuBar(shell, ToggleSideBar, TogglePanel);
+        window.TitleBarLeft.Add(titleMenuBar);
         var themeToggleLabel = new Label
         {
             Text = GetThemeModeIcon(shell.Theme.Current),
             FontSize = 11,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-        };
+        }.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
         var themeToggleButton = new Button
         {
             Content = themeToggleLabel,
@@ -644,13 +679,29 @@ public static class AppWindowBuilder
         }.OnClick(() => shell.Theme.Toggle());
         window.TitleBarRight.Add(themeToggleButton);
 
+        void ApplyTitleBarTextColors()
+        {
+            var isDark = shell.Theme.Current switch
+            {
+                AppTheme.Dark => true,
+                AppTheme.Light => false,
+                _ => Application.IsRunning ? Application.Current.Theme.IsDark : false,
+            };
+            var textColor = isDark ? Color.FromRgb(0xE8, 0xEB, 0xF2) : Color.FromRgb(0x1F, 0x26, 0x34);
+            appIconLabel.Foreground = textColor;
+            themeToggleLabel.Foreground = textColor;
+            themeToggleButton.Foreground = textColor;
+            titleMenuBar.Foreground = textColor;
+        }
+
         shell.Theme.Changed.Subscribe(t =>
         {
             themeToggleLabel.Text = GetThemeModeIcon(t);
-
-            if (Application.IsRunning)
-                Application.Current.SetTheme(ToThemeVariant(t));
+            Application.Current.SetTheme(ToThemeVariant(t));
+            ApplyTitleBarTextColors();
         });
+
+        ApplyTitleBarTextColors();
 
         // Global keyboard shortcuts
         window.KeyBindings.Add(new KeyBinding(new KeyGesture(Key.B, ModifierKeys.Primary), ToggleSideBar));
@@ -737,7 +788,7 @@ public static class AppWindowBuilder
     }
 
     // ── MenuBar ───────────────────────────────────────────────────
-    private static FrameworkElement BuildMenuBar(ShellContext shell, Action toggleSideBar, Action togglePanel)
+    private static MenuBar BuildMenuBar(ShellContext shell, Action toggleSideBar, Action togglePanel)
     {
         var fileMenu = new Menu()
             .Item("Exit", () => Application.Quit());
@@ -754,10 +805,15 @@ public static class AppWindowBuilder
             .Item("About MewPad", () => shell.Settings.OpenSettings("about"));
 
         var bar = new MenuBar();
+        var fileMenuItem = new MenuItem("(_F)ile").Menu(fileMenu);
+        var viewMenuItem = new MenuItem("(_V)iew").Menu(viewMenu);
+        var helpMenuItem = new MenuItem("(_H)elp").Menu(helpMenu);
         bar.Background = TransparentColor;
-        bar.Add(new MenuItem("File(_F)").Menu(fileMenu));
-        bar.Add(new MenuItem("View(_V)").Menu(viewMenu));
-        bar.Add(new MenuItem("Help(_H)").Menu(helpMenu));
+        bar.WithTheme((t, b) => b.Foreground = ResolveTextColor(shell, t));
+
+        bar.Add(fileMenuItem);
+        bar.Add(viewMenuItem);
+        bar.Add(helpMenuItem);
         return bar;
     }
 
@@ -766,25 +822,43 @@ public static class AppWindowBuilder
     {
         var leftItems = shell.GetStatusBarItems(StatusBarSlot.Left);
         var rightItems = shell.GetStatusBarItems(StatusBarSlot.Right);
+        var statusLabels = new List<Label>();
 
         var leftStack = new StackPanel().Horizontal();
         foreach (var item in leftItems)
-            leftStack.Children(item.CreateElement());
+        {
+            var element = item.CreateElement();
+            if (element is Label label)
+                statusLabels.Add(label);
+            leftStack.Children(element);
+        }
 
         // Default left items when nothing registered
         if (leftItems.Count == 0)
-            leftStack.Children(
-                new Label { Text = "  ⎇ main  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center },
-                new Label { Text = "⊗ 0  ⚠ 0  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center });
+        {
+            var branchLabel = new Label { Text = "  ⎇ main  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            var diagnosticsLabel = new Label { Text = "⊗ 0  ⚠ 0  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            statusLabels.Add(branchLabel);
+            statusLabels.Add(diagnosticsLabel);
+            leftStack.Children(branchLabel, diagnosticsLabel);
+        }
 
         var rightStack = new StackPanel().Horizontal();
         foreach (var item in rightItems)
-            rightStack.Children(item.CreateElement());
+        {
+            var element = item.CreateElement();
+            if (element is Label label)
+                statusLabels.Add(label);
+            rightStack.Children(element);
+        }
 
         // Default right items when nothing registered
         if (rightItems.Count == 0)
-            rightStack.Children(
-                new Label { Text = "  UTF-8  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center });
+        {
+            var encodingLabel = new Label { Text = "  UTF-8  ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            statusLabels.Add(encodingLabel);
+            rightStack.Children(encodingLabel);
+        }
 
         var barDock = new DockPanel();
         DockPanel.SetDock(rightStack, Dock.Right);
@@ -793,19 +867,15 @@ public static class AppWindowBuilder
 
         var bar = new Border { Height = 22, Child = barDock };
 
-        void ApplyStatusBarTheme()
+        bar.WithTheme((t, b) =>
         {
-            var isDark = Application.IsRunning
-                ? Application.Current.Theme.IsDark
-                : shell.Theme.Current == AppTheme.Dark;
-
-            bar.Background = isDark ? Color.FromRgb(0x20, 0x20, 0x24) : Color.FromRgb(0xF2, 0xF4, 0xF8);
-            bar.BorderBrush = isDark ? Color.FromRgb(0x33, 0x33, 0x3A) : Color.FromRgb(0xD7, 0xDB, 0xE2);
-            bar.BorderThickness = 1;
-        }
-
-        ApplyStatusBarTheme();
-        shell.Theme.Changed.Subscribe(_ => ApplyStatusBarTheme());
+            b.Background = ResolveIsDark(shell, t) ? Color.FromRgb(0x20, 0x20, 0x24) : Color.FromRgb(0xF2, 0xF4, 0xF8);
+            b.BorderBrush = ResolveIsDark(shell, t) ? Color.FromRgb(0x33, 0x33, 0x3A) : Color.FromRgb(0xD7, 0xDB, 0xE2);
+            b.BorderThickness = 1;
+            var textColor = ResolveTextColor(shell, t);
+            foreach (var label in statusLabels)
+                label.Foreground = textColor;
+        });
 
         return bar;
     }
@@ -825,4 +895,17 @@ public static class AppWindowBuilder
             AppTheme.Light => "☀",
             _ => "🌙",
         };
+
+    private static bool ResolveIsDark(ShellContext shell, Aprillz.MewUI.Theme runtimeTheme)
+        => shell.Theme.Current switch
+        {
+            AppTheme.Dark => true,
+            AppTheme.Light => false,
+            _ => runtimeTheme.IsDark,
+        };
+
+    private static Color ResolveTextColor(ShellContext shell, Aprillz.MewUI.Theme runtimeTheme)
+        => ResolveIsDark(shell, runtimeTheme)
+            ? Color.FromRgb(0xE8, 0xEB, 0xF2)
+            : Color.FromRgb(0x1F, 0x26, 0x34);
 }
