@@ -33,9 +33,21 @@ public class AppearanceSettings : ISettingsCategory
         var lightBtn = new Button { Content = new Label { Text = "☀️  Light" }, MinWidth = 100, Margin = new Thickness(0, 0, 8, 0) };
         var darkBtn  = new Button { Content = new Label { Text = "🌙  Dark" },  MinWidth = 100 };
 
-        systemBtn.Click += () => _theme.Set(AppTheme.System);
-        lightBtn.Click += () => _theme.Set(AppTheme.Light);
-        darkBtn.Click  += () => _theme.Set(AppTheme.Dark);
+        systemBtn.Click += () =>
+        {
+            _theme.Set(AppTheme.System);
+            Application.Current.SetTheme(ThemeVariant.System);
+        };
+        lightBtn.Click += () =>
+        {
+            _theme.Set(AppTheme.Light);
+            Application.Current.SetTheme(ThemeVariant.Light);
+        };
+        darkBtn.Click  += () =>
+        {
+            _theme.Set(AppTheme.Dark);
+            Application.Current.SetTheme(ThemeVariant.Dark);
+        };
 
         return new StackPanel().Vertical().Children(
             new Label { Text = "Theme", FontWeight = FontWeight.Bold, FontSize = 16, Margin = new Thickness(0, 0, 0, 12) },

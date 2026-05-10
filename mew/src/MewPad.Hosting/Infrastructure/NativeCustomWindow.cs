@@ -2,6 +2,7 @@ namespace MewPad.Hosting.Infrastructure;
 
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
+using Aprillz.MewUI.Rendering;
 
 /// <summary>
 /// 无边框自定义标题栏窗口，基于 DWM 帧扩展（Win11）。
@@ -10,18 +11,19 @@ using Aprillz.MewUI.Controls;
 /// </summary>
 public class NativeCustomWindow : Window
 {
-    private const double DefaultTitleBarHeight = 32;
-    private const double ButtonWidth = 46;
+    private const double DefaultTitleBarHeight = 28;
+    private const double ButtonWidth = 32;
+    private const double ChromeButtonSize = 4;
 
     private readonly Border _contentArea;
     private readonly Border _chromeBorder;
+    private readonly AlphaTextPanel _titleBar;
     private readonly TextBlock _titleText;
     private readonly StackPanel _controlButtons;
     protected readonly StackPanel _leftArea;
     protected readonly StackPanel _rightArea;
     private readonly Button _minimizeBtn;
     private readonly Button _maximizeBtn;
-    private readonly Button _closeBtn;
 
     public NativeCustomWindow()
     {
@@ -44,13 +46,13 @@ public class NativeCustomWindow : Window
         _titleText.SetBinding(TextBlock.TextProperty, this, TitleProperty);
 
         // Chrome 按钮：最小化
-        _minimizeBtn = MakeChromeButton("─");
+        _minimizeBtn = CreateChromeButton(GlyphKind.WindowMinimize);
         _minimizeBtn.Click += () => Minimize();
         _minimizeBtn.SetBinding(UIElement.IsVisibleProperty, this, CanMinimizeProperty);
 
         // Chrome 按钮：最大化 / 还原
-        var maxGlyph = new GlyphElement().Kind(GlyphKind.WindowMaximize).GlyphSize(4);
-        _maximizeBtn = MakeChromeButton(maxGlyph);
+        var maxGlyph = new GlyphElement().Kind(GlyphKind.WindowMaximize).GlyphSize(ChromeButtonSize);
+        _maximizeBtn = CreateChromeButton(maxGlyph);
         _maximizeBtn.Click += () =>
         {
             if (WindowState == WindowState.Maximized) Restore();
@@ -59,14 +61,14 @@ public class NativeCustomWindow : Window
         _maximizeBtn.SetBinding(UIElement.IsVisibleProperty, this, CanMaximizeProperty);
 
         // Chrome 按钮：关闭
-        _closeBtn = MakeChromeButton("✕", isClose: true);
-        _closeBtn.Click += () => Close();
-        _closeBtn.SetBinding(UIElement.IsVisibleProperty, this, CanCloseProperty);
+        var closeBtn = CreateChromeButton(GlyphKind.Cross, isClose: true);
+        closeBtn.Click += () => Close();
+        closeBtn.SetBinding(UIElement.IsVisibleProperty, this, CanCloseProperty);
 
         _controlButtons = new StackPanel { Orientation = Orientation.Horizontal };
         _controlButtons.Add(_minimizeBtn);
         _controlButtons.Add(_maximizeBtn);
-        _controlButtons.Add(_closeBtn);
+        _controlButtons.Add(closeBtn);
 
         // 标题栏左/右扩展区域
         _leftArea = new StackPanel { Orientation = Orientation.Horizontal };
@@ -80,19 +82,19 @@ public class NativeCustomWindow : Window
             _titleText
         );
 
-        var titleBar = new Border
+        _titleBar = new AlphaTextPanel
         {
             MinHeight = DefaultTitleBarHeight,
-            Child = titleBarContent,
+            Content = titleBarContent,
         };
-        titleBar.SetBinding(BackgroundProperty, this, BackgroundProperty);
+        _titleBar.SetBinding(BackgroundProperty, this, BackgroundProperty);
 
         // 双击标题栏最大化/还原（排除左右按钮区域）
-        titleBar.MouseDoubleClick += e =>
+        _titleBar.MouseDoubleClick += e =>
         {
             if (e.Button == MouseButton.Left && CanMaximize)
             {
-                if (e.GetPosition(titleBar) is Point p &&
+                if (e.GetPosition(_titleBar) is Point p &&
                     (_leftArea.Bounds.Contains(p) || _rightArea.Bounds.Contains(p)))
                 {
                     e.Handled = true;
@@ -111,7 +113,7 @@ public class NativeCustomWindow : Window
         {
             BorderThickness = 0,
             Child = new DockPanel().Children(
-                titleBar.DockTop(),
+                _titleBar.DockTop(),
                 _contentArea
             )
         };
@@ -127,7 +129,6 @@ public class NativeCustomWindow : Window
 
         Activated += UpdateChromeAppearance;
         Deactivated += UpdateChromeAppearance;
-        ThemeChanged += (_, _) => UpdateChromeAppearance();
         Loaded += OnLoaded;
     }
 
@@ -174,19 +175,18 @@ public class NativeCustomWindow : Window
         _titleText.Foreground = IsActive ? p.WindowText : p.DisabledText;
     }
 
+    protected override void OnThemeChanged(Theme oldTheme, Theme newTheme)
+    {
+        base.OnThemeChanged(oldTheme, newTheme);
+        UpdateChromeAppearance();
+    }
+
     private void UpdateChromeButtonVisibility()
     {
         bool hasExtend = ChromeCapabilities.HasFlag(WindowChromeCapabilities.ExtendClientArea);
+        _titleBar.IsVisible = hasExtend;
         _controlButtons.IsVisible = !HasNativeChromeButtons;
-        _titleText.IsVisible = hasExtend || !HasNativeChromeButtons;
-        TitleBarSetPadding();
-    }
-
-    private void TitleBarSetPadding()
-    {
-        var inset = NativeChromeButtonInset;
-        _leftArea.Margin = new Thickness(inset.Left, 0, 0, 0);
-        _rightArea.Margin = new Thickness(0, 0, inset.Right, 0);
+        _titleBar.Padding = NativeChromeButtonInset;
     }
 
     private void OnWindowStateVisualUpdate()
@@ -257,22 +257,13 @@ public class NativeCustomWindow : Window
         ],
     };
 
-    private Button MakeChromeButton(string text, bool isClose = false) =>
-        new Button
-        {
-            Content = new Label
-            {
-                Text = text,
-                FontSize = 10,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            },
-            MinWidth = ButtonWidth,
-            MinHeight = DefaultTitleBarHeight,
-            StyleName = isClose ? "close" : "chrome",
-        };
+    private static Button CreateChromeButton(GlyphKind kind, bool isClose = false)
+    {
+        var glyph = new GlyphElement().Kind(kind).GlyphSize(ChromeButtonSize);
+        return CreateChromeButton(glyph, isClose);
+    }
 
-    private Button MakeChromeButton(Element content, bool isClose = false) =>
+    private static Button CreateChromeButton(Element content, bool isClose = false) =>
         new Button
         {
             Content = content,
@@ -280,4 +271,23 @@ public class NativeCustomWindow : Window
             MinHeight = DefaultTitleBarHeight,
             StyleName = isClose ? "close" : "chrome",
         };
+
+    /// <summary>
+    /// Enables alpha-correct text rendering in DWM title bar regions.
+    /// </summary>
+    internal sealed class AlphaTextPanel : ContentControl
+    {
+        protected override void RenderSubtree(IGraphicsContext context)
+        {
+            context.EnableAlphaTextHint = true;
+            try
+            {
+                base.RenderSubtree(context);
+            }
+            finally
+            {
+                context.EnableAlphaTextHint = false;
+            }
+        }
+    }
 }

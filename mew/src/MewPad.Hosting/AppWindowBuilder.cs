@@ -40,8 +40,11 @@ public static class AppWindowBuilder
             "System" => AppTheme.System,
             _ => AppTheme.System,
         };
+        // Set the initial theme to both shell and Application
         shell.Theme.Set(initialTheme);
         ThemeManager.Default = ToThemeVariant(shell.Theme.Current);
+        if (Application.IsRunning)
+            Application.Current.SetTheme(ToThemeVariant(shell.Theme.Current));
         // Keep MewUI default seeds for balanced contrast/spacing behavior.
         ThemeManager.DefaultLightSeed = ThemeSeed.DefaultLight;
         ThemeManager.DefaultDarkSeed = ThemeSeed.DefaultDark;
@@ -347,7 +350,11 @@ public static class AppWindowBuilder
             new Label { Text = "No page is open right now.", FontSize = 11, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Center },
             new StackPanel().Horizontal().Children(
                 new Button { Content = new Label { Text = "Open Settings" }, MinWidth = 120, Margin = new Thickness(0, 16, 8, 0) }.OnClick(() => shell.Settings.OpenSettings()),
-                new Button { Content = new Label { Text = "Switch Theme" }, MinWidth = 120, Margin = new Thickness(0, 16, 0, 0) }.OnClick(() => shell.Theme.Toggle())
+                new Button { Content = new Label { Text = "Switch Theme" }, MinWidth = 120, Margin = new Thickness(0, 16, 0, 0) }.OnClick(() =>
+                {
+                    shell.Theme.Toggle();
+                    Application.Current.SetTheme(ToThemeVariant(shell.Theme.Current));
+                })
             ),
             new Border
             {
@@ -659,10 +666,9 @@ public static class AppWindowBuilder
             FontSize = 14,
             Margin = new Thickness(8, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
-        }.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
+        };
         window.TitleBarLeft.Add(appIconLabel);
         var titleMenuBar = BuildMenuBar(shell, ToggleSideBar, TogglePanel);
-        titleMenuBar.WithTheme((t, b) => b.Foreground = ResolveTextColor(shell, t));
         window.TitleBarLeft.Add(titleMenuBar);
         var themeToggleLabel = new Label
         {
@@ -670,17 +676,20 @@ public static class AppWindowBuilder
             FontSize = 11,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-        }.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
+        };
         var themeToggleButton = new Button
         {
             Content = themeToggleLabel,
             MinWidth = 46,
             MinHeight = 32,
             StyleName = "chrome",
-        }.OnClick(() => shell.Theme.Toggle());
-        themeToggleButton.WithTheme((t, b) => b.Foreground = ResolveTextColor(shell, t));
+        }.OnClick(() =>
+        {
+            shell.Theme.Toggle();
+            Application.Current.SetTheme(ToThemeVariant(shell.Theme.Current));
+            themeToggleLabel.Text = GetThemeModeIcon(shell.Theme.Current);
+        });
         window.TitleBarRight.Add(themeToggleButton);
-        appIconLabel.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
 
         shell.Theme.Changed.Subscribe(t =>
         {
@@ -719,7 +728,7 @@ public static class AppWindowBuilder
             cfg.SetConfig("ui.language", shell.Localization.CurrentLanguage);
             cfg.SetConfig("ui.sidebarCollapsed", shell.SideBarCollapsed.Value);
             cfg.SetConfig("ui.panelCollapsed", shell.PanelCollapsed.Value);
-            cfg.SetConfig("ui.lastActiveActivityId", shell.ActiveActivityId.Value);
+            cfg.SetConfig("ui.lastActiveActivityId", shell.ActiveActivityId.Value ?? string.Empty);
             if (mainSplit!.FirstLength.IsAbsolute && mainSplit.FirstLength.Value > 0)
                 cfg.SetConfig("ui.sidebarWidth", mainSplit.FirstLength.Value);
             if (panelShell != null && panelShell.Height > 0)
@@ -757,7 +766,8 @@ public static class AppWindowBuilder
             ActivateActivity(activityToActivate);
 
         // Auto-save configuration periodically (basic throttling: on state changes)
-        shell.ActiveActivityId.Changed.Subscribe(_ => cfg.SetConfig("ui.lastActiveActivityId", shell.ActiveActivityId.Value));
+        shell.ActiveActivityId.Changed.Subscribe(_ =>
+            cfg.SetConfig("ui.lastActiveActivityId", shell.ActiveActivityId.Value ?? string.Empty));
 
         // Apply persisted collapse states after initial activation
         if (startSideBarCollapsed)
@@ -782,22 +792,32 @@ public static class AppWindowBuilder
             .Item("Toggle SideBar", toggleSideBar)
             .Item("Toggle Panel", togglePanel)
             .Separator()
-            .Item("Follow System Theme", () => shell.Theme.Set(AppTheme.System))
-            .Item("Light Theme", () => shell.Theme.Set(AppTheme.Light))
-            .Item("Dark Theme", () => shell.Theme.Set(AppTheme.Dark));
+            .Item("Follow System Theme", () =>
+            {
+                shell.Theme.Set(AppTheme.System);
+                Application.Current.SetTheme(ThemeVariant.System);
+            })
+            .Item("Light Theme", () =>
+            {
+                shell.Theme.Set(AppTheme.Light);
+                Application.Current.SetTheme(ThemeVariant.Light);
+            })
+            .Item("Dark Theme", () =>
+            {
+                shell.Theme.Set(AppTheme.Dark);
+                Application.Current.SetTheme(ThemeVariant.Dark);
+            });
 
         var helpMenu = new Menu()
             .Item("About MewPad", () => shell.Settings.OpenSettings("about"));
 
-        var bar = new MenuBar();
-        var fileMenuItem = new MenuItem("(_F)ile").Menu(fileMenu);
-        var viewMenuItem = new MenuItem("(_V)iew").Menu(viewMenu);
-        var helpMenuItem = new MenuItem("(_H)elp").Menu(helpMenu);
-        bar.Background = TransparentColor;
+        var bar = new MenuBar()
+            .Background(Color.Transparent);  // Transparent so menu text gets auto-colored from Application.Current.Theme
 
-        bar.Add(fileMenuItem);
-        bar.Add(viewMenuItem);
-        bar.Add(helpMenuItem);
+        bar.Add(new MenuItem("(_F)ile").Menu(fileMenu));
+        bar.Add(new MenuItem("(_V)iew").Menu(viewMenu));
+        bar.Add(new MenuItem("(_H)elp").Menu(helpMenu));
+
         return bar;
     }
 
@@ -853,8 +873,8 @@ public static class AppWindowBuilder
 
         bar.WithTheme((t, b) =>
         {
-            b.Background = ResolveIsDark(shell, t) ? Color.FromRgb(0x20, 0x20, 0x24) : Color.FromRgb(0xF2, 0xF4, 0xF8);
-            b.BorderBrush = ResolveIsDark(shell, t) ? Color.FromRgb(0x33, 0x33, 0x3A) : Color.FromRgb(0xD7, 0xDB, 0xE2);
+            b.Background = t.Palette.ButtonFace;
+            b.BorderBrush = t.Palette.ControlBorder;
             b.BorderThickness = 1;
             var textColor = ResolveTextColor(shell, t);
             foreach (var label in statusLabels)
@@ -880,16 +900,9 @@ public static class AppWindowBuilder
             _ => "🌙",
         };
 
-    private static bool ResolveIsDark(ShellContext shell, Aprillz.MewUI.Theme runtimeTheme)
-        => shell.Theme.Current switch
-        {
-            AppTheme.Dark => true,
-            AppTheme.Light => false,
-            _ => runtimeTheme.IsDark,
-        };
+    private static bool ResolveIsDark(ShellContext _, Aprillz.MewUI.Theme runtimeTheme)
+        => runtimeTheme.IsDark;
 
-    private static Color ResolveTextColor(ShellContext shell, Aprillz.MewUI.Theme runtimeTheme)
-        => ResolveIsDark(shell, runtimeTheme)
-            ? Color.FromRgb(0xE8, 0xEB, 0xF2)
-            : Color.FromRgb(0x1F, 0x26, 0x34);
+    private static Color ResolveTextColor(ShellContext _, Aprillz.MewUI.Theme runtimeTheme)
+        => runtimeTheme.Palette.WindowText;
 }
