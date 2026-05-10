@@ -52,13 +52,14 @@ internal class Program
             Priority: 10));
 
         // Load runtime plugins from default and development fallback directories.
+        var defaultPluginsDir = Path.Combine(AppContext.BaseDirectory, "plugins");
         var pluginDirectories = new List<string>
         {
-            Path.Combine(AppContext.BaseDirectory, "plugins")
+            defaultPluginsDir
         };
 
         var repoRoot = FindRepoRoot(Directory.GetCurrentDirectory());
-        if (repoRoot != null)
+        if (repoRoot != null && !HasPluginArtifacts(defaultPluginsDir))
         {
             pluginDirectories.Add(Path.Combine(repoRoot, ".build", "QuickLaunch.Plugin", "bin", "Debug", "net10.0"));
             pluginDirectories.Add(Path.Combine(repoRoot, ".build", "QuickLaunch.Plugin", "bin", "Release", "net10.0"));
@@ -150,5 +151,15 @@ internal class Program
         }
 
         return null;
+    }
+
+    private static bool HasPluginArtifacts(string pluginsDirectory)
+    {
+        if (!Directory.Exists(pluginsDirectory))
+            return false;
+
+        var manifestExists = Directory.GetFiles(pluginsDirectory, "plugin.json", SearchOption.AllDirectories).Length > 0;
+        var dllExists = Directory.GetFiles(pluginsDirectory, "*.dll", SearchOption.AllDirectories).Length > 0;
+        return manifestExists || dllExists;
     }
 }

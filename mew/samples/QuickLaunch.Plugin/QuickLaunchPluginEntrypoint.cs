@@ -5,9 +5,11 @@ using Aprillz.MewUI.Controls;
 using MewPad.Core.Interfaces;
 using MewPad.Core.Plugins;
 using MewPad.Core.Shell;
+using QuickLaunch.Plugin.Services;
+using QuickLaunch.Plugin.UI;
 
 /// <summary>
-/// QuickLaunch 示例插件入口。
+/// QuickLaunch 插件入口。
 ///
 /// 在动态加载器完成前，宿主可手动调用：
 /// QuickLaunchPluginEntrypoint.Register(shell)
@@ -22,11 +24,21 @@ public static class QuickLaunchPluginEntrypoint
 
 public sealed class QuickLaunchPlugin : IPlugin
 {
+    private static int s_registered;
+
     public string Id => "quicklaunch.plugin";
 
     public void Register(ShellContext shell)
     {
-        shell.RegisterActivity(new QuickLaunchActivity(shell));
+        // Loader may discover both IPlugin and static Register entrypoints.
+        // Guard to ensure this plugin registers only once per process.
+        if (Interlocked.Exchange(ref s_registered, 1) == 1)
+        {
+            return;
+        }
+
+        var launchService = new LaunchService();
+        shell.RegisterActivity(new QuickLaunchActivity(shell, launchService));
         shell.RegisterStatusBarItem(new StatusBarItem(
             "quicklaunch.ready",
             () => new Label { Text = "⚡ QuickLaunch", FontSize = 11, VerticalAlignment = VerticalAlignment.Center },
@@ -35,8 +47,10 @@ public sealed class QuickLaunchPlugin : IPlugin
     }
 }
 
-internal sealed class QuickLaunchActivity(ShellContext shell) : IActivityItem
+internal sealed class QuickLaunchActivity(ShellContext shell, LaunchService launchService) : IActivityItem
 {
+    private readonly QuickLaunchPanel _panel = new QuickLaunchPanel(shell, launchService);
+
     public string Id => "quicklaunch.home";
     public object Icon => "⚡";
     public string Title => "快捷启动";
@@ -45,43 +59,20 @@ internal sealed class QuickLaunchActivity(ShellContext shell) : IActivityItem
 
     public FrameworkElement CreateContent()
     {
-        return new StackPanel
+            var rootPanel = new StackPanel().Vertical();
+
+        // SideBar：两级分类导航
+        var panelContent = _panel.CreateContent();
+            rootPanel.Children(panelContent);
+
+        // 监听分类选择事件，打开对应的 ContentArea
+        _panel.CategorySelected += (categoryId) =>
         {
-            Orientation = Orientation.Vertical,
-            Margin = new Thickness(10),
-        }.Children(
-            new Label
-            {
-                Text = "快捷启动",
-                FontSize = 16,
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 0, 0, 8),
-            },
-            new Label
-            {
-                Text = "示例插件：演示 Activity / Content / StatusBar 的最小接入。",
-                FontSize = 11,
-                Margin = new Thickness(0, 0, 0, 10),
-            },
-            new Button
-            {
-                Content = new Label { Text = "打开设置" },
-                Margin = new Thickness(0, 0, 0, 6),
-                MinWidth = 120,
-            }.OnClick(() => shell.Settings.OpenSettings()),
-            new Button
-            {
-                Content = new Label { Text = "切换主题" },
-                Margin = new Thickness(0, 0, 0, 6),
-                MinWidth = 120,
-            }.OnClick(() => shell.Theme.Toggle()),
-            new Button
-            {
-                Content = new Label { Text = "打开插件说明页" },
-                Margin = new Thickness(0, 0, 0, 6),
-                MinWidth = 120,
-            }.OnClick(() => shell.OpenContent(new QuickLaunchGuideContent()))
-        );
+            var contentItem = new QuickLaunchContent(shell, launchService, categoryId);
+            shell.OpenContent(contentItem);
+        };
+
+        return rootPanel;
     }
 }
 
