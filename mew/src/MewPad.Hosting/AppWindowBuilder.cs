@@ -74,6 +74,9 @@ public static class AppWindowBuilder
         Action? closeSettings = null;
         Action? showNoActivityState = null;
         bool isSettingsOpen = false;  // Track settings visibility
+        string? activityBeforeSettings = null;
+        UIElement? contentBeforeSettings = null;
+        string? activeTabBeforeSettings = null;
 
         // ── Local Functions ───────────────────────────────────────
         void ToggleSideBar()
@@ -261,13 +264,10 @@ public static class AppWindowBuilder
             // Toggle settings: click once to open, click again to close
             if (isSettingsOpen && closeSettings != null)
             {
-                isSettingsOpen = false;
                 closeSettings();
-                showNoActivityState?.Invoke();
             }
             else
             {
-                isSettingsOpen = true;
                 OpenSettings();
             }
         });
@@ -340,6 +340,14 @@ public static class AppWindowBuilder
             if (settingsCategories.Count == 0)
                 return;
 
+            if (!isSettingsOpen)
+            {
+                activityBeforeSettings = shell.ActiveActivityId.Value;
+                contentBeforeSettings = contentBodyBorder.Child;
+                activeTabBeforeSettings = activeTabId;
+            }
+            isSettingsOpen = true;
+
             var selectedCategory = settingsCategories.FirstOrDefault(c => c.Id == categoryId) ?? settingsCategories[0];
             activeSettingsCategoryId = selectedCategory.Id;
             shell.ActiveActivityId.Value = "mewpad.settings";
@@ -357,13 +365,38 @@ public static class AppWindowBuilder
 
         closeSettings = () =>
         {
-            RestorePrimarySideBar();
-            contentBodyBorder.Child = welcomeContent;
-            activeTabId = null;
+            isSettingsOpen = false;
+
+            var restoreActivityId = activityBeforeSettings;
+            var restoreContent = contentBeforeSettings;
+            var restoreTabId = activeTabBeforeSettings;
+
+            activityBeforeSettings = null;
+            contentBeforeSettings = null;
+            activeTabBeforeSettings = null;
+
+            if (!string.IsNullOrEmpty(restoreActivityId))
+            {
+                shell.ActiveActivityId.Value = restoreActivityId;
+                RestorePrimarySideBar();
+
+                activeTabId = restoreTabId;
+                contentBodyBorder.Child = restoreContent ?? welcomeContent;
+
+                if (mainSplit != null && shell.SideBarCollapsed.Value)
+                    ToggleSideBar();
+                return;
+            }
+
+            showNoActivityState?.Invoke();
         };
 
         showNoActivityState = () =>
         {
+            isSettingsOpen = false;
+            activityBeforeSettings = null;
+            contentBeforeSettings = null;
+            activeTabBeforeSettings = null;
             shell.ActiveActivityId.Value = null;
             contentBodyBorder.Child = welcomeContent;
             activeTabId = null;
