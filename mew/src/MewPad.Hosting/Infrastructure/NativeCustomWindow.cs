@@ -21,6 +21,7 @@ public class NativeCustomWindow : Window
     protected readonly StackPanel _rightArea;
     private readonly Button _minimizeBtn;
     private readonly Button _maximizeBtn;
+    private readonly Button _closeBtn;
 
     public NativeCustomWindow()
     {
@@ -58,14 +59,14 @@ public class NativeCustomWindow : Window
         _maximizeBtn.SetBinding(UIElement.IsVisibleProperty, this, CanMaximizeProperty);
 
         // Chrome 按钮：关闭
-        var closeBtn = MakeChromeButton("✕", isClose: true);
-        closeBtn.Click += () => Close();
-        closeBtn.SetBinding(UIElement.IsVisibleProperty, this, CanCloseProperty);
+        _closeBtn = MakeChromeButton("✕", isClose: true);
+        _closeBtn.Click += () => Close();
+        _closeBtn.SetBinding(UIElement.IsVisibleProperty, this, CanCloseProperty);
 
         _controlButtons = new StackPanel { Orientation = Orientation.Horizontal };
         _controlButtons.Add(_minimizeBtn);
         _controlButtons.Add(_maximizeBtn);
-        _controlButtons.Add(closeBtn);
+        _controlButtons.Add(_closeBtn);
 
         // 标题栏左/右扩展区域
         _leftArea = new StackPanel { Orientation = Orientation.Horizontal };
@@ -199,10 +200,11 @@ public class NativeCustomWindow : Window
 
     private static readonly Style ChromeButtonStyle = new(typeof(Button))
     {
-        Transitions = [Transition.Create(Control.BackgroundProperty)],
+        Transitions = [Transition.Create(Control.BackgroundProperty), Transition.Create(Control.ForegroundProperty)],
         Setters =
         [
             Setter.Create(Control.BackgroundProperty, t => t.Palette.ButtonFace.WithAlpha(0)),
+            Setter.Create(Control.ForegroundProperty, t => t.Palette.WindowText),
             Setter.Create(Control.BorderThicknessProperty, 0.0),
             Setter.Create(Control.CornerRadiusProperty, 0.0),
             Setter.Create(Control.PaddingProperty, new Thickness(0)),

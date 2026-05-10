@@ -662,6 +662,7 @@ public static class AppWindowBuilder
         }.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
         window.TitleBarLeft.Add(appIconLabel);
         var titleMenuBar = BuildMenuBar(shell, ToggleSideBar, TogglePanel);
+        titleMenuBar.WithTheme((t, b) => b.Foreground = ResolveTextColor(shell, t));
         window.TitleBarLeft.Add(titleMenuBar);
         var themeToggleLabel = new Label
         {
@@ -677,31 +678,15 @@ public static class AppWindowBuilder
             MinHeight = 32,
             StyleName = "chrome",
         }.OnClick(() => shell.Theme.Toggle());
+        themeToggleButton.WithTheme((t, b) => b.Foreground = ResolveTextColor(shell, t));
         window.TitleBarRight.Add(themeToggleButton);
-
-        void ApplyTitleBarTextColors()
-        {
-            var isDark = shell.Theme.Current switch
-            {
-                AppTheme.Dark => true,
-                AppTheme.Light => false,
-                _ => Application.IsRunning ? Application.Current.Theme.IsDark : false,
-            };
-            var textColor = isDark ? Color.FromRgb(0xE8, 0xEB, 0xF2) : Color.FromRgb(0x1F, 0x26, 0x34);
-            appIconLabel.Foreground = textColor;
-            themeToggleLabel.Foreground = textColor;
-            themeToggleButton.Foreground = textColor;
-            titleMenuBar.Foreground = textColor;
-        }
+        appIconLabel.WithTheme((t, l) => l.Foreground = ResolveTextColor(shell, t));
 
         shell.Theme.Changed.Subscribe(t =>
         {
             themeToggleLabel.Text = GetThemeModeIcon(t);
             Application.Current.SetTheme(ToThemeVariant(t));
-            ApplyTitleBarTextColors();
         });
-
-        ApplyTitleBarTextColors();
 
         // Global keyboard shortcuts
         window.KeyBindings.Add(new KeyBinding(new KeyGesture(Key.B, ModifierKeys.Primary), ToggleSideBar));
