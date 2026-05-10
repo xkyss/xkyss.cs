@@ -29,16 +29,18 @@ public class AppearanceSettings : ISettingsCategory
         // Update label when theme changes
         _theme.Changed.Subscribe(t => currentLabel.Text = $"Current theme: {t}");
 
+        var systemBtn = new Button { Content = new Label { Text = "🖥  Follow System" }, MinWidth = 140, Margin = new Thickness(0, 0, 8, 0) };
         var lightBtn = new Button { Content = new Label { Text = "☀️  Light" }, MinWidth = 100, Margin = new Thickness(0, 0, 8, 0) };
         var darkBtn  = new Button { Content = new Label { Text = "🌙  Dark" },  MinWidth = 100 };
 
+        systemBtn.Click += () => _theme.Set(AppTheme.System);
         lightBtn.Click += () => _theme.Set(AppTheme.Light);
         darkBtn.Click  += () => _theme.Set(AppTheme.Dark);
 
         return new StackPanel().Vertical().Children(
             new Label { Text = "Theme", FontWeight = FontWeight.Bold, FontSize = 16, Margin = new Thickness(0, 0, 0, 12) },
             currentLabel,
-            new StackPanel().Horizontal().Children(lightBtn, darkBtn)
+            new StackPanel().Horizontal().Children(systemBtn, lightBtn, darkBtn)
         );
     }
 }

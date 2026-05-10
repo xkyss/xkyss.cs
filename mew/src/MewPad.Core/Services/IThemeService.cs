@@ -1,7 +1,7 @@
 ﻿namespace MewPad.Core.Services;
 
 /// <summary>
-/// Service for managing application theme (Light/Dark mode).
+/// Service for managing application theme mode (Light/Dark/System).
 /// </summary>
 public interface IThemeService
 {
@@ -27,10 +27,13 @@ public interface IThemeService
 }
 
 /// <summary>
-/// Available application themes.
+/// Available application theme modes.
 /// </summary>
 public enum Theme
 {
+    /// <summary>Follow operating system theme.</summary>
+    System,
+
     /// <summary>Light theme.</summary>
     Light,
 

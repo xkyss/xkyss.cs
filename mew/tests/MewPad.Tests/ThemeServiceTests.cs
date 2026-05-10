@@ -11,13 +11,13 @@ namespace MewPad.Tests;
 public class ThemeServiceTests
 {
     [Fact]
-    public void Constructor_DefaultToDarkTheme()
+    public void Constructor_DefaultToSystemTheme()
     {
         // Arrange & Act
         var service = new ThemeService();
 
         // Assert
-        Assert.Equal(Theme.Dark, service.Current);
+        Assert.Equal(Theme.System, service.Current);
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class ThemeServiceTests
     {
         // Arrange
         var service = new ThemeService();
-        Assert.Equal(Theme.Dark, service.Current);
+        Assert.Equal(Theme.System, service.Current);
 
         // Act
         service.Toggle();
@@ -51,6 +51,12 @@ public class ThemeServiceTests
 
         // Assert
         Assert.Equal(Theme.Dark, service.Current);
+
+        // Act
+        service.Toggle();
+
+        // Assert
+        Assert.Equal(Theme.System, service.Current);
     }
 
     [Fact]
@@ -59,7 +65,7 @@ public class ThemeServiceTests
         // Arrange
         var service = new ThemeService();
         var changeCount = 0;
-        var changedTheme = Theme.Dark;
+        var changedTheme = Theme.System;
 
         service.Changed.Subscribe(theme =>
         {
@@ -104,12 +110,12 @@ public class ThemeServiceTests
         service.Changed.Subscribe(_ => changeCount++);
 
         // Act
-        service.Set(Theme.Dark);
-        service.Set(Theme.Dark);
+        service.Set(Theme.System);
+        service.Set(Theme.System);
 
         // Assert
         // ObservableValue 会在值改变时触发，即使是相同的值也可能触发
         // 这里测试实际行为
-        Assert.Equal(Theme.Dark, service.Current);
+        Assert.Equal(Theme.System, service.Current);
     }
 }

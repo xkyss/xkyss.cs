@@ -46,13 +46,13 @@ public class AppStartupIntegrationTests
     }
 
     [Fact]
-    public void StartupSequence_ThemeDefaultsToDark()
+    public void StartupSequence_ThemeDefaultsToSystem()
     {
         // Arrange & Act
         var themeService = new ThemeService();
 
-        // Assert - 启动时默认为 Dark 主题
-        Assert.Equal(MewPad.Core.Services.Theme.Dark, themeService.Current);
+        // Assert - 启动时默认为跟随系统主题
+        Assert.Equal(MewPad.Core.Services.Theme.System, themeService.Current);
     }
 
     [Fact]

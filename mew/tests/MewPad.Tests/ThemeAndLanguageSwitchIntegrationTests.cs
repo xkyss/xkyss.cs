@@ -51,13 +51,13 @@ public class ThemeAndLanguageSwitchIntegrationTests
 
         // Act
         themeService1.Set(Theme.Light);
-        configService1.SetConfig(key, Theme.Light);
+        configService1.SetConfig(key, Theme.Light.ToString());
         configService1.Save();
 
         // Assert - 新实例应能读取
         var configService2 = new ConfigurationService();
-        var savedTheme = configService2.GetConfig<Theme>(key);
-        Assert.Equal(Theme.Light, savedTheme);
+        var savedTheme = configService2.GetConfig<string>(key);
+        Assert.Equal(Theme.Light.ToString(), savedTheme);
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class ThemeAndLanguageSwitchIntegrationTests
 
         // Assert
         Assert.Equal(3, notificationCount);
-        Assert.Equal(Theme.Light, themeService.Current); // Dark -> Light -> Dark -> Light
+        Assert.Equal(Theme.System, themeService.Current); // System -> Light -> Dark -> System
     }
 
     [Fact]
@@ -110,16 +110,18 @@ public class ThemeAndLanguageSwitchIntegrationTests
     {
         // Arrange
         var themeService = new ThemeService();
-        var initialTheme = themeService.Current;
 
         // Act & Assert - 验证完整循环
-        themeService.Toggle();
-        var afterFirstToggle = themeService.Current;
-        Assert.NotEqual(initialTheme, afterFirstToggle);
+        Assert.Equal(Theme.System, themeService.Current);
 
         themeService.Toggle();
-        var afterSecondToggle = themeService.Current;
-        Assert.Equal(initialTheme, afterSecondToggle);
+        Assert.Equal(Theme.Light, themeService.Current);
+
+        themeService.Toggle();
+        Assert.Equal(Theme.Dark, themeService.Current);
+
+        themeService.Toggle();
+        Assert.Equal(Theme.System, themeService.Current);
     }
 
     [Fact]

@@ -33,10 +33,15 @@ public static class AppWindowBuilder
         // ── Restore persisted state ───────────────────────────────
         var cfg = shell.Configuration;
         var savedTheme = cfg.GetConfig<string>("ui.theme");
-        if (savedTheme == "Light") shell.Theme.Set(AppTheme.Light);
-        else shell.Theme.Set(AppTheme.Dark);  // Default to Dark theme
-
-        ThemeManager.Default = shell.Theme.Current == AppTheme.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
+        var initialTheme = savedTheme switch
+        {
+            "Light" => AppTheme.Light,
+            "Dark" => AppTheme.Dark,
+            "System" => AppTheme.System,
+            _ => AppTheme.System,
+        };
+        shell.Theme.Set(initialTheme);
+        ThemeManager.Default = ToThemeVariant(shell.Theme.Current);
 
         var savedLang = cfg.GetConfig<string>("ui.language");
         if (!string.IsNullOrEmpty(savedLang)) shell.Localization.SetLanguage(savedLang);
@@ -625,7 +630,7 @@ public static class AppWindowBuilder
         window.TitleBarLeft.Add(BuildMenuBar(shell, ToggleSideBar, TogglePanel));
         var themeToggleLabel = new Label
         {
-            Text = shell.Theme.Current == AppTheme.Dark ? "☀" : "◐",
+            Text = GetThemeModeIcon(shell.Theme.Current),
             FontSize = 11,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
@@ -641,10 +646,10 @@ public static class AppWindowBuilder
 
         shell.Theme.Changed.Subscribe(t =>
         {
-            themeToggleLabel.Text = t == AppTheme.Dark ? "☀" : "◐";
+            themeToggleLabel.Text = GetThemeModeIcon(t);
 
             if (Application.IsRunning)
-                Application.Current.SetTheme(t == AppTheme.Dark ? ThemeVariant.Dark : ThemeVariant.Light);
+                Application.Current.SetTheme(ToThemeVariant(t));
         });
 
         // Global keyboard shortcuts
@@ -741,6 +746,7 @@ public static class AppWindowBuilder
             .Item("Toggle SideBar", toggleSideBar)
             .Item("Toggle Panel", togglePanel)
             .Separator()
+            .Item("Follow System Theme", () => shell.Theme.Set(AppTheme.System))
             .Item("Light Theme", () => shell.Theme.Set(AppTheme.Light))
             .Item("Dark Theme", () => shell.Theme.Set(AppTheme.Dark));
 
@@ -785,11 +791,38 @@ public static class AppWindowBuilder
         barDock.Add(rightStack);
         barDock.Add(leftStack);
 
-        var bar = new Border { Height = 22, Background = AccentColor, Child = barDock };
+        var bar = new Border { Height = 22, Child = barDock };
 
-        // Update background when theme changes
-        shell.Theme.Changed.Subscribe(_ => bar.Background = AccentColor);
+        void ApplyStatusBarTheme()
+        {
+            var isDark = Application.IsRunning
+                ? Application.Current.Theme.IsDark
+                : shell.Theme.Current == AppTheme.Dark;
+
+            bar.Background = isDark ? Color.FromRgb(0x20, 0x20, 0x24) : Color.FromRgb(0xF2, 0xF4, 0xF8);
+            bar.BorderBrush = isDark ? Color.FromRgb(0x33, 0x33, 0x3A) : Color.FromRgb(0xD7, 0xDB, 0xE2);
+            bar.BorderThickness = 1;
+        }
+
+        ApplyStatusBarTheme();
+        shell.Theme.Changed.Subscribe(_ => ApplyStatusBarTheme());
 
         return bar;
     }
+
+    private static ThemeVariant ToThemeVariant(AppTheme theme)
+        => theme switch
+        {
+            AppTheme.Light => ThemeVariant.Light,
+            AppTheme.Dark => ThemeVariant.Dark,
+            _ => ThemeVariant.System,
+        };
+
+    private static string GetThemeModeIcon(AppTheme theme)
+        => theme switch
+        {
+            AppTheme.System => "🖥",
+            AppTheme.Light => "☀",
+            _ => "🌙",
+        };
 }
