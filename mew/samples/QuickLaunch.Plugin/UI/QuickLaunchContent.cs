@@ -1,5 +1,6 @@
-using Aprillz.MewUI;
+﻿using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
+using MewPad.Core.Components.Card;
 using MewPad.Core.Interfaces;
 using MewPad.Core.Shell;
 using QuickLaunch.Plugin.Models;
@@ -110,19 +111,19 @@ namespace QuickLaunch.Plugin.UI
                     return;
                 }
 
-                var rowPanel = new StackPanel().Horizontal();
+                var rowPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
                 var cardCount = 0;
 
                 foreach (var item in filtered)
                 {
-                    var cardButton = CreateCardButton(item, RenderCardBody);
+                    var cardButton = CreateCardButton(item);
                     rowPanel.Children(cardButton);
                     cardCount++;
 
                     if (cardCount >= 3)
                     {
                         body.Children(rowPanel);
-                        rowPanel = new StackPanel().Horizontal();
+                        rowPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
                         cardCount = 0;
                     }
                 }
@@ -180,173 +181,78 @@ namespace QuickLaunch.Plugin.UI
             return rootPanel;
         }
 
-        private FrameworkElement CreateCardButton(LaunchItem item, Action rerender)
+        private FrameworkElement CreateCardButton(LaunchItem item)
         {
             var typeText = item.Type switch
             {
-                LaunchItemType.Web => "Web",
-                LaunchItemType.Application => "App",
-                LaunchItemType.Script => "Script",
-                _ => "Item"
+                LaunchItemType.Web => "网址",
+                LaunchItemType.Application => "应用",
+                LaunchItemType.Script => "脚本",
+                _ => "项目"
             };
 
-            var isSelected = string.Equals(_selectedItemId, item.Id, StringComparison.OrdinalIgnoreCase);
-
-            // Card.header (title + extra)
-            var header = new Border
+            // Body: large icon on left, desc + target on right
+            var iconLabel = new Label
             {
-                Padding = new Thickness(10, 8),
-                Child = new StackPanel().Horizontal().Children(
-                    new Label
-                    {
-                        Text = item.Name,
-                        FontSize = 12,
-                        FontWeight = FontWeight.SemiBold,
-                    },
-                    new Label
-                    {
-                        Text = $"[{typeText}]",
-                        FontSize = 10,
-                        Margin = new Thickness(8, 0, 0, 0),
-                    }
-                )
+                Text = string.IsNullOrWhiteSpace(item.Icon) ? "📦" : item.Icon,
+                FontSize = 32,
+                Width = 48,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0),
             };
 
-            // Card.Meta (avatar + title + description)
-            var meta = new StackPanel().Horizontal().Children(
-                new Label
-                {
-                    Text = string.IsNullOrWhiteSpace(item.Icon) ? "📦" : item.Icon,
-                    FontSize = 26,
-                    Margin = new Thickness(0, 0, 10, 0),
-                },
-                new StackPanel().Vertical().Children(
-                    new Label
-                    {
-                        Text = item.Name,
-                        FontSize = 12,
-                        FontWeight = FontWeight.SemiBold,
-                    },
-                    new Label
-                    {
-                        Text = string.IsNullOrWhiteSpace(item.Description) ? "未设置描述" : item.Description,
-                        FontSize = 10,
-                        Margin = new Thickness(0, 2, 0, 0),
-                    },
-                    new Label
-                    {
-                        Text = item.Target,
-                        FontSize = 9,
-                        Margin = new Thickness(0, 4, 0, 0),
-                    }
-                )
-            );
+            var descLabel = new Label
+            {
+                Text = string.IsNullOrWhiteSpace(item.Description) ? item.Name : item.Description,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Bottom,
+            };
+            descLabel.WithTheme((t, l) => l.Foreground = t.Palette.DisabledText);
 
-            // Card.body
-            var body = new Border
+            var targetLabel = new Label
             {
-                Padding = new Thickness(10, 8),
-                Child = meta,
+                Text = item.Target,
+                FontSize = 9,
+                VerticalAlignment = VerticalAlignment.Top,
             };
+            targetLabel.WithTheme((t, l) => l.Foreground = t.Palette.DisabledText);
 
-            var mainButton = new Button
-            {
-                Content = new StackPanel().Vertical().Children(header, body),
-                Margin = new Thickness(0),
-                Padding = new Thickness(0),
-                MinHeight = 108,
-            };
-            mainButton.Click += () =>
-            {
-                _selectedItemId = item.Id;
-                _service.ExecuteItem(item);
-                rerender();
-            };
+            var info = new StackPanel { Orientation = Orientation.Vertical, Spacing = 3 };
+            info.Add(descLabel);
+            info.Add(targetLabel);
 
-            // Card.actions
-            var launchBtn = new Button
-            {
-                Content = new Label { Text = "启动", FontSize = 10 },
-                MinWidth = 64,
-                Margin = new Thickness(0, 0, 6, 0),
-            };
+            var bodyRow = new DockPanel();
+            DockPanel.SetDock(iconLabel, Dock.Left);
+            bodyRow.Add(iconLabel);
+            bodyRow.Add(info);
+
+            // Extra: type badge with accent color
+            var typeExtra = new Label { Text = typeText, FontSize = 10 };
+            typeExtra.WithTheme((t, l) => l.Foreground = t.Palette.Accent);
+
+            // Actions
+            var launchBtn = new Button { Content = new Label { Text = "启动", FontSize = 11 } };
             launchBtn.Click += () =>
             {
                 _selectedItemId = item.Id;
                 _service.ExecuteItem(item);
-                rerender();
             };
 
-
-            var moreMenu = new Menu()
-                .Item("启动", () =>
-                {
-                    _selectedItemId = item.Id;
-                    _service.ExecuteItem(item);
-                    rerender();
-                })
-                .Item("编辑", () =>
-                {
-                    _selectedItemId = item.Id;
-                    System.Diagnostics.Debug.WriteLine($"QuickLaunch edit requested: {item.Name}");
-                    rerender();
-                })
-                .Item("删除", () =>
-                {
-                    _selectedItemId = item.Id;
-                    System.Diagnostics.Debug.WriteLine($"QuickLaunch delete requested: {item.Name}");
-                    rerender();
-                });
-
-            var moreMenuBar = new MenuBar()
-                .Background(Color.Transparent);
-            moreMenuBar.Add(new MenuItem("更多").Menu(moreMenu));
-
-            var actions = new Border
+            var editBtn = new Button { Content = new Label { Text = "编辑", FontSize = 11 } };
+            editBtn.Click += () =>
             {
-                Padding = new Thickness(10, 8),
-                Child = new StackPanel().Horizontal().Children(
-                    launchBtn,
-                    moreMenuBar
-                )
+                _selectedItemId = item.Id;
+                System.Diagnostics.Debug.WriteLine($"QuickLaunch edit requested: {item.Name}");
             };
 
-            var divider = new Border
-            {
-                Height = 1,
-                Margin = new Thickness(0),
-            };
-
-            // Card.root，支持右键菜单和左键“更多”弹出菜单
-            return new Border
-            {
-                BorderThickness = isSelected ? 2 : 1,
-                Margin = new Thickness(5),
-                Padding = new Thickness(0),
-                MinWidth = 220,
-                MinHeight = 150,
-                ContextMenu = new ContextMenu()
-                    .Item("启动", () => {
-                        _selectedItemId = item.Id;
-                        _service.ExecuteItem(item);
-                        rerender();
-                    })
-                    .Item("编辑", () => {
-                        _selectedItemId = item.Id;
-                        System.Diagnostics.Debug.WriteLine($"QuickLaunch edit requested: {item.Name}");
-                        rerender();
-                    })
-                    .Item("删除", () => {
-                        _selectedItemId = item.Id;
-                        System.Diagnostics.Debug.WriteLine($"QuickLaunch delete requested: {item.Name}");
-                        rerender();
-                    }),
-                Child = new StackPanel().Vertical().Children(
-                    mainButton,
-                    divider,
-                    actions
-                )
-            };
+            return new Card { Width = 260 }
+                .Title(item.Name)
+                .Extra(typeExtra)
+                .Size(CardSize.Small)
+                .Hoverable()
+                .Body(bodyRow)
+                .Actions(launchBtn, editBtn);
         }
     }
 }
