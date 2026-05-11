@@ -84,10 +84,8 @@ public static class AppWindowBuilder
         Action<string> openSettingsAction = _ => { };
         Action? closeSettings = null;
         Action? showNoActivityState = null;
-        bool isSettingsOpen = false;  // Track settings visibility
+        bool isSettingsOpen = false;
         string? activityBeforeSettings = null;
-        UIElement? contentBeforeSettings = null;
-        string? activeTabBeforeSettings = null;
 
         // ── Local Functions ───────────────────────────────────────
         void ToggleSideBar()
@@ -124,38 +122,6 @@ public static class AppWindowBuilder
                 if (panelShell != null)
                     panelShell.Height = cachedPanelHeight;
             }
-        }
-
-        void ActivateActivity(string activityId)
-        {
-            // Leaving settings mode when switching to a normal activity keeps
-            // the workspace in the expected "SideBar + ContentArea" layout.
-            if (isSettingsOpen && closeSettings != null)
-            {
-                isSettingsOpen = false;
-                closeSettings();
-            }
-
-            if (shell.ActiveActivityId.Value == activityId)
-            {
-                // Re-selecting the same non-settings activity should be a no-op.
-                return;
-            }
-            var activity = shell.GetActivity(activityId);
-            if (activity == null) return;
-
-            shell.ActiveActivityId.Value = activityId;
-            sideBarTitle.Text = activity.Title.ToUpperInvariant();
-
-            if (!activityContentCache.TryGetValue(activityId, out var content))
-            {
-                content = activity.CreateContent();
-                activityContentCache[activityId] = content;
-            }
-            sideBarPanel!.Second = content;
-
-            if (shell.SideBarCollapsed.Value)
-                ToggleSideBar();
         }
 
         FrameworkElement BuildSettingsSideBar()
@@ -222,6 +188,14 @@ public static class AppWindowBuilder
 
         // Wire SettingsService opener so shell.Settings.OpenSettings() works from anywhere
         shell.Settings.SetOpenHandler(id => OpenSettings(id));
+
+        // ── ContentArea state — declared early so ActivateActivity can reference them ─
+        // Rule: switching Activity always switches BOTH SideBar and ContentArea.
+        var contentCache = new Dictionary<string, FrameworkElement>();
+        var contentTabItems = new Dictionary<string, TabItem>();     // contentId → TabItem
+        var activityTabControls = new Dictionary<string, TabControl>(); // activityId → TabControl
+        Border contentAreaHolder = null!;    // assigned in ContentArea section below
+        FrameworkElement welcomeContent = null!; // assigned in ContentArea section below
 
         // ── ActivityBar ───────────────────────────────────────────
         var allActivities = shell.GetActivities();
@@ -331,15 +305,10 @@ public static class AppWindowBuilder
         };
         sideBarPanel.MinWidth = 120;
 
-        // ── ContentArea — custom tab bar + content border ─────────
-        var openTabItems = new List<IContentItem>();
-        var contentCache = new Dictionary<string, FrameworkElement>();
-        string? activeTabId = null;
+        // ── ContentArea ────────────────────────────────────────────
+        contentAreaHolder = new Border();
 
-        var tabHeadersBorder = new Border();
-        var contentBodyBorder = new Border();
-
-        FrameworkElement welcomeContent = new StackPanel
+        welcomeContent = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -369,7 +338,7 @@ public static class AppWindowBuilder
             }
         );
 
-        contentBodyBorder.Child = welcomeContent;
+        contentAreaHolder.Child = welcomeContent;
         // Mark to collapse SideBar when showing welcome page (will be applied after mainSplit is initialized)
         bool shouldCollapseSideBar = true;
         bool shouldCollapsePanel = true;
@@ -380,11 +349,7 @@ public static class AppWindowBuilder
                 return;
 
             if (!isSettingsOpen)
-            {
                 activityBeforeSettings = shell.ActiveActivityId.Value;
-                contentBeforeSettings = contentBodyBorder.Child;
-                activeTabBeforeSettings = activeTabId;
-            }
             isSettingsOpen = true;
 
             var selectedCategory = settingsCategories.FirstOrDefault(c => c.Id == categoryId) ?? settingsCategories[0];
@@ -392,14 +357,11 @@ public static class AppWindowBuilder
             shell.ActiveActivityId.Value = "mewpad.settings";
             ShowSettingsSideBar();
 
-            // Settings should also show SideBar + ContentArea together.
             if (mainSplit != null && shell.SideBarCollapsed.Value)
                 ToggleSideBar();
 
             var item = new SettingsContentItem(shell, selectedCategory.Id);
-            var content = item.CreateContent();
-            activeTabId = null;  // Settings is not part of the tab system
-            contentBodyBorder.Child = content;
+            contentAreaHolder.Child = item.CreateContent();
         };
 
         closeSettings = () =>
@@ -407,20 +369,18 @@ public static class AppWindowBuilder
             isSettingsOpen = false;
 
             var restoreActivityId = activityBeforeSettings;
-            var restoreContent = contentBeforeSettings;
-            var restoreTabId = activeTabBeforeSettings;
-
             activityBeforeSettings = null;
-            contentBeforeSettings = null;
-            activeTabBeforeSettings = null;
 
             if (!string.IsNullOrEmpty(restoreActivityId))
             {
                 shell.ActiveActivityId.Value = restoreActivityId;
                 RestorePrimarySideBar();
 
-                activeTabId = restoreTabId;
-                contentBodyBorder.Child = restoreContent ?? welcomeContent;
+                // Restore this activity's TabControl (it remembers its selected tab).
+                if (activityTabControls.TryGetValue(restoreActivityId, out var tc) && tc.Tabs.Count > 0)
+                    contentAreaHolder.Child = tc;
+                else
+                    contentAreaHolder.Child = welcomeContent;
 
                 if (mainSplit != null && shell.SideBarCollapsed.Value)
                     ToggleSideBar();
@@ -434,11 +394,8 @@ public static class AppWindowBuilder
         {
             isSettingsOpen = false;
             activityBeforeSettings = null;
-            contentBeforeSettings = null;
-            activeTabBeforeSettings = null;
             shell.ActiveActivityId.Value = null;
-            contentBodyBorder.Child = welcomeContent;
-            activeTabId = null;
+            contentAreaHolder.Child = welcomeContent;
             shouldCollapseSideBar = true;
             shouldCollapsePanel = true;
 
@@ -448,83 +405,70 @@ public static class AppWindowBuilder
                 TogglePanel();
         };
 
-        void RebuildTabHeaders()
+        // Rule: switching an Activity always switches BOTH SideBar and ContentArea in sync.
+        // SideBar gets the activity's navigation panel; ContentArea shows that activity's
+        // TabControl (which remembers its last selected tab), or the welcome screen if empty.
+        void ActivateActivity(string activityId)
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal };
-            foreach (var t in openTabItems.ToList())
+            if (isSettingsOpen && closeSettings != null)
             {
-                var tab = t;
-                var isActive = tab.Id == activeTabId;
-
-                var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
-                if (tab.Icon != null)
-                    titleRow.Children(new Label { Text = tab.Icon.ToString()!, FontSize = 12, Margin = new Thickness(0, 0, 4, 0) });
-                titleRow.Children(new Label { Text = tab.Title });
-
-                if (tab.CanClose)
-                {
-                    titleRow.Children(new Label { Text = "  " });
-                    var closeBtn = new Button
-                    {
-                        Content = new Label { Text = "×", FontSize = 10 },
-                        MinWidth = 16,
-                        MinHeight = 14,
-                    };
-                    closeBtn.Click += () =>
-                    {
-                        shell.CloseContent(tab.Id);
-                        openTabItems.Remove(tab);
-                        contentCache.Remove(tab.Id);
-                        if (activeTabId == tab.Id)
-                        {
-                            activeTabId = openTabItems.LastOrDefault()?.Id;
-                            contentBodyBorder.Child = activeTabId != null && contentCache.TryGetValue(activeTabId, out var prev)
-                                ? prev : welcomeContent;
-                        }
-                        if (tab.Id == "mewpad.settings")
-                            RestorePrimarySideBar();
-                        RebuildTabHeaders();
-                    };
-                    titleRow.Children(closeBtn);
-                }
-
-                var tabBtn = new Button
-                {
-                    Content = titleRow,
-                    Padding = new Thickness(10, 4),
-                };
-                // Active tab: slightly lighter/highlighted background
-                if (isActive)
-                {
-                    tabBtn.WithTheme((t, b) =>
-                    {
-                        var alpha = t.IsDark ? (byte)0x40 : (byte)0x28;
-                        b.Background = t.Palette.Accent.WithAlpha(alpha);
-                    });
-                }
-
-                tabBtn.OnClick(() =>
-                {
-                    activeTabId = tab.Id;
-                    if (contentCache.TryGetValue(tab.Id, out var c))
-                        contentBodyBorder.Child = c;
-                    RebuildTabHeaders();
-                });
-
-                row.Children(tabBtn);
+                isSettingsOpen = false;
+                closeSettings();
             }
-            tabHeadersBorder.Child = row;
+
+            if (shell.ActiveActivityId.Value == activityId)
+                return;
+
+            var activity = shell.GetActivity(activityId);
+            if (activity == null) return;
+
+            shell.ActiveActivityId.Value = activityId;
+            sideBarTitle.Text = activity.Title.ToUpperInvariant();
+
+            // Switch SideBar.
+            if (!activityContentCache.TryGetValue(activityId, out var sideContent))
+            {
+                sideContent = activity.CreateContent();
+                activityContentCache[activityId] = sideContent;
+            }
+            sideBarPanel!.Second = sideContent;
+
+            // Switch ContentArea: the TabControl remembers its own selected tab.
+            if (activityTabControls.TryGetValue(activityId, out var tc) && tc.Tabs.Count > 0)
+                contentAreaHolder.Child = tc;
+            else
+                contentAreaHolder.Child = welcomeContent;
+
+            if (shell.SideBarCollapsed.Value)
+                ToggleSideBar();
         }
 
-        RebuildTabHeaders();
+        TabControl GetOrCreateTabControl(string activityId)
+        {
+            if (!activityTabControls.TryGetValue(activityId, out var tc))
+            {
+                tc = new TabControl
+                {
+                    VerticalScroll = ScrollMode.Disabled,
+                    HorizontalScroll = ScrollMode.Disabled,
+                };
+                activityTabControls[activityId] = tc;
+            }
+            return tc;
+        }
 
         shell.ActiveContentId.Changed.Subscribe(id =>
         {
+            var activityId = shell.ActiveActivityId.Value;
             if (id == null)
             {
-                activeTabId = null;
-                contentBodyBorder.Child = welcomeContent;
-                // Only collapse to welcome empty-state when no ActivityBar item is selected.
+                // Content closed externally: show remaining tabs or welcome.
+                if (!string.IsNullOrEmpty(activityId) &&
+                    activityTabControls.TryGetValue(activityId, out var rem) && rem.Tabs.Count > 0)
+                    contentAreaHolder.Child = rem;
+                else
+                    contentAreaHolder.Child = welcomeContent;
+
                 if (shell.ActiveActivityId.Value == null && !isSettingsOpen)
                 {
                     shouldCollapseSideBar = true;
@@ -534,31 +478,81 @@ public static class AppWindowBuilder
                     if (!shell.PanelCollapsed.Value)
                         TogglePanel();
                 }
-                RebuildTabHeaders();
                 return;
             }
 
             var item = shell.GetContent(id);
             if (item == null) return;
+            if (string.IsNullOrEmpty(activityId)) return;
 
-            if (!openTabItems.Any(t => t.Id == id))
-                openTabItems.Add(item);
+            // If tab already exists, just select it.
+            if (contentTabItems.TryGetValue(id, out var existingTab))
+            {
+                var tc = GetOrCreateTabControl(activityId);
+                for (var i = 0; i < tc.Tabs.Count; i++)
+                {
+                    if (tc.Tabs[i] == existingTab)
+                    {
+                        tc.SelectedIndex = i;
+                        break;
+                    }
+                }
+                contentAreaHolder.Child = tc;
+                return;
+            }
 
+            // Build content (cached).
             if (!contentCache.TryGetValue(id, out var content))
             {
                 content = item.CreateContent();
                 contentCache[id] = content;
             }
 
-            activeTabId = id;
-            contentBodyBorder.Child = content;
-            RebuildTabHeaders();
-        });
+            // Build tab header with icon + title + optional close button.
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+            if (item.Icon != null)
+                titleRow.Children(new Label { Text = item.Icon.ToString()!, FontSize = 12, Margin = new Thickness(0, 0, 4, 0) });
+            titleRow.Children(new Label { Text = item.Title });
 
-        var contentTabs = new DockPanel();
-        DockPanel.SetDock(tabHeadersBorder, Dock.Top);
-        contentTabs.Add(tabHeadersBorder);
-        contentTabs.Add(contentBodyBorder);
+            var tabControl = GetOrCreateTabControl(activityId);
+            TabItem? newTab = null;
+
+            if (item.CanClose)
+            {
+                var closeBtn = new Button
+                {
+                    Content = new Label { Text = "×", FontSize = 10 },
+                    MinWidth = 16,
+                    MinHeight = 14,
+                };
+                closeBtn.Click += () =>
+                {
+                    if (newTab == null) return;
+                    shell.CloseContent(id);
+                    contentTabItems.Remove(id);
+                    contentCache.Remove(id);
+                    if (id == "mewpad.settings")
+                        RestorePrimarySideBar();
+                    for (var i = 0; i < tabControl.Tabs.Count; i++)
+                    {
+                        if (tabControl.Tabs[i] == newTab)
+                        {
+                            tabControl.RemoveTabAt(i);
+                            break;
+                        }
+                    }
+                    contentAreaHolder.Child = tabControl.Tabs.Count > 0 ? tabControl : welcomeContent;
+                };
+                titleRow.Children(new Label { Text = "  " });
+                titleRow.Children(closeBtn);
+            }
+
+            newTab = new TabItem { Header = titleRow, Content = content };
+            contentTabItems[id] = newTab;
+            tabControl.AddTab(newTab);
+            tabControl.SelectedIndex = tabControl.Tabs.Count - 1;
+            contentAreaHolder.Child = tabControl;
+        });
 
         // ── PanelArea with tool buttons overlay ───────────────────
         var panelTabs = new TabControl();
@@ -609,7 +603,7 @@ public static class AppWindowBuilder
             MinFirst = 120,
             MinSecond = 200,
             First = sideBarPanel,
-            Second = contentTabs,
+            Second = contentAreaHolder,
         };
 
         // Apply initial state: collapse SideBar for welcome page

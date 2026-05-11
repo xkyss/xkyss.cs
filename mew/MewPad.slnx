@@ -3,6 +3,10 @@
     <Project Path="src/MewPad.Core/MewPad.Core.csproj" />
     <Project Path="src/MewPad.Hosting/MewPad.Hosting.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/QuickLaunch.Plugin/QuickLaunch.Plugin.csproj" />
+    <Project Path="samples/ComponentsDemo.Plugin/ComponentsDemo.Plugin.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MewPad.Tests/MewPad.Tests.csproj" />
   </Folder>

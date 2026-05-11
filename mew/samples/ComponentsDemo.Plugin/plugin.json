@@ -1,0 +1,7 @@
+{
+  "id": "components.demo",
+  "name": "Components Demo",
+  "version": "0.1.0",
+  "minHostVersion": "0.1.0",
+  "entryAssembly": "ComponentsDemo.Plugin.dll"
+}

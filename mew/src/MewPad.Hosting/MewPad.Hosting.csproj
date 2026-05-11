@@ -52,4 +52,29 @@
       Condition="Exists('%(QuickLaunchPluginDll.Identity)')" />
   </Target>
 
+  <Target Name="BuildAndCopySampleComponentsDemoPlugin" AfterTargets="Build">
+    <MSBuild
+      Projects="$(MSBuildProjectDirectory)\..\..\samples\ComponentsDemo.Plugin\ComponentsDemo.Plugin.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration)" />
+
+    <ItemGroup>
+      <ComponentsDemoPluginDll Include="$(MSBuildProjectDirectory)\..\..\.build\ComponentsDemo.Plugin\bin\$(Configuration)\net10.0\ComponentsDemo.Plugin.dll" />
+      <ComponentsDemoPluginManifest Include="$(MSBuildProjectDirectory)\..\..\samples\ComponentsDemo.Plugin\plugin.json" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(OutputPath)plugins\ComponentsDemo" />
+    <Copy
+      SourceFiles="@(ComponentsDemoPluginDll)"
+      DestinationFolder="$(OutputPath)plugins\ComponentsDemo"
+      SkipUnchangedFiles="true"
+      Condition="Exists('%(ComponentsDemoPluginDll.Identity)')" />
+
+    <Copy
+      SourceFiles="@(ComponentsDemoPluginManifest)"
+      DestinationFolder="$(OutputPath)plugins\ComponentsDemo"
+      SkipUnchangedFiles="true"
+      Condition="Exists('%(ComponentsDemoPluginDll.Identity)')" />
+  </Target>
+
 </Project>
