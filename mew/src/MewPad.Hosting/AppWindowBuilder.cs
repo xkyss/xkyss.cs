@@ -5,6 +5,7 @@ using Aprillz.MewUI.Controls;
 using MewPad.Core;
 using MewPad.Core.Interfaces;
 using MewPad.Core.Shell;
+using MewPad.Core.Components.ClosableTabControl;
 using MewPad.Hosting.Extensions;
 using MewPad.Hosting.Infrastructure;
 using AppTheme = MewPad.Core.Services.Theme;
@@ -192,8 +193,8 @@ public static class AppWindowBuilder
         // ── ContentArea state — declared early so ActivateActivity can reference them ─
         // Rule: switching Activity always switches BOTH SideBar and ContentArea.
         var contentCache = new Dictionary<string, FrameworkElement>();
-        var contentTabItems = new Dictionary<string, TabItem>();     // contentId → TabItem
-        var activityTabControls = new Dictionary<string, TabControl>(); // activityId → TabControl
+        var contentTabItems = new Dictionary<string, TabItem>();            // contentId → TabItem
+        var activityTabControls = new Dictionary<string, ClosableTabControl>(); // activityId → ClosableTabControl
         Border contentAreaHolder = null!;    // assigned in ContentArea section below
         FrameworkElement welcomeContent = null!; // assigned in ContentArea section below
 
@@ -377,8 +378,8 @@ public static class AppWindowBuilder
                 RestorePrimarySideBar();
 
                 // Restore this activity's TabControl (it remembers its selected tab).
-                if (activityTabControls.TryGetValue(restoreActivityId, out var tc) && tc.Tabs.Count > 0)
-                    contentAreaHolder.Child = tc;
+                if (activityTabControls.TryGetValue(restoreActivityId, out var tc) && tc.Count > 0)
+                    contentAreaHolder.Child = tc.Inner;
                 else
                     contentAreaHolder.Child = welcomeContent;
 
@@ -434,8 +435,8 @@ public static class AppWindowBuilder
             sideBarPanel!.Second = sideContent;
 
             // Switch ContentArea: the TabControl remembers its own selected tab.
-            if (activityTabControls.TryGetValue(activityId, out var tc) && tc.Tabs.Count > 0)
-                contentAreaHolder.Child = tc;
+            if (activityTabControls.TryGetValue(activityId, out var tc) && tc.Count > 0)
+                contentAreaHolder.Child = tc.Inner;
             else
                 contentAreaHolder.Child = welcomeContent;
 
@@ -443,18 +444,14 @@ public static class AppWindowBuilder
                 ToggleSideBar();
         }
 
-        TabControl GetOrCreateTabControl(string activityId)
+        ClosableTabControl GetOrCreateTabControl(string activityId)
         {
-            if (!activityTabControls.TryGetValue(activityId, out var tc))
+            if (!activityTabControls.TryGetValue(activityId, out var ctc))
             {
-                tc = new TabControl
-                {
-                    VerticalScroll = ScrollMode.Disabled,
-                    HorizontalScroll = ScrollMode.Disabled,
-                };
-                activityTabControls[activityId] = tc;
+                ctc = new ClosableTabControl();
+                activityTabControls[activityId] = ctc;
             }
-            return tc;
+            return ctc;
         }
 
         shell.ActiveContentId.Changed.Subscribe(id =>
@@ -464,8 +461,8 @@ public static class AppWindowBuilder
             {
                 // Content closed externally: show remaining tabs or welcome.
                 if (!string.IsNullOrEmpty(activityId) &&
-                    activityTabControls.TryGetValue(activityId, out var rem) && rem.Tabs.Count > 0)
-                    contentAreaHolder.Child = rem;
+                    activityTabControls.TryGetValue(activityId, out var rem) && rem.Count > 0)
+                    contentAreaHolder.Child = rem.Inner;
                 else
                     contentAreaHolder.Child = welcomeContent;
 
@@ -488,16 +485,16 @@ public static class AppWindowBuilder
             // If tab already exists, just select it.
             if (contentTabItems.TryGetValue(id, out var existingTab))
             {
-                var tc = GetOrCreateTabControl(activityId);
-                for (var i = 0; i < tc.Tabs.Count; i++)
+                var ctc = GetOrCreateTabControl(activityId);
+                for (var i = 0; i < ctc.Inner.Tabs.Count; i++)
                 {
-                    if (tc.Tabs[i] == existingTab)
+                    if (ctc.Inner.Tabs[i] == existingTab)
                     {
-                        tc.SelectedIndex = i;
+                        ctc.Select(i);
                         break;
                     }
                 }
-                contentAreaHolder.Child = tc;
+                contentAreaHolder.Child = ctc.Inner;
                 return;
             }
 
@@ -508,50 +505,27 @@ public static class AppWindowBuilder
                 contentCache[id] = content;
             }
 
-            // Build tab header with icon + title + optional close button.
-            var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
-            if (item.Icon != null)
-                titleRow.Children(new Label { Text = item.Icon.ToString()!, FontSize = 12, Margin = new Thickness(0, 0, 4, 0) });
-            titleRow.Children(new Label { Text = item.Title });
-
+            // Build tab with close button via ClosableTabControl.
             var tabControl = GetOrCreateTabControl(activityId);
-            TabItem? newTab = null;
-
-            if (item.CanClose)
-            {
-                var closeBtn = new Button
+            var capturedId = id;
+            var newTab = tabControl.AddClosableTab(
+                title: item.Title,
+                icon: item.Icon?.ToString(),
+                content: content,
+                closable: item.CanClose,
+                onClose: () =>
                 {
-                    Content = new Label { Text = "×", FontSize = 10 },
-                    MinWidth = 16,
-                    MinHeight = 14,
-                };
-                closeBtn.Click += () =>
-                {
-                    if (newTab == null) return;
-                    shell.CloseContent(id);
-                    contentTabItems.Remove(id);
-                    contentCache.Remove(id);
-                    if (id == "mewpad.settings")
+                    shell.CloseContent(capturedId);
+                    contentTabItems.Remove(capturedId);
+                    contentCache.Remove(capturedId);
+                    if (capturedId == "mewpad.settings")
                         RestorePrimarySideBar();
-                    for (var i = 0; i < tabControl.Tabs.Count; i++)
-                    {
-                        if (tabControl.Tabs[i] == newTab)
-                        {
-                            tabControl.RemoveTabAt(i);
-                            break;
-                        }
-                    }
-                    contentAreaHolder.Child = tabControl.Tabs.Count > 0 ? tabControl : welcomeContent;
-                };
-                titleRow.Children(new Label { Text = "  " });
-                titleRow.Children(closeBtn);
-            }
-
-            newTab = new TabItem { Header = titleRow, Content = content };
+                    contentAreaHolder.Child = tabControl.Count > 0 ? tabControl.Inner : welcomeContent;
+                }
+            );
             contentTabItems[id] = newTab;
-            tabControl.AddTab(newTab);
-            tabControl.SelectedIndex = tabControl.Tabs.Count - 1;
-            contentAreaHolder.Child = tabControl;
+            tabControl.SelectLast();
+            contentAreaHolder.Child = tabControl.Inner;
         });
 
         // ── PanelArea with tool buttons overlay ───────────────────
