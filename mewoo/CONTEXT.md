@@ -2,6 +2,8 @@
 
 Mewoo is a personal desktop UI template built on top of MewUI. It provides a VSCode-like host shell for small personal applications that can be plugged into the shell.
 
+The local V1 development plan is documented in `docs/development-plan.md`.
+
 Mewoo is not primarily a code editor. It borrows VSCode's information architecture and interaction model: an activity bar, sidebar, editor/document area, bottom panel, status bar, command registry, theme tokens, and contribution points. The hosted apps provide their own domain UI and behavior.
 
 ## First Real Apps
