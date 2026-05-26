@@ -5,6 +5,8 @@ using Mewoo.Abstractions.Views;
 
 namespace Mewoo.Core.Contributions;
 
+#pragma warning disable CS9124
+
 public sealed partial class MewooContributionRegistry(string pluginId) : IMewooContributionRegistry
 {
     private readonly List<ActivityBuilder> _activities = [];
@@ -205,3 +207,4 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
     }
 }
 
+#pragma warning restore CS9124

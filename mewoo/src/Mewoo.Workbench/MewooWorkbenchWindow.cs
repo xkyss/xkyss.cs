@@ -13,6 +13,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 {
     private readonly MewooPluginHost _pluginHost;
     private readonly IServiceProvider _services;
+    private readonly MewooThemeController _themeController;
     private readonly WorkbenchState _state = new();
     private readonly StackPanel _activityBar = new() { Orientation = Orientation.Vertical };
     private readonly Border _sidebarShell = new();
@@ -25,13 +26,18 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly Dictionary<string, MainViewDescriptor> _mainViews;
     private readonly HashSet<string> _openMainViews = [];
 
-    public MewooWorkbenchWindow(MewooPluginHost pluginHost, IServiceProvider services)
+    public MewooWorkbenchWindow(
+        MewooPluginHost pluginHost,
+        IServiceProvider services,
+        MewooThemeController? themeController = null)
     {
         _pluginHost = pluginHost;
         _services = services;
+        _themeController = themeController ?? new MewooThemeController();
         _mainViews = pluginHost.VisibleContributions.MainViews.ToDictionary(x => x.Id, StringComparer.Ordinal);
         _state.Changed += ApplyState;
         _pluginHost.ContributionsChanged += RenderContributions;
+        _themeController.Changed += RenderThemeStatus;
 
         Title = "Mewoo";
         this.Resizable(1200, 760);
@@ -81,7 +87,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             MenuText("Help"));
 
         TitleBarRight.Children(
-            TextButton("Theme", "Theme"),
+            TextButton("Theme", "Toggle Dark/Light theme", _themeController.Toggle),
             TextButton("Side", "Toggle sidebar", ToggleSidebar),
             TextButton("Panel", "Toggle panel", TogglePanel),
             TextButton("Top", "Always on top", () => Topmost = !Topmost));
@@ -196,6 +202,8 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             }
         }
 
+        RenderThemeStatus();
+
         var firstActivity = _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).FirstOrDefault();
         if (firstActivity is not null)
         {
@@ -288,6 +296,26 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         _sidebarShell.Width = _state.SidebarWidth;
         _panelHost.IsVisible = _state.PanelVisible;
         _panelHost.Height = _state.PanelHeight;
+    }
+
+    private void RenderThemeStatus()
+    {
+        var existing = _statusRight.Children
+            .OfType<TextBlock>()
+            .FirstOrDefault(x => string.Equals(x.Text, "Dark", StringComparison.Ordinal)
+                || string.Equals(x.Text, "Light", StringComparison.Ordinal));
+
+        if (existing is not null)
+        {
+            existing.Text = _themeController.CurrentTheme.DisplayName;
+            return;
+        }
+
+        _statusRight.Children(new TextBlock()
+            .Text(_themeController.CurrentTheme.DisplayName)
+            .FontSize(12)
+            .CenterVertical()
+            .Margin(8, 0));
     }
 
     private static Button TextButton(string text, string tooltip, Action? onClick = null)

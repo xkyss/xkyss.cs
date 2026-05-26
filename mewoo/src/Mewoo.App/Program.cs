@@ -8,6 +8,7 @@ Startup();
 
 var pluginHost = new MewooPluginHost();
 pluginHost.RegisterPlugin(new QuickLauncherPlugin());
+var themeController = new MewooThemeController();
 
 MewooWorkbenchWindow? window = null;
 Application
@@ -15,9 +16,10 @@ Application
     .UseAccent(Accent.Purple)
     .BuildMainWindow(() =>
     {
-        window = new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider());
+        window = new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider(), themeController);
         window.Loaded += async () =>
         {
+            themeController.Apply(Mewoo.Abstractions.Theming.MewooBuiltInThemes.DarkId);
             await pluginHost.ActivateAllAsync(
                 plugin => new PluginContext(plugin.Id, new EmptyServiceProvider(), window));
             if (pluginHost.Commands.Contains("quickLauncher.open"))

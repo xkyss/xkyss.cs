@@ -227,6 +227,8 @@ Quick Launcher validates the activation path during app startup.
 
 **Type:** AFK
 
+**Status:** Done
+
 **Blocked by:** Slice 003
 
 **User stories covered:** As a user, I can switch between Dark and Light themes and see the Workbench update.
@@ -237,11 +239,19 @@ Implement the V1 theme model, built-in Dark and Light themes, token-to-MewUI sty
 
 ### Acceptance criteria
 
-- [ ] Theme model includes strongly typed base tokens and extension values.
-- [ ] Dark and Light themes are available.
-- [ ] Theme tokens apply to TitleBar, ActivityBar, Sidebar, MainArea, Panel, and StatusBar.
-- [ ] TitleBar theme action switches themes.
-- [ ] Plugin token overrides can be represented without allowing plugins to register full themes.
+- [x] Theme model includes strongly typed base tokens and extension values.
+- [x] Dark and Light themes are available.
+- [x] Theme tokens apply to TitleBar, ActivityBar, Sidebar, MainArea, Panel, and StatusBar.
+- [x] TitleBar theme action switches themes.
+- [x] Plugin token overrides can be represented without allowing plugins to register full themes.
+
+### Implementation notes
+
+`Mewoo.Abstractions` defines strongly typed base theme tokens and built-in Dark/Light theme descriptors.
+
+`Mewoo.Workbench` owns `MewooThemeController`, maps the current Mewoo theme to MewUI `ThemeVariant`, and exposes a TitleBar Theme action.
+
+Plugin token overrides are represented by contribution descriptors. Full plugin-provided themes remain out of scope for V1.
 
 ## Slice 009: Implement Shell State Persistence
 
