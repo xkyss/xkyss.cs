@@ -1,4 +1,5 @@
 using Aprillz.MewUI;
+using Mewoo.Abstractions;
 using Mewoo.Core.Plugins;
 using Mewoo.Plugins.QuickLauncher;
 using Mewoo.Workbench;
@@ -8,10 +9,26 @@ Startup();
 var pluginHost = new MewooPluginHost();
 pluginHost.RegisterPlugin(new QuickLauncherPlugin());
 
+MewooWorkbenchWindow? window = null;
 Application
     .Create()
     .UseAccent(Accent.Purple)
-    .BuildMainWindow(() => new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider()))
+    .BuildMainWindow(() =>
+    {
+        window = new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider());
+        window.Loaded += async () =>
+        {
+            await pluginHost.ActivateAllAsync(
+                plugin => new PluginContext(plugin.Id, new EmptyServiceProvider(), window));
+            if (pluginHost.Commands.Contains("quickLauncher.open"))
+            {
+                await pluginHost.Commands.ExecuteAsync(
+                    "quickLauncher.open",
+                    new MewooCommandContext(new EmptyServiceProvider(), window));
+            }
+        };
+        return window;
+    })
     .Run();
 
 static void Startup()
@@ -43,3 +60,8 @@ internal sealed class EmptyServiceProvider : IServiceProvider
 {
     public object? GetService(Type serviceType) => null;
 }
+
+internal sealed record PluginContext(
+    string PluginId,
+    IServiceProvider Services,
+    IWorkbenchService Workbench) : Mewoo.Abstractions.Plugins.IMewooPluginContext;

@@ -29,8 +29,9 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     {
         _pluginHost = pluginHost;
         _services = services;
-        _mainViews = pluginHost.Contributions.MainViews.ToDictionary(x => x.Id, StringComparer.Ordinal);
+        _mainViews = pluginHost.VisibleContributions.MainViews.ToDictionary(x => x.Id, StringComparer.Ordinal);
         _state.Changed += ApplyState;
+        _pluginHost.ContributionsChanged += RenderContributions;
 
         Title = "Mewoo";
         this.Resizable(1200, 760);
@@ -140,12 +141,44 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
     private void RenderContributions()
     {
-        foreach (var activity in _pluginHost.Contributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id))
+        _activityBar.Clear();
+        _tabBar.Clear();
+        _statusLeft.Clear();
+        _statusRight.Clear();
+        _mainViews.Clear();
+
+        foreach (var mainView in _pluginHost.VisibleContributions.MainViews)
+        {
+            _mainViews[mainView.Id] = mainView;
+        }
+
+        foreach (var openMainViewId in _openMainViews.ToArray())
+        {
+            if (!_mainViews.ContainsKey(openMainViewId))
+            {
+                _openMainViews.Remove(openMainViewId);
+            }
+        }
+
+        foreach (var openMainViewId in _openMainViews)
+        {
+            if (_mainViews.TryGetValue(openMainViewId, out var descriptor))
+            {
+                _tabBar.Children(CreateTabButton(descriptor));
+            }
+        }
+
+        if (_openMainViews.Count == 0)
+        {
+            _mainViewHost.Child = ErrorBlock("No view is open.");
+        }
+
+        foreach (var activity in _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id))
         {
             _activityBar.Children(ActivityButton(activity));
         }
 
-        foreach (var item in _pluginHost.Contributions.StatusBarItems)
+        foreach (var item in _pluginHost.VisibleContributions.StatusBarItems)
         {
             var status = new TextBlock()
                 .Text(item.Text)
@@ -163,10 +196,15 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             }
         }
 
-        var firstActivity = _pluginHost.Contributions.Activities.OrderBy(x => x.Order).FirstOrDefault();
+        var firstActivity = _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).FirstOrDefault();
         if (firstActivity is not null)
         {
             SelectActivity(firstActivity);
+        }
+        else
+        {
+            _sidebarHost.Child = ErrorBlock("No active plugins.");
+            _mainViewHost.Child = ErrorBlock("No view is open.");
         }
     }
 
@@ -187,7 +225,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
     private void SelectActivity(ActivityDescriptor activity)
     {
-        var container = _pluginHost.Contributions.ViewContainers.FirstOrDefault(x => x.Id == activity.ViewContainerId);
+        var container = _pluginHost.VisibleContributions.ViewContainers.FirstOrDefault(x => x.Id == activity.ViewContainerId);
         if (container is null)
         {
             _sidebarHost.Child = ErrorBlock($"Missing view container: {activity.ViewContainerId}");

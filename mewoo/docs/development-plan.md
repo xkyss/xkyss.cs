@@ -193,6 +193,8 @@ Command palette and keybinding UI are intentionally outside Milestone 1.
 
 **Type:** AFK
 
+**Status:** Done
+
 **Blocked by:** Slice 004, Slice 006
 
 **User stories covered:** As the shell, I can activate, deactivate, unload, and dispose plugins without orphaned UI.
@@ -203,13 +205,23 @@ Implement the V1 plugin lifecycle states and shell orchestration for registratio
 
 ### Acceptance criteria
 
-- [ ] Plugins move through Created, Registered, Activated, Deactivated, Unloaded, and Disposed states.
-- [ ] Any lifecycle failure moves the plugin to Failed.
-- [ ] Register failure makes the plugin invisible.
-- [ ] Activate failure hides plugin contributions and records the error.
-- [ ] Deactivated plugin contributions are hidden by default.
-- [ ] Unloading a plugin closes its owned MainArea tabs.
-- [ ] Cleanup failures are recorded without blocking shell cleanup.
+- [x] Plugins move through Created, Registered, Activated, Deactivated, Unloaded, and Disposed states.
+- [x] Any lifecycle failure moves the plugin to Failed.
+- [x] Register failure makes the plugin invisible.
+- [x] Activate failure hides plugin contributions and records the error.
+- [x] Deactivated plugin contributions are hidden by default.
+- [x] Unloading a plugin closes its owned MainArea tabs.
+- [x] Cleanup failures are recorded without blocking shell cleanup.
+
+### Implementation notes
+
+`MewooPluginHost` now keeps registered contributions separate from visible activated contributions.
+
+Commands are registered only while plugin contributions are visible and are revoked when a plugin is deactivated or unloaded.
+
+Workbench renders `VisibleContributions`, listens for contribution changes, and removes MainArea tabs whose descriptors are no longer visible.
+
+Quick Launcher validates the activation path during app startup.
 
 ## Slice 008: Implement Theme Tokens and Dark/Light Switching
 

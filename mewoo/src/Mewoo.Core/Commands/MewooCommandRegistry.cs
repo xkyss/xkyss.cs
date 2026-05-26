@@ -18,6 +18,19 @@ public sealed class MewooCommandRegistry
         _commands.Add(descriptor.Id, descriptor);
     }
 
+    public void UnregisterOwner(string ownerPluginId)
+    {
+        var ownedCommandIds = _commands.Values
+            .Where(command => command.OwnerPluginId == ownerPluginId)
+            .Select(command => command.Id)
+            .ToArray();
+
+        foreach (var commandId in ownedCommandIds)
+        {
+            _commands.Remove(commandId);
+        }
+    }
+
     public bool Contains(string commandId) => _commands.ContainsKey(commandId);
 
     public async ValueTask ExecuteAsync(
@@ -38,4 +51,3 @@ public sealed class MewooCommandRegistry
         await descriptor.ExecuteAsync(context, cancellationToken);
     }
 }
-
