@@ -13,6 +13,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 {
     private readonly MewooPluginHost _pluginHost;
     private readonly IServiceProvider _services;
+    private readonly WorkbenchState _state = new();
     private readonly StackPanel _activityBar = new() { Orientation = Orientation.Vertical };
     private readonly Border _sidebarShell = new();
     private readonly Border _sidebarHost = new();
@@ -23,14 +24,13 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly StackPanel _statusRight = new() { Orientation = Orientation.Horizontal };
     private readonly Dictionary<string, MainViewDescriptor> _mainViews;
     private readonly HashSet<string> _openMainViews = [];
-    private bool _sidebarCollapsed;
-    private bool _panelVisible;
 
     public MewooWorkbenchWindow(MewooPluginHost pluginHost, IServiceProvider services)
     {
         _pluginHost = pluginHost;
         _services = services;
         _mainViews = pluginHost.Contributions.MainViews.ToDictionary(x => x.Id, StringComparer.Ordinal);
+        _state.Changed += ApplyState;
 
         Title = "Mewoo";
         this.Resizable(1200, 760);
@@ -95,11 +95,15 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
                 new Border().DockRight().Child(_statusRight),
                 _statusLeft));
 
-        _panelHost.MinHeight = 120;
-        _panelHost.Height = 220;
-        _panelHost.IsVisible = false;
+        _panelHost.MinHeight = WorkbenchState.PanelMinHeight;
+        _panelHost.Height = _state.PanelHeight;
+        _panelHost.IsVisible = _state.PanelVisible;
         _panelHost.WithTheme((t, b) => b.Background(t.Palette.ControlBackground));
         _panelHost.Child = new DockPanel().Children(
+            ResizeGrip.Create(ResizeGripOrientation.Horizontal, delta =>
+            {
+                _state.SetPanelHeight(_state.PanelHeight + delta, ClientSize.Height);
+            }).DockTop(),
             new TextBlock().DockTop().Text("Panel").SemiBold().Margin(12, 8),
             new TextBlock().Text("Logs and plugin output will appear here.").Margin(12));
 
@@ -112,9 +116,14 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             _mainViewHost);
 
         _sidebarShell.DockLeft()
-            .Width(260)
+            .Width(_state.SidebarWidth)
             .WithTheme((t, b) => b.Background(t.Palette.ControlBackground))
-            .Child(_sidebarHost);
+            .Child(new DockPanel().Children(
+                ResizeGrip.Create(ResizeGripOrientation.Vertical, delta =>
+                {
+                    _state.SetSidebarWidth(_state.SidebarWidth + delta);
+                }).DockRight(),
+                _sidebarHost));
 
         var body = new DockPanel().Children(
             new Border()
@@ -227,14 +236,20 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
     private void ToggleSidebar()
     {
-        _sidebarCollapsed = !_sidebarCollapsed;
-        _sidebarShell.IsVisible = !_sidebarCollapsed;
+        _state.ToggleSidebar();
     }
 
     private void TogglePanel()
     {
-        _panelVisible = !_panelVisible;
-        _panelHost.IsVisible = _panelVisible;
+        _state.TogglePanel();
+    }
+
+    private void ApplyState()
+    {
+        _sidebarShell.IsVisible = !_state.SidebarCollapsed;
+        _sidebarShell.Width = _state.SidebarWidth;
+        _panelHost.IsVisible = _state.PanelVisible;
+        _panelHost.Height = _state.PanelHeight;
     }
 
     private static Button TextButton(string text, string tooltip, Action? onClick = null)

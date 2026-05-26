@@ -26,6 +26,8 @@ Includes slice 013.
 
 **Type:** AFK
 
+**Status:** Done
+
 **Blocked by:** None - can start immediately
 
 **User stories covered:** As a developer, I can run an empty Mewoo desktop window.
@@ -36,14 +38,24 @@ Create the initial solution/project skeleton and a runnable empty `Mewoo.App`. E
 
 ### Acceptance criteria
 
-- [ ] The repository contains the agreed project structure for App, Workbench, Core, Abstractions, and Quick Launcher.
-- [ ] `Mewoo.App` starts and opens a desktop window.
-- [ ] The chosen MewUI reference strategy is documented.
-- [ ] Any v0.15.2/local API differences discovered during setup are recorded.
+- [x] The repository contains the agreed project structure for App, Workbench, Core, Abstractions, and Quick Launcher.
+- [x] `Mewoo.App` starts and opens a desktop window.
+- [x] The chosen MewUI reference strategy is documented.
+- [x] Any v0.15.2/local API differences discovered during setup are recorded.
+
+### Implementation notes
+
+Mewoo targets .NET 10 and references the `Aprillz.MewUI` NuGet package at version `0.15.2`.
+
+The local MewUI source at `D:\Code\github\MewUI` was used as implementation reference, especially Gallery startup and `NativeCustomWindow`.
+
+The generated solution uses `.slnx`, matching the .NET 10 SDK behavior in this workspace.
 
 ## Slice 002: Implement Borderless Window and Custom TitleBar Minimum Loop
 
 **Type:** AFK
+
+**Status:** Done
 
 **Blocked by:** Slice 001
 
@@ -55,16 +67,24 @@ Implement the V1 borderless main window and shell-owned custom TitleBar with app
 
 ### Acceptance criteria
 
-- [ ] The main window uses borderless chrome.
-- [ ] TitleBar shows app icon, app name, version, File/View/Help placeholders, center title, theme action, always-on-top action, and window controls.
-- [ ] Dragging the TitleBar moves the window.
-- [ ] Double-clicking the TitleBar toggles maximize/restore.
-- [ ] Minimize, maximize/restore, and close buttons work.
-- [ ] Always-on-top toggles the window state.
+- [x] The main window uses borderless chrome.
+- [x] TitleBar shows app icon, app name, version, File/View/Help placeholders, center title, theme action, always-on-top action, and window controls.
+- [x] Dragging the TitleBar moves the window.
+- [x] Double-clicking the TitleBar toggles maximize/restore.
+- [x] Minimize, maximize/restore, and close buttons work.
+- [x] Always-on-top toggles the window state.
+
+### Implementation notes
+
+`MewooNativeWindow` is based on MewUI's native custom window sample and owns the shell TitleBar chrome.
+
+File/View/Help and Theme are currently shell-owned placeholders. Theme behavior is completed later in Slice 008.
 
 ## Slice 003: Implement Fixed Workbench Layout Skeleton
 
 **Type:** AFK
+
+**Status:** Done
 
 **Blocked by:** Slice 002
 
@@ -76,16 +96,24 @@ Build the V1 workbench layout shell with fixed regions, default dimensions, Side
 
 ### Acceptance criteria
 
-- [ ] ActivityBar is fixed at 48px.
-- [ ] Sidebar defaults to 260px and can be resized within the documented bounds.
-- [ ] MainArea contains a tab strip and active view host region.
-- [ ] Panel exists, is hidden by default, and can be shown/collapsed.
-- [ ] StatusBar is fixed at 24px.
-- [ ] Sidebar collapsed state expands MainArea correctly.
+- [x] ActivityBar is fixed at 48px.
+- [x] Sidebar defaults to 260px and can be resized within the documented bounds.
+- [x] MainArea contains a tab strip and active view host region.
+- [x] Panel exists, is hidden by default, and can be shown/collapsed.
+- [x] StatusBar is fixed at 24px.
+- [x] Sidebar collapsed state expands MainArea correctly.
+
+### Implementation notes
+
+`WorkbenchState` owns Sidebar collapsed/width and Panel visible/height state.
+
+Sidebar and Panel resize grips use MewUI mouse capture and update state-driven dimensions. State persistence is intentionally deferred to Slice 009.
 
 ## Slice 004: Implement Plugin Registration and Contribution Descriptors
 
 **Type:** AFK
+
+**Status:** Done
 
 **Blocked by:** Slice 001
 
@@ -97,18 +125,20 @@ Implement the fluent contribution registry backed by descriptors. Add ID format 
 
 ### Acceptance criteria
 
-- [ ] Plugins can register ActivityBar item descriptors.
-- [ ] Plugins can register ViewContainer and SidebarView descriptors.
-- [ ] Plugins can register MainView descriptors with lazy view factories.
-- [ ] Plugins can register Command descriptors.
-- [ ] Plugins can register StatusBarItem descriptors.
-- [ ] Duplicate contribution IDs fail registration.
-- [ ] Invalid non-namespaced IDs fail registration.
-- [ ] Each contribution is owned by the registering plugin.
+- [x] Plugins can register ActivityBar item descriptors.
+- [x] Plugins can register ViewContainer and SidebarView descriptors.
+- [x] Plugins can register MainView descriptors with lazy view factories.
+- [x] Plugins can register Command descriptors.
+- [x] Plugins can register StatusBarItem descriptors.
+- [x] Duplicate contribution IDs fail registration.
+- [x] Invalid non-namespaced IDs fail registration.
+- [x] Each contribution is owned by the registering plugin.
 
 ## Slice 005: Render a Plugin-Contributed Activity, Sidebar, and MainArea View
 
 **Type:** AFK
+
+**Status:** Done
 
 **Blocked by:** Slice 003, Slice 004
 
@@ -120,15 +150,21 @@ Wire plugin contribution descriptors into the Workbench so one plugin can contri
 
 ### Acceptance criteria
 
-- [ ] A plugin-contributed ActivityBar item renders in the ActivityBar.
-- [ ] Selecting the ActivityBar item shows its ViewContainer in the Sidebar.
-- [ ] A plugin-contributed MainArea view can be hosted.
-- [ ] Unsupported native views render an error view instead of crashing the shell.
-- [ ] Workbench selection is based on ActivityId, not PluginId.
+- [x] A plugin-contributed ActivityBar item renders in the ActivityBar.
+- [x] Selecting the ActivityBar item shows its ViewContainer in the Sidebar.
+- [x] A plugin-contributed MainArea view can be hosted.
+- [x] Unsupported native views render an error view instead of crashing the shell.
+- [x] Workbench selection is based on ActivityId, not PluginId.
+
+### Implementation notes
+
+Quick Launcher currently validates this slice as the first real plugin contribution path.
 
 ## Slice 006: Implement Command Execution and MainArea Open Service
 
 **Type:** AFK
+
+**Status:** Done
 
 **Blocked by:** Slice 004, Slice 005
 
@@ -140,12 +176,18 @@ Implement the command registry, command execution by ID, `CanExecute`, duplicate
 
 ### Acceptance criteria
 
-- [ ] Commands execute by ID.
-- [ ] Commands support asynchronous `ValueTask` handlers.
-- [ ] `CanExecute` prevents unavailable commands from running.
-- [ ] Duplicate command IDs are rejected.
-- [ ] A command can open a MainArea view through the Workbench service.
-- [ ] MainArea open behavior handles activation and deduplication for non-multiple views.
+- [x] Commands execute by ID.
+- [x] Commands support asynchronous `ValueTask` handlers.
+- [x] `CanExecute` prevents unavailable commands from running.
+- [x] Duplicate command IDs are rejected.
+- [x] A command can open a MainArea view through the Workbench service.
+- [x] MainArea open behavior handles activation and deduplication for non-multiple views.
+
+### Implementation notes
+
+`quickLauncher.open` is executed on load to validate command execution and `IWorkbenchService.OpenMainViewAsync`.
+
+Command palette and keybinding UI are intentionally outside Milestone 1.
 
 ## Slice 007: Implement Plugin Lifecycle and Contribution Revocation
 
