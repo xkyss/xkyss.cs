@@ -257,6 +257,8 @@ Plugin token overrides are represented by contribution descriptors. Full plugin-
 
 **Type:** AFK
 
+**Status:** Done
+
 **Blocked by:** Slice 003, Slice 008
 
 **User stories covered:** As a user, I keep theme, always-on-top, Sidebar, and Panel preferences across restarts.
@@ -267,13 +269,23 @@ Implement JSON-backed shell state storage behind abstractions. Persist the V1 sh
 
 ### Acceptance criteria
 
-- [ ] Shell state stores active Activity ID.
-- [ ] Shell state stores Sidebar collapsed state and width.
-- [ ] Shell state stores Panel visibility and height.
-- [ ] Shell state stores active/open MainArea view identities where available.
-- [ ] Shell state stores theme ID.
-- [ ] Shell state stores always-on-top state.
-- [ ] State is saved and restored across app restarts.
+- [x] Shell state stores active Activity ID.
+- [x] Shell state stores Sidebar collapsed state and width.
+- [x] Shell state stores Panel visibility and height.
+- [x] Shell state stores active/open MainArea view identities where available.
+- [x] Shell state stores theme ID.
+- [x] Shell state stores always-on-top state.
+- [x] State is saved and restored across app restarts.
+
+### Implementation notes
+
+Shell state is stored through `IStateStorage` and the JSON-backed `JsonFileStateStorage`.
+
+`Mewoo.App` writes state under the user's local application data directory at `Mewoo/State`.
+
+`WorkbenchStateSnapshot` captures active Activity, Sidebar and Panel layout, open MainArea views, active MainArea view, theme ID, and always-on-top state.
+
+Workbench saves state after layout/theme/topmost/MainArea changes and restores it after compiled plugins are activated.
 
 ## Slice 010: Implement Quick Launcher JSON Model and List UI
 

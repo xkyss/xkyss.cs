@@ -4,6 +4,7 @@ using Aprillz.MewUI.Rendering;
 using Mewoo.Abstractions;
 using Mewoo.Abstractions.Commands;
 using Mewoo.Abstractions.Contributions;
+using Mewoo.Abstractions.Storage;
 using Mewoo.Abstractions.Views;
 using Mewoo.Core.Plugins;
 
@@ -14,6 +15,8 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly MewooPluginHost _pluginHost;
     private readonly IServiceProvider _services;
     private readonly MewooThemeController _themeController;
+    private readonly IStateStorage? _stateStorage;
+    private readonly SemaphoreSlim _stateSaveLock = new(1, 1);
     private readonly WorkbenchState _state = new();
     private readonly StackPanel _activityBar = new() { Orientation = Orientation.Vertical };
     private readonly Border _sidebarShell = new();
@@ -24,20 +27,22 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly StackPanel _statusLeft = new() { Orientation = Orientation.Horizontal };
     private readonly StackPanel _statusRight = new() { Orientation = Orientation.Horizontal };
     private readonly Dictionary<string, MainViewDescriptor> _mainViews;
-    private readonly HashSet<string> _openMainViews = [];
+    private bool _isRestoringState;
 
     public MewooWorkbenchWindow(
         MewooPluginHost pluginHost,
         IServiceProvider services,
-        MewooThemeController? themeController = null)
+        MewooThemeController? themeController = null,
+        IStateStorage? stateStorage = null)
     {
         _pluginHost = pluginHost;
         _services = services;
         _themeController = themeController ?? new MewooThemeController();
+        _stateStorage = stateStorage;
         _mainViews = pluginHost.VisibleContributions.MainViews.ToDictionary(x => x.Id, StringComparer.Ordinal);
-        _state.Changed += ApplyState;
+        _state.Changed += OnWorkbenchStateChanged;
         _pluginHost.ContributionsChanged += RenderContributions;
-        _themeController.Changed += RenderThemeStatus;
+        _themeController.Changed += OnThemeChanged;
 
         Title = "Mewoo";
         this.Resizable(1200, 760);
@@ -65,15 +70,56 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             throw new KeyNotFoundException($"Main view id '{mainViewId}' is not registered.");
         }
 
-        if (!_openMainViews.Contains(mainViewId) || descriptor.CanOpenMultiple)
+        if (!_state.OpenMainViewIds.Contains(mainViewId, StringComparer.Ordinal) || descriptor.CanOpenMultiple)
         {
             _tabBar.Children(CreateTabButton(descriptor));
-            _openMainViews.Add(mainViewId);
         }
 
         Title = $"Mewoo - {descriptor.Title}";
         _mainViewHost.Child = HostView(descriptor.CreateView(new WorkbenchViewContext(descriptor.OwnerPluginId, _services, this)));
+        _state.OpenMainView(mainViewId);
         await ValueTask.CompletedTask;
+    }
+
+    public async ValueTask RestoreStateAsync(WorkbenchStateSnapshot? snapshot, CancellationToken cancellationToken = default)
+    {
+        if (snapshot is null)
+        {
+            _themeController.Apply(_themeController.CurrentTheme.Id);
+            return;
+        }
+
+        _isRestoringState = true;
+        try
+        {
+            Topmost = snapshot.IsAlwaysOnTop;
+            _themeController.Apply(snapshot.ThemeId);
+            _state.Restore(snapshot, ClientSize.Height);
+            ApplyState();
+            RenderContributions();
+
+            foreach (var mainViewId in snapshot.OpenMainViewIds)
+            {
+                if (string.Equals(mainViewId, snapshot.ActiveMainViewId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (_mainViews.ContainsKey(mainViewId))
+                {
+                    await OpenMainViewAsync(mainViewId, cancellationToken);
+                }
+            }
+
+            if (snapshot.ActiveMainViewId is not null && _mainViews.ContainsKey(snapshot.ActiveMainViewId))
+            {
+                await OpenMainViewAsync(snapshot.ActiveMainViewId, cancellationToken);
+            }
+        }
+        finally
+        {
+            _isRestoringState = false;
+        }
     }
 
     private void BuildTitleBar()
@@ -90,7 +136,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             TextButton("Theme", "Toggle Dark/Light theme", _themeController.Toggle),
             TextButton("Side", "Toggle sidebar", ToggleSidebar),
             TextButton("Panel", "Toggle panel", TogglePanel),
-            TextButton("Top", "Always on top", () => Topmost = !Topmost));
+            TextButton("Top", "Always on top", ToggleAlwaysOnTop));
     }
 
     private FrameworkElement BuildWorkbench()
@@ -158,15 +204,15 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             _mainViews[mainView.Id] = mainView;
         }
 
-        foreach (var openMainViewId in _openMainViews.ToArray())
+        foreach (var openMainViewId in _state.OpenMainViewIds.ToArray())
         {
             if (!_mainViews.ContainsKey(openMainViewId))
             {
-                _openMainViews.Remove(openMainViewId);
+                _state.RemoveMainView(openMainViewId);
             }
         }
 
-        foreach (var openMainViewId in _openMainViews)
+        foreach (var openMainViewId in _state.OpenMainViewIds)
         {
             if (_mainViews.TryGetValue(openMainViewId, out var descriptor))
             {
@@ -174,7 +220,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             }
         }
 
-        if (_openMainViews.Count == 0)
+        if (_state.OpenMainViewIds.Count == 0)
         {
             _mainViewHost.Child = ErrorBlock("No view is open.");
         }
@@ -250,6 +296,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         }
 
         _sidebarHost.Child = views;
+        _state.SetActiveActivity(activity.Id);
     }
 
     private UIElement HostView(IMewooView view)
@@ -296,6 +343,52 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         _sidebarShell.Width = _state.SidebarWidth;
         _panelHost.IsVisible = _state.PanelVisible;
         _panelHost.Height = _state.PanelHeight;
+    }
+
+    private void OnWorkbenchStateChanged()
+    {
+        ApplyState();
+        QueueSaveState();
+    }
+
+    private void OnThemeChanged()
+    {
+        RenderThemeStatus();
+        QueueSaveState();
+    }
+
+    private void ToggleAlwaysOnTop()
+    {
+        Topmost = !Topmost;
+        QueueSaveState();
+    }
+
+    private void QueueSaveState()
+    {
+        if (_stateStorage is null || _isRestoringState)
+        {
+            return;
+        }
+
+        _ = SaveStateAsync();
+    }
+
+    private async Task SaveStateAsync()
+    {
+        await _stateSaveLock.WaitAsync();
+        try
+        {
+            var snapshot = _state.CreateSnapshot(_themeController.CurrentTheme.Id, Topmost);
+            await _stateStorage!.WriteJsonAsync("workbench", snapshot);
+        }
+        catch
+        {
+            // Slice 012 will surface storage/logging failures in the UI.
+        }
+        finally
+        {
+            _stateSaveLock.Release();
+        }
     }
 
     private void RenderThemeStatus()

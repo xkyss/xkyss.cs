@@ -1,6 +1,7 @@
 using Aprillz.MewUI;
 using Mewoo.Abstractions;
 using Mewoo.Core.Plugins;
+using Mewoo.Core.Storage;
 using Mewoo.Plugins.QuickLauncher;
 using Mewoo.Workbench;
 
@@ -9,6 +10,7 @@ Startup();
 var pluginHost = new MewooPluginHost();
 pluginHost.RegisterPlugin(new QuickLauncherPlugin());
 var themeController = new MewooThemeController();
+var stateStorage = new JsonFileStateStorage(GetStateDirectory());
 
 MewooWorkbenchWindow? window = null;
 Application
@@ -16,13 +18,15 @@ Application
     .UseAccent(Accent.Purple)
     .BuildMainWindow(() =>
     {
-        window = new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider(), themeController);
+        window = new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider(), themeController, stateStorage);
         window.Loaded += async () =>
         {
-            themeController.Apply(Mewoo.Abstractions.Theming.MewooBuiltInThemes.DarkId);
             await pluginHost.ActivateAllAsync(
                 plugin => new PluginContext(plugin.Id, new EmptyServiceProvider(), window));
-            if (pluginHost.Commands.Contains("quickLauncher.open"))
+            var snapshot = await stateStorage.ReadJsonAsync<WorkbenchStateSnapshot>("workbench");
+            await window.RestoreStateAsync(snapshot);
+            if ((snapshot is null || snapshot.OpenMainViewIds.Count == 0)
+                && pluginHost.Commands.Contains("quickLauncher.open"))
             {
                 await pluginHost.Commands.ExecuteAsync(
                     "quickLauncher.open",
@@ -32,6 +36,12 @@ Application
         return window;
     })
     .Run();
+
+static string GetStateDirectory()
+{
+    var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+    return Path.Combine(root, "Mewoo", "State");
+}
 
 static void Startup()
 {

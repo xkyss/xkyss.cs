@@ -8,12 +8,19 @@ public sealed class WorkbenchState
 
     private double _sidebarWidth = 260;
     private double _panelHeight = 260;
+    private readonly List<string> _openMainViewIds = [];
 
     public event Action? Changed;
 
     public bool SidebarCollapsed { get; private set; }
 
     public bool PanelVisible { get; private set; }
+
+    public string? ActiveActivityId { get; private set; }
+
+    public string? ActiveMainViewId { get; private set; }
+
+    public IReadOnlyList<string> OpenMainViewIds => _openMainViewIds;
 
     public double SidebarWidth
     {
@@ -59,5 +66,72 @@ public sealed class WorkbenchState
             Changed?.Invoke();
         }
     }
-}
 
+    public void SetActiveActivity(string? activityId)
+    {
+        if (ActiveActivityId == activityId)
+        {
+            return;
+        }
+
+        ActiveActivityId = activityId;
+        Changed?.Invoke();
+    }
+
+    public void OpenMainView(string mainViewId)
+    {
+        if (!_openMainViewIds.Any(id => string.Equals(id, mainViewId, StringComparison.Ordinal)))
+        {
+            _openMainViewIds.Add(mainViewId);
+        }
+
+        if (ActiveMainViewId != mainViewId)
+        {
+            ActiveMainViewId = mainViewId;
+        }
+
+        Changed?.Invoke();
+    }
+
+    public void RemoveMainView(string mainViewId)
+    {
+        if (!_openMainViewIds.Remove(mainViewId))
+        {
+            return;
+        }
+
+        if (ActiveMainViewId == mainViewId)
+        {
+            ActiveMainViewId = _openMainViewIds.LastOrDefault();
+        }
+
+        Changed?.Invoke();
+    }
+
+    public WorkbenchStateSnapshot CreateSnapshot(string themeId, bool isAlwaysOnTop)
+    {
+        return new WorkbenchStateSnapshot(
+            SidebarCollapsed,
+            SidebarWidth,
+            PanelVisible,
+            PanelHeight,
+            ActiveActivityId,
+            ActiveMainViewId,
+            _openMainViewIds.ToArray(),
+            themeId,
+            isAlwaysOnTop);
+    }
+
+    public void Restore(WorkbenchStateSnapshot snapshot, double windowHeight)
+    {
+        SidebarCollapsed = snapshot.SidebarCollapsed;
+        SidebarWidth = snapshot.SidebarWidth;
+        PanelVisible = snapshot.PanelVisible;
+        PanelHeight = Math.Clamp(snapshot.PanelHeight, PanelMinHeight, Math.Max(PanelMinHeight, windowHeight * 0.5));
+        ActiveActivityId = snapshot.ActiveActivityId;
+        ActiveMainViewId = snapshot.ActiveMainViewId;
+        _openMainViewIds.Clear();
+        _openMainViewIds.AddRange(snapshot.OpenMainViewIds.Distinct(StringComparer.Ordinal));
+        Changed?.Invoke();
+    }
+}
