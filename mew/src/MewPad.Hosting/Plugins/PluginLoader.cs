@@ -143,6 +143,7 @@ internal static class PluginLoader
                     if (Activator.CreateInstance(type) is IPlugin plugin)
                     {
                         plugin.Register(shell);
+                        plugin.Initialize(shell);
                         registeredCount++;
                         registeredViaIPlugin = true;
                     }

@@ -79,8 +79,9 @@ public class ConfigurationServiceTests
         service.SetConfig(testKey, "persist-value");
         service.Save();
 
-        // Assert - Service should have saved the value
-        Assert.NotNull(service);
+        // Assert - 新实例应能从文件读取到之前写入的值
+        var service2 = new ConfigurationService();
+        Assert.Equal("persist-value", service2.GetConfig<string>(testKey));
     }
 
     [Fact]
@@ -125,8 +126,8 @@ public class ConfigurationServiceTests
         service1.SetConfig(testKey, "shared-value");
         service1.Save();
 
-        // Assert - service2 should work independently
+        // Assert - service2 应能读取 service1 写入的值
         var service2 = new ConfigurationService();
-        Assert.NotNull(service2);
+        Assert.Equal("shared-value", service2.GetConfig<string>(testKey));
     }
 }

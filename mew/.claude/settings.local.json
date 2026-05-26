@@ -8,7 +8,9 @@
       "Bash(python *)",
       "Bash(cd /d D:/Code/xkyss/xkyss.cs)",
       "Bash(type NUL)",
-      "Bash(git clean *)"
+      "Bash(git clean *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)"
     ]
   }
 }

@@ -27,6 +27,8 @@ public sealed class QuickLaunchPlugin : IPlugin
     private static int s_registered;
 
     public string Id => "quicklaunch.plugin";
+    public string MinHostVersion => "0.1.0";
+    public string[] Dependencies => [];
 
     public void Register(ShellContext shell)
     {

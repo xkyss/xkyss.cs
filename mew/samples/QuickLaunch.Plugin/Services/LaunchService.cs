@@ -1,6 +1,8 @@
+using System;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MewPad.Core.Services;
 using QuickLaunch.Plugin.Models;
 
 namespace QuickLaunch.Plugin.Services
@@ -13,11 +15,13 @@ namespace QuickLaunch.Plugin.Services
         private const string ConfigFileName = "quicklaunch-config.json";
         private const string ConfigDirName = "MewPad";
 
+        private readonly ILogger _logger;
         private readonly string _configPath;
         private LaunchConfig? _currentConfig;
 
-        public LaunchService()
+        public LaunchService(ILogger? logger = null)
         {
+            _logger = logger ?? new DebugLogger(nameof(LaunchService));
             var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var configDir = Path.Combine(appDataPath, ConfigDirName);
             _configPath = Path.Combine(configDir, ConfigFileName);
@@ -63,7 +67,7 @@ namespace QuickLaunch.Plugin.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to load config: {ex.Message}");
+                    _logger.LogError($"Failed to load config: {ex.Message}", ex);
                     _currentConfig = new LaunchConfig();
                     return _currentConfig;
                 }
@@ -128,7 +132,7 @@ namespace QuickLaunch.Plugin.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to save config: {ex.Message}");
+                _logger.LogError($"Failed to save config: {ex.Message}", ex);
             }
         }
 
@@ -154,7 +158,7 @@ namespace QuickLaunch.Plugin.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to execute item '{item.Name}': {ex.Message}");
+                _logger.LogError($"Failed to execute item '{item.Name}': {ex.Message}", ex);
                 return false;
             }
         }

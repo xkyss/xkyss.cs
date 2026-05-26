@@ -16,6 +16,7 @@ namespace QuickLaunch.Plugin.UI
         private readonly LaunchService _service;
         private readonly string? _categoryId;
         private string? _selectedItemId;
+        private FrameworkElement? _cachedContent;
 
         public string Id => "quicklaunch.content";
         public string Title => "快速启动";

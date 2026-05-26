@@ -23,6 +23,8 @@ public sealed class ComponentsDemoPlugin : IPlugin
     private static int s_registered;
 
     public string Id => "components.demo";
+    public string MinHostVersion => "0.1.0";
+    public string[] Dependencies => [];
 
     public void Register(ShellContext shell)
     {

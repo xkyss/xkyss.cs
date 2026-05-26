@@ -1,11 +1,14 @@
 ﻿namespace MewPad.Hosting;
 
+using System;
+using System.Diagnostics;
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
+using MewPad.Core;
+using MewPad.Core.Services;
 using MewPad.Core.Shell;
 using MewPad.Hosting.Extensions;
 using MewPad.Hosting.Plugins;
-using System.Diagnostics;
 
 /// <summary>
 /// Application entry point for MewPad.
@@ -13,6 +16,7 @@ using System.Diagnostics;
 internal class Program
 {
     private const string HostVersion = "0.1.0-preview";
+    private static readonly DebugLogger s_logger = new(nameof(Program));
 
     [System.STAThread]
     static void Main(string[] args)
@@ -96,9 +100,9 @@ internal class Program
 
         if (totalLoaded > 0 || totalFailed > 0)
         {
-            Console.WriteLine($"[Plugins] Loaded={totalLoaded}, Failed={totalFailed}");
+            s_logger.LogInfo($"Plugins Loaded={totalLoaded}, Failed={totalFailed}");
             foreach (var error in allErrors)
-                Console.WriteLine($"[Plugins] {error}");
+                s_logger.LogInfo($"[Plugins] {error}");
         }
 
         // Create main window

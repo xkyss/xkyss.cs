@@ -15,6 +15,7 @@ public class ShellContext
     private readonly List<IActivityItem> _activities = [];
     private readonly List<IPanelItem> _panels = [];
     private readonly Dictionary<string, IContentItem> _contentItems = [];
+    private readonly List<string> _contentOpenHistory = [];
     private readonly Dictionary<string, StatusBarItem> _statusBarItems = [];
 
     // === Observable state ===
@@ -106,6 +107,11 @@ public class ShellContext
         {
             _contentItems[item.Id] = item;
         }
+
+        // Track open history for MRU-based fallback on close
+        _contentOpenHistory.Remove(item.Id);
+        _contentOpenHistory.Add(item.Id);
+
         ActiveContentId.Value = item.Id;
     }
 
@@ -113,9 +119,14 @@ public class ShellContext
     public void CloseContent(string id)
     {
         _contentItems.Remove(id);
+        _contentOpenHistory.Remove(id);
+
         if (ActiveContentId.Value == id)
         {
-            ActiveContentId.Value = _contentItems.Keys.FirstOrDefault();
+            // Switch to most recently used tab, or first available, or null
+            var fallback = _contentOpenHistory.LastOrDefault()
+                           ?? _contentItems.Keys.FirstOrDefault();
+            ActiveContentId.Value = fallback;
         }
     }
 

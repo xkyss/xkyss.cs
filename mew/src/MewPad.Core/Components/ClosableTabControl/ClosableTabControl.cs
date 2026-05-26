@@ -2,6 +2,7 @@ namespace MewPad.Core.Components.ClosableTabControl;
 
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
+using Aprillz.MewUI.Rendering;
 
 /// <summary>
 /// A <see cref="TabControl"/> wrapper that adds a close button to each tab header.
@@ -16,6 +17,33 @@ using Aprillz.MewUI.Controls;
 /// </summary>
 public sealed class ClosableTabControl
 {
+    // Style for close button: invisible by default, visible on header hover via Trigger.
+    // This replaces manual MouseEnter/MouseLeave binding which caused event leaks.
+    private static readonly Style CloseButtonStyle = new(typeof(Button))
+    {
+        Transitions = [Transition.Create(Control.ForegroundProperty)],
+        Setters =
+        [
+            Setter.Create(Control.BackgroundProperty, Color.FromRgb(0, 0, 0).WithAlpha(0)),
+            Setter.Create(Control.ForegroundProperty, Color.FromRgb(0, 0, 0).WithAlpha(0)),
+            Setter.Create(Control.BorderThicknessProperty, 0.0),
+            Setter.Create(Control.PaddingProperty, new Thickness(0)),
+            Setter.Create(Control.MinWidthProperty, 16.0),
+            Setter.Create(Control.MinHeightProperty, 16.0),
+        ],
+        Triggers =
+        [
+            new StateTrigger
+            {
+                Match = VisualStateFlags.Hot,
+                Setters =
+                [
+                    Setter.Create(Control.ForegroundProperty, t => t.Palette.WindowText),
+                ],
+            },
+        ],
+    };
+
     // All close buttons in insertion order, kept in sync with TabControl.Tabs.
     private readonly List<Button> _closeBtns = [];
 
@@ -29,6 +57,12 @@ public sealed class ClosableTabControl
     /// <summary>Number of tabs currently open.</summary>
     public int Count => Inner.Tabs.Count;
 
+    public ClosableTabControl()
+    {
+        Inner.StyleSheet = new StyleSheet();
+        Inner.StyleSheet.Define("closebtn", CloseButtonStyle);
+    }
+
     /// <summary>
     /// Adds a new tab with an optional close button.
     /// </summary>
@@ -41,7 +75,6 @@ public sealed class ClosableTabControl
     public TabItem AddClosableTab(string title, string? icon, FrameworkElement content, bool closable = true, Action? onClose = null)
     {
         TabItem? item = null;
-        Button? closeBtn = null;
 
         // ── Header ────────────────────────────────────────────────
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
@@ -54,19 +87,13 @@ public sealed class ClosableTabControl
 
         if (closable)
         {
-            closeBtn = new Button
+            var closeBtn = new Button
             {
                 Content = new GlyphElement { Kind = GlyphKind.Cross, GlyphSize = 3.5, IsHitTestVisible = false },
-                MinWidth = 16,
-                MinHeight = 16,
-                Padding = new Thickness(0),
-                BorderThickness = 0,
+                StyleName = "closebtn",
             };
-            closeBtn.WithTheme((t, b) => b.Background = Color.FromRgb(0, 0, 0).WithAlpha(0));
-            // Initially transparent — shown on header hover via BindTabHoverEvents().
-            closeBtn.WithTheme((t, b) => b.Foreground = Color.FromRgb(0, 0, 0).WithAlpha(0));
 
-            var capturedBtn = closeBtn;
+            var capturedCloseBtn = closeBtn;
             closeBtn.Click += () =>
             {
                 if (item == null) return;
@@ -74,11 +101,10 @@ public sealed class ClosableTabControl
                 if (idx < 0) return;
                 _closeBtns.RemoveAt(idx);
                 Inner.RemoveTabAt(idx);
-                BindTabHoverEvents();
                 onClose?.Invoke();
             };
 
-            titleRow.Children(capturedBtn);
+            titleRow.Children(closeBtn);
             _closeBtns.Add(closeBtn);
         }
         else
@@ -89,9 +115,6 @@ public sealed class ClosableTabControl
 
         item = new TabItem { Header = titleRow, Content = content };
         Inner.AddTab(item);
-
-        // Rebind hover events whenever the header strip is rebuilt.
-        BindTabHoverEvents();
 
         return item;
     }
@@ -104,7 +127,6 @@ public sealed class ClosableTabControl
         if ((uint)index >= (uint)Inner.Tabs.Count) return;
         _closeBtns.RemoveAt(index);
         Inner.RemoveTabAt(index);
-        BindTabHoverEvents();
     }
 
     /// <summary>Selects the tab at the given index.</summary>
@@ -124,32 +146,5 @@ public sealed class ClosableTabControl
         for (var i = 0; i < Inner.Tabs.Count; i++)
             if (ReferenceEquals(Inner.Tabs[i], item)) return i;
         return -1;
-    }
-
-    /// <summary>
-    /// Re-walks the visual tree after every structural change to bind mouse-enter/leave
-    /// on each TabHeaderButton so the matching close button fades in/out.
-    ///
-    /// MewUI rebuilds all TabHeaderButton instances on AddTab/RemoveTabAt, so we must
-    /// rebind after every mutation (same approach as Resty LabView).
-    /// </summary>
-    private void BindTabHoverEvents()
-    {
-        var index = 0;
-        VisualTree.Visit(Inner, el =>
-        {
-            if (el.GetType().Name == "TabHeaderButton" && el is UIElement thb)
-            {
-                if (index >= _closeBtns.Count) return;
-                var btn = _closeBtns[index++];
-                if (btn == null) return; // non-closable tab, skip hover binding
-
-                // Show/hide close button by making it visible/invisible via foreground.
-                thb.MouseEnter += () => btn.WithTheme((t, b) =>
-                    b.Foreground = t.Palette.WindowText);
-                thb.MouseLeave += () => btn.WithTheme((t, b) =>
-                    b.Foreground = Color.FromRgb(0, 0, 0).WithAlpha(0));
-            }
-        });
     }
 }

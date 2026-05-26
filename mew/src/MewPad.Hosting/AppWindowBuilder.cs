@@ -1,9 +1,14 @@
-﻿namespace MewPad.Hosting;
+// <copyright>
+// Copyright (c) 2026 MewPad Contributors
+// </copyright>
+
+namespace MewPad.Hosting;
 
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using MewPad.Core;
 using MewPad.Core.Interfaces;
+using MewPad.Core.Services;
 using MewPad.Core.Shell;
 using MewPad.Core.Components.ClosableTabControl;
 using MewPad.Hosting.Extensions;
@@ -15,7 +20,9 @@ using AppTheme = MewPad.Core.Services.Theme;
 /// </summary>
 public static class AppWindowBuilder
 {
-    // Accent color for ActivityBar active indicator and StatusBar background
+    // ── Constants ──────────────────────────────────────────────────
+    private const string SettingsContentId = "mewpad.settings";
+    private const double ActivityBarWidth = 48;
     private static readonly Color AccentColor = Color.FromRgb(0x00, 0x7A, 0xCC);
     private static readonly Color TransparentColor = Color.FromRgb(0, 0, 0).WithAlpha(0);
 
@@ -222,7 +229,7 @@ public static class AppWindowBuilder
         FrameworkElement MakeActivityButton(IActivityItem activity)
         {
             var id = activity.Id;
-            var iconText = activity.Icon.ToString() ?? activity.Title[..1];
+            var iconText = activity.Icon?.ToString() ?? activity.Title[..1];
             var iconLabel = new Label
             {
                 Text = iconText,
@@ -286,9 +293,9 @@ public static class AppWindowBuilder
         bottomFixed.Children(settingsBtn);
 
         var activityBar = new DockPanel();
-        activityBar.Width = 48;
-        activityBar.MinWidth = 48;
-        activityBar.MaxWidth = 48;
+        activityBar.Width = ActivityBarWidth;
+        activityBar.MinWidth = ActivityBarWidth;
+        activityBar.MaxWidth = ActivityBarWidth;
         DockPanel.SetDock(bottomFixed, Dock.Bottom);
         activityBar.Add(bottomFixed);
         activityBar.Add(topStack);

@@ -1,10 +1,12 @@
 ﻿namespace MewPad.Core.Services.Impl;
 
+using System.Diagnostics;
 using System.Text.Json;
 using MewPad.Core.Services;
 
 internal class ConfigurationService : IConfigurationService
 {
+    private readonly ILogger _logger = new DebugLogger(nameof(ConfigurationService));
     private readonly string _configPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "MewPad", "appsettings.json");
@@ -24,14 +26,21 @@ internal class ConfigurationService : IConfigurationService
                     .ToDictionary(p => p.Name, p => p.Value.Clone());
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Load failed: {ex.Message}", ex);
+        }
     }
 
     public T? GetConfig<T>(string key, T? defaultValue = default)
     {
         if (!_config.TryGetValue(key, out var element)) return defaultValue;
         try { return JsonSerializer.Deserialize<T>(element.GetRawText()); }
-        catch { return defaultValue; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"Deserialization failed for key '{key}': {ex.Message}");
+            return defaultValue;
+        }
     }
 
     public void SetConfig(string key, object value)
@@ -50,6 +59,9 @@ internal class ConfigurationService : IConfigurationService
             var json = JsonSerializer.Serialize(_config, options);
             File.WriteAllText(_configPath, json);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Save failed: {ex.Message}", ex);
+        }
     }
 }
