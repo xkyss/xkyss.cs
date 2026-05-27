@@ -6,15 +6,14 @@ Write a V2 plugin author guide that explains how to create, package, install, di
 
 ## Acceptance criteria
 
-- [ ] Guide explains required project references.
-- [ ] Guide explains `mewoo.plugin.json`.
-- [ ] Guide explains PluginPackager usage.
-- [ ] Guide explains `%LocalAppData%\Mewoo\Plugins` layout.
-- [ ] Guide explains host-shared assemblies.
-- [ ] Guide explains diagnostics and logs.
-- [ ] Guide explains unload limitations.
+- [x] Guide explains required project references.
+- [x] Guide explains `mewoo.plugin.json`.
+- [x] Guide explains PluginPackager usage.
+- [x] Guide explains `%LocalAppData%\Mewoo\Plugins` layout.
+- [x] Guide explains host-shared assemblies.
+- [x] Guide explains diagnostics and logs.
+- [x] Guide explains unload limitations.
 
 ## Blocked by
 
 - Issue 024
-
