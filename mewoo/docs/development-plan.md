@@ -530,7 +530,7 @@ Manifest schema validation is covered by `Mewoo.Core.Tests`. The reader wraps JS
 
 **Type:** AFK
 
-**Status:** Ready
+**Status:** Done
 
 **Blocked by:** Slice 016
 
@@ -542,11 +542,15 @@ Implement a collectible per-plugin load context backed by `AssemblyDependencyRes
 
 ### Acceptance criteria
 
-- [ ] Runtime plugin assemblies load from the manifest assembly path.
-- [ ] Plugin-private dependencies resolve from the plugin directory.
-- [ ] `Mewoo.Abstractions` resolves from the default context.
-- [ ] MewUI assemblies used by plugin views resolve from the default context.
-- [ ] Failed assembly loads are logged and do not crash startup.
+- [x] Runtime plugin assemblies load from the manifest assembly path.
+- [x] Plugin-private dependencies resolve from the plugin directory.
+- [x] `Mewoo.Abstractions` resolves from the default context.
+- [x] MewUI assemblies used by plugin views resolve from the default context.
+- [x] Failed assembly loads are logged and do not crash startup.
+
+### Implementation notes
+
+Runtime assemblies load through `MewooRuntimePluginLoadContext`, a collectible per-plugin load context backed by `AssemblyDependencyResolver`. `Mewoo.Abstractions` and `Aprillz.MewUI*` assemblies resolve from the default context to preserve contract and control type identity.
 
 ## Slice 018: Instantiate Runtime Plugins from Entry Point
 
