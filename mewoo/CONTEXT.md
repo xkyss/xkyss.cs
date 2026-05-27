@@ -88,6 +88,23 @@ Initial manifest fields:
 
 The first V2 slice only validates and logs runtime plugin manifests. It does not load external assemblies yet.
 
+## V2 Runtime Plugin Loading
+
+V2 runtime plugins are trusted local plugins. They run in the Mewoo process and are not sandboxed.
+
+A runtime plugin is loaded from its manifest-declared assembly and `entryPoint` type. The entry point must implement `IMewooPlugin`, and the manifest `id` must match the plugin instance `Id`.
+
+Runtime loading must preserve the existing V1 lifecycle:
+
+```text
+Created -> Registered -> Activated -> Deactivated -> Unloaded -> Disposed
+Any state -> Failed
+```
+
+Runtime-specific discovery and loading states are host infrastructure states, not plugin lifecycle states.
+
+Each runtime plugin should use a per-plugin collectible load context. `Mewoo.Abstractions`, MewUI assemblies, and .NET framework assemblies are shared from the host/default context; plugin-private dependencies resolve from the plugin directory.
+
 ## V1 Plugin Lifecycle
 
 V1 lifecycle states:

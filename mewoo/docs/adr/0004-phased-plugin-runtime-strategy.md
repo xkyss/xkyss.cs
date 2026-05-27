@@ -4,6 +4,8 @@
 
 Accepted
 
+Refined by ADR 0013 for the V2 runtime loading model.
+
 ## Context
 
 Mewoo needs a full plugin lifecycle, but the first version does not need the full complexity of runtime plugin discovery and isolation. The immediate goal is to validate the VSCode-like shell, contribution model, MainArea, command registry, theme tokens, status bar contributions, and the Quick Launcher tracer bullet.
@@ -37,7 +39,7 @@ V2 may introduce runtime-loaded plugin assemblies.
 Expected additions:
 
 - Plugin directory discovery.
-- Plugin manifest, for example `plugin.json`.
+- Plugin manifest, now standardized as `mewoo.plugin.json`.
 - Plugin entry type declaration.
 - Plugin version.
 - Compatible Mewoo version range.
@@ -67,4 +69,3 @@ The lifecycle API should still be explicit enough to avoid rewriting plugin owne
 The shell should own contribution registration and revocation from the start. This keeps V1 compatible with future dynamic plugin unloading.
 
 V2 and V3 are roadmap directions, not commitments to implement before the first usable Mewoo shell.
-

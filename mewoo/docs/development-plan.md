@@ -38,7 +38,19 @@ Baseline commit: V1 shell and Quick Launcher tracer bullet are usable enough to 
 
 Goal: introduce the V2 runtime plugin shape without changing the V1 compiled plugin path.
 
-Includes slice 015.
+Includes slices 015-016.
+
+### Milestone 6: Runtime Plugin Loading
+
+Goal: load trusted local plugin assemblies into Mewoo through the existing lifecycle and contribution model.
+
+Includes slices 017-020.
+
+### Milestone 7: Runtime Plugin Operations
+
+Goal: make runtime plugins diagnosable, unloadable, and locally packageable.
+
+Includes slices 021-023.
 
 ## Slice 001: Lock MewUI Baseline and Create Runnable App Skeleton
 
@@ -484,4 +496,183 @@ Define the V2 runtime plugin manifest contract and a catalog that scans local pl
 The local runtime plugin root is `%LocalAppData%\Mewoo\Plugins`.
 
 Runtime discovery currently stops at manifest validation and logging. Assembly loading, dependency handling, unload boundaries, trust model, and plugin activation through runtime descriptors are deferred to later V2 slices.
+
+## Slice 016: Document and Validate Runtime Manifest Schema
+
+**Type:** AFK
+
+**Status:** Ready
+
+**Blocked by:** Slice 015
+
+**User stories covered:** As a plugin author, I can create a manifest that Mewoo can validate before loading code.
+
+### What to build
+
+Turn the initial manifest discovery into a tighter schema contract with examples and validation coverage.
+
+### Acceptance criteria
+
+- [ ] Manifest documentation includes a complete example.
+- [ ] Required field validation is covered.
+- [ ] Relative assembly path validation is covered.
+- [ ] Disabled plugin behavior is covered.
+- [ ] Manifest id format validation is covered.
+- [ ] Manifest id and future plugin instance id matching rule is documented.
+
+### Implementation notes
+
+The design reference is `docs/design/v2-runtime-plugin-design.md`.
+
+## Slice 017: Implement Runtime Plugin Load Context
+
+**Type:** AFK
+
+**Status:** Ready
+
+**Blocked by:** Slice 016
+
+**User stories covered:** As the shell, I can load plugin assemblies without putting all private dependencies into the default context.
+
+### What to build
+
+Implement a collectible per-plugin load context backed by `AssemblyDependencyResolver`.
+
+### Acceptance criteria
+
+- [ ] Runtime plugin assemblies load from the manifest assembly path.
+- [ ] Plugin-private dependencies resolve from the plugin directory.
+- [ ] `Mewoo.Abstractions` resolves from the default context.
+- [ ] MewUI assemblies used by plugin views resolve from the default context.
+- [ ] Failed assembly loads are logged and do not crash startup.
+
+## Slice 018: Instantiate Runtime Plugins from Entry Point
+
+**Type:** AFK
+
+**Status:** Ready
+
+**Blocked by:** Slice 017
+
+**User stories covered:** As the shell, I can turn a valid manifest into an `IMewooPlugin` instance.
+
+### What to build
+
+Resolve the manifest `entryPoint`, instantiate it, validate it implements `IMewooPlugin`, and verify manifest id matches `plugin.Id`.
+
+### Acceptance criteria
+
+- [ ] Missing entry point type fails the plugin only.
+- [ ] Entry point not implementing `IMewooPlugin` fails the plugin only.
+- [ ] Entry point constructor failure is logged.
+- [ ] Manifest id mismatch is rejected.
+- [ ] Valid runtime plugin instances can be handed to `MewooPluginHost`.
+
+## Slice 019: Register and Activate Runtime Plugins
+
+**Type:** AFK
+
+**Status:** Ready
+
+**Blocked by:** Slice 018
+
+**User stories covered:** As a user, runtime plugins appear in the shell through the same ActivityBar, Sidebar, MainArea, command, and status bar contribution points as compiled plugins.
+
+### What to build
+
+Wire runtime plugin instances into the existing `MewooPluginHost` registration and activation flow.
+
+### Acceptance criteria
+
+- [ ] Runtime plugin contributions render through existing Workbench code.
+- [ ] Runtime commands register through the existing command registry.
+- [ ] Runtime plugin activation failures are logged and surfaced like compiled plugin failures.
+- [ ] Compiled V1 plugins still work unchanged.
+- [ ] Runtime plugin discovery order is deterministic.
+
+## Slice 020: Runtime Plugin Unload and Reference Release
+
+**Type:** AFK
+
+**Status:** Ready
+
+**Blocked by:** Slice 019
+
+**User stories covered:** As the shell, I can unload a runtime plugin and remove its UI contributions without leaving orphaned state.
+
+### What to build
+
+Add runtime plugin unload orchestration around the existing lifecycle and release the plugin load context.
+
+### Acceptance criteria
+
+- [ ] Deactivation removes visible contributions.
+- [ ] Plugin-owned MainArea tabs are closed during unload.
+- [ ] Plugin lifecycle cleanup is called before load-context unload.
+- [ ] Loader-held references are released.
+- [ ] Load-context unload success or residual risk is logged.
+
+## Slice 021: Runtime Plugin Diagnostics UI
+
+**Type:** HITL
+
+**Status:** Ready
+
+**Blocked by:** Slice 019
+
+**User stories covered:** As a user, I can see discovered runtime plugins and understand why a plugin failed.
+
+### What to build
+
+Add a shell-owned diagnostics view for runtime plugins.
+
+### Acceptance criteria
+
+- [ ] Runtime plugin list shows discovered, disabled, loaded, activated, and failed states.
+- [ ] Manifest path and assembly path are visible.
+- [ ] Failure messages link to Logs panel details.
+- [ ] Diagnostics view is reachable from shell UI.
+
+## Slice 022: Runtime Plugin Compatibility and Disabled State
+
+**Type:** AFK
+
+**Status:** Ready
+
+**Blocked by:** Slice 019
+
+**User stories covered:** As a user, incompatible or disabled plugins do not break startup.
+
+### What to build
+
+Apply `minimumMewooVersion` and disabled-state rules consistently before loading plugin code.
+
+### Acceptance criteria
+
+- [ ] Plugins requiring a newer Mewoo build are not loaded.
+- [ ] Compatibility failures are logged and visible in diagnostics.
+- [ ] Disabled plugins are discovered but not loaded.
+- [ ] Disabled-state behavior is stable across restarts.
+
+## Slice 023: Local Runtime Plugin Packaging Helper
+
+**Type:** AFK
+
+**Status:** Ready
+
+**Blocked by:** Slice 019
+
+**User stories covered:** As a plugin author, I can produce a local plugin folder that Mewoo can discover.
+
+### What to build
+
+Add a simple packaging convention or command that publishes a plugin project into `%LocalAppData%\Mewoo\Plugins\<pluginId>`.
+
+### Acceptance criteria
+
+- [ ] Packaging output includes `mewoo.plugin.json`.
+- [ ] Packaging output includes the plugin assembly.
+- [ ] Packaging output includes plugin-private dependencies.
+- [ ] Packaging does not copy host-shared assemblies unnecessarily.
+- [ ] A packaged sample runtime plugin can be discovered by Mewoo.
 
