@@ -634,7 +634,7 @@ Runtime unload is orchestrated by `MewooRuntimePluginManager`. It delegates life
 
 **Type:** HITL
 
-**Status:** Ready
+**Status:** Done
 
 **Blocked by:** Slice 019
 
@@ -646,10 +646,14 @@ Add a shell-owned diagnostics view for runtime plugins.
 
 ### Acceptance criteria
 
-- [ ] Runtime plugin list shows discovered, disabled, loaded, activated, and failed states.
-- [ ] Manifest path and assembly path are visible.
-- [ ] Failure messages link to Logs panel details.
-- [ ] Diagnostics view is reachable from shell UI.
+- [x] Runtime plugin list shows discovered, disabled, loaded, activated, and failed states.
+- [x] Manifest path and assembly path are visible.
+- [x] Failure messages link to Logs panel details.
+- [x] Diagnostics view is reachable from shell UI.
+
+### Implementation notes
+
+Runtime diagnostics is a shell-owned compiled plugin. It contributes a Runtime ActivityBar entry and MainArea view showing loaded runtime plugins, manifest/assembly paths, and recent runtime logs.
 
 ## Slice 022: Runtime Plugin Compatibility and Disabled State
 
