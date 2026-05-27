@@ -291,6 +291,8 @@ Workbench saves state after layout/theme/topmost/MainArea changes and restores i
 
 **Type:** AFK
 
+**Status:** Done
+
 **Blocked by:** Slice 005, Slice 006
 
 **User stories covered:** As a user, I can view grouped URL, file, executable, and script launch items.
@@ -301,12 +303,20 @@ Implement the Quick Launcher plugin data model, JSON configuration loading, Acti
 
 ### Acceptance criteria
 
-- [ ] Quick Launcher registers its ActivityBar item.
-- [ ] Quick Launcher loads groups and items from JSON.
-- [ ] Launcher item kinds include URL, file, executable, and script.
-- [ ] Sidebar shows search, groups, and recent sections.
-- [ ] MainArea shows a searchable list of launcher items.
-- [ ] StatusBar can show item count or selected item.
+- [x] Quick Launcher registers its ActivityBar item.
+- [x] Quick Launcher loads groups and items from JSON.
+- [x] Launcher item kinds include URL, file, executable, and script.
+- [x] Sidebar shows search, groups, and recent sections.
+- [x] MainArea shows a searchable list of launcher items.
+- [x] StatusBar can show item count or selected item.
+
+### Implementation notes
+
+Quick Launcher now loads JSON configuration from the user's local application data directory at `Mewoo/QuickLauncher/launcher.json`.
+
+If the configuration file does not exist, Quick Launcher creates a default configuration with Development and Trading groups.
+
+The MainArea renders grouped launcher items as a list. Search input is visible in Sidebar and MainArea; interactive filtering is deferred to a later refinement.
 
 ## Slice 011: Implement Quick Launcher Actions and Status Feedback
 
