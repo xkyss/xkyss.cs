@@ -43,12 +43,14 @@ public sealed class MewooRuntimePluginCatalog
                 var descriptor = _reader.Read(manifestPath);
                 if (descriptor.Manifest.Disabled)
                 {
-                    _logger?.Info("RuntimePluginCatalog", $"Skipped disabled runtime plugin '{descriptor.Manifest.Id}'.");
-                    continue;
+                    _logger?.Info("RuntimePluginCatalog", $"Discovered disabled runtime plugin '{descriptor.Manifest.Id}'.");
+                }
+                else
+                {
+                    _logger?.Info("RuntimePluginCatalog", $"Discovered runtime plugin '{descriptor.Manifest.Id}'.");
                 }
 
                 descriptors.Add(descriptor);
-                _logger?.Info("RuntimePluginCatalog", $"Discovered runtime plugin '{descriptor.Manifest.Id}'.");
             }
             catch (Exception ex)
             {
@@ -59,4 +61,3 @@ public sealed class MewooRuntimePluginCatalog
         return descriptors;
     }
 }
-

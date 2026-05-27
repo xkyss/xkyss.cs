@@ -49,6 +49,38 @@ public sealed class MewooRuntimePluginManagerTests
         Assert.AreEqual(MewooPluginState.Unloaded, pluginHost.Plugins.Single().State);
     }
 
+    [TestMethod]
+    public void LoadDiscoveredPluginsDoesNotLoadDisabledPlugins()
+    {
+        using var directory = RuntimePluginRoot.Create();
+        directory.WriteValidRuntimePlugin(disabled: true);
+        var pluginHost = new MewooPluginHost();
+        var manager = new MewooRuntimePluginManager();
+
+        var loaded = manager.LoadDiscoveredPlugins(directory.Root, pluginHost);
+
+        Assert.AreEqual(0, loaded.Count);
+        Assert.AreEqual(1, manager.PluginStatuses.Count);
+        Assert.AreEqual(MewooRuntimePluginState.Disabled, manager.PluginStatuses[0].State);
+        Assert.AreEqual(0, pluginHost.Plugins.Count);
+    }
+
+    [TestMethod]
+    public void LoadDiscoveredPluginsDoesNotLoadIncompatiblePlugins()
+    {
+        using var directory = RuntimePluginRoot.Create();
+        directory.WriteValidRuntimePlugin(minimumMewooVersion: "99.0.0");
+        var pluginHost = new MewooPluginHost();
+        var manager = new MewooRuntimePluginManager(currentVersion: new Version(1, 0, 0));
+
+        var loaded = manager.LoadDiscoveredPlugins(directory.Root, pluginHost);
+
+        Assert.AreEqual(0, loaded.Count);
+        Assert.AreEqual(1, manager.PluginStatuses.Count);
+        Assert.AreEqual(MewooRuntimePluginState.Incompatible, manager.PluginStatuses[0].State);
+        Assert.AreEqual(0, pluginHost.Plugins.Count);
+    }
+
     private sealed class RuntimePluginRoot : IDisposable
     {
         private RuntimePluginRoot(string root)
@@ -68,7 +100,7 @@ public sealed class MewooRuntimePluginManagerTests
             return new RuntimePluginRoot(root);
         }
 
-        public void WriteValidRuntimePlugin()
+        public void WriteValidRuntimePlugin(bool disabled = false, string? minimumMewooVersion = null)
         {
             var source = Path.Combine(AppContext.BaseDirectory, TestPluginAssemblyName);
             File.Copy(source, Path.Combine(PluginDirectory, TestPluginAssemblyName));
@@ -80,9 +112,16 @@ public sealed class MewooRuntimePluginManagerTests
                   "displayName": "Valid Runtime Plugin",
                   "version": "0.1.0",
                   "assembly": "{{TestPluginAssemblyName}}",
-                  "entryPoint": "Mewoo.TestPlugins.ValidRuntimePlugin.ValidRuntimePlugin"
+                  "entryPoint": "Mewoo.TestPlugins.ValidRuntimePlugin.ValidRuntimePlugin",
+                  "minimumMewooVersion": {{JsonStringOrNull(minimumMewooVersion)}},
+                  "disabled": {{disabled.ToString().ToLowerInvariant()}}
                 }
                 """);
+        }
+
+        private static string JsonStringOrNull(string? value)
+        {
+            return value is null ? "null" : $"\"{value}\"";
         }
 
         public void Dispose()

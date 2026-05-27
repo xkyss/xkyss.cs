@@ -7,7 +7,7 @@ namespace Mewoo.Core.Tests;
 public sealed class MewooRuntimePluginCatalogTests
 {
     [TestMethod]
-    public void DiscoverSkipsDisabledPlugins()
+    public void DiscoverReturnsDisabledPluginsForDiagnostics()
     {
         using var directory = TestPluginRoot.Create();
         directory.WriteManifest("disabledPlugin",
@@ -25,8 +25,9 @@ public sealed class MewooRuntimePluginCatalogTests
         var logger = new InMemoryMewooLogger();
         var descriptors = new MewooRuntimePluginCatalog(logger).Discover(directory.Root);
 
-        Assert.AreEqual(0, descriptors.Count);
-        Assert.IsTrue(logger.Entries.Any(entry => entry.Message.Contains("Skipped disabled runtime plugin", StringComparison.Ordinal)));
+        Assert.AreEqual(1, descriptors.Count);
+        Assert.IsTrue(descriptors[0].Manifest.Disabled);
+        Assert.IsTrue(logger.Entries.Any(entry => entry.Message.Contains("Discovered disabled runtime plugin", StringComparison.Ordinal)));
     }
 
     [TestMethod]
@@ -94,4 +95,3 @@ public sealed class MewooRuntimePluginCatalogTests
         }
     }
 }
-

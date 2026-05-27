@@ -71,15 +71,15 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
             .Margin(18)
             .Children(new TextBlock().Text("Runtime Diagnostics").FontSize(22).SemiBold());
 
-        if (_runtimePlugins.LoadedPlugins.Count == 0)
+        if (_runtimePlugins.PluginStatuses.Count == 0)
         {
-            panel.Children(new TextBlock().Text("No runtime plugins are loaded.").FontSize(12));
+            panel.Children(new TextBlock().Text("No runtime plugins are discovered.").FontSize(12));
         }
         else
         {
-            foreach (var runtimePlugin in _runtimePlugins.LoadedPlugins)
+            foreach (var status in _runtimePlugins.PluginStatuses)
             {
-                panel.Children(RuntimePluginBlock(runtimePlugin));
+                panel.Children(RuntimePluginBlock(status));
             }
         }
 
@@ -106,9 +106,10 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
         return panel;
     }
 
-    private static Border RuntimePluginBlock(MewooLoadedRuntimePlugin runtimePlugin)
+    private static Border RuntimePluginBlock(MewooRuntimePluginStatus status)
     {
-        var manifest = runtimePlugin.Descriptor.Manifest;
+        var descriptor = status.Descriptor;
+        var manifest = descriptor.Manifest;
         return new Border()
             .Padding(10, 8)
             .Child(new StackPanel { Orientation = Orientation.Vertical }
@@ -116,9 +117,9 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
                 .Children(
                     new TextBlock().Text($"{manifest.DisplayName} ({manifest.Id})").SemiBold(),
                     new TextBlock().Text($"Version: {manifest.Version}").FontSize(12),
-                    new TextBlock().Text($"Manifest: {runtimePlugin.Descriptor.ManifestPath}").FontSize(12),
-                    new TextBlock().Text($"Assembly: {runtimePlugin.Descriptor.AssemblyPath}").FontSize(12),
-                    new TextBlock().Text("State: Loaded").FontSize(12)));
+                    new TextBlock().Text($"Manifest: {descriptor.ManifestPath}").FontSize(12),
+                    new TextBlock().Text($"Assembly: {descriptor.AssemblyPath}").FontSize(12),
+                    new TextBlock().Text($"State: {status.State}").FontSize(12),
+                    new TextBlock().Text(status.Message ?? string.Empty).FontSize(12)));
     }
 }
-

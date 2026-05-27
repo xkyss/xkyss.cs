@@ -659,7 +659,7 @@ Runtime diagnostics is a shell-owned compiled plugin. It contributes a Runtime A
 
 **Type:** AFK
 
-**Status:** Ready
+**Status:** Done
 
 **Blocked by:** Slice 019
 
@@ -671,10 +671,14 @@ Apply `minimumMewooVersion` and disabled-state rules consistently before loading
 
 ### Acceptance criteria
 
-- [ ] Plugins requiring a newer Mewoo build are not loaded.
-- [ ] Compatibility failures are logged and visible in diagnostics.
-- [ ] Disabled plugins are discovered but not loaded.
-- [ ] Disabled-state behavior is stable across restarts.
+- [x] Plugins requiring a newer Mewoo build are not loaded.
+- [x] Compatibility failures are logged and visible in diagnostics.
+- [x] Disabled plugins are discovered but not loaded.
+- [x] Disabled-state behavior is stable across restarts.
+
+### Implementation notes
+
+Runtime plugin discovery now keeps disabled and incompatible plugins in `PluginStatuses` for diagnostics while preventing code loading. `minimumMewooVersion` is checked before runtime assembly loading.
 
 ## Slice 023: Local Runtime Plugin Packaging Helper
 
