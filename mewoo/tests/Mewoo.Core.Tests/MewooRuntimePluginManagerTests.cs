@@ -29,6 +29,26 @@ public sealed class MewooRuntimePluginManagerTests
             item.Id == "xkyss.validRuntimePlugin.status"));
     }
 
+    [TestMethod]
+    public async Task UnloadPluginRemovesRuntimeContributionsAndReleasesManagerReference()
+    {
+        using var directory = RuntimePluginRoot.Create();
+        directory.WriteValidRuntimePlugin();
+        var pluginHost = new MewooPluginHost();
+        var manager = new MewooRuntimePluginManager();
+        manager.LoadDiscoveredPlugins(directory.Root, pluginHost);
+        await pluginHost.ActivateAllAsync(plugin => new TestPluginContext(plugin.Id));
+
+        var unloaded = await manager.UnloadPluginAsync("xkyss.validRuntimePlugin", pluginHost);
+
+        Assert.IsTrue(unloaded);
+        Assert.AreEqual(0, manager.LoadedPlugins.Count);
+        Assert.IsFalse(pluginHost.Commands.Contains("xkyss.validRuntimePlugin.ping"));
+        Assert.IsFalse(pluginHost.VisibleContributions.StatusBarItems.Any(item =>
+            item.Id == "xkyss.validRuntimePlugin.status"));
+        Assert.AreEqual(MewooPluginState.Unloaded, pluginHost.Plugins.Single().State);
+    }
+
     private sealed class RuntimePluginRoot : IDisposable
     {
         private RuntimePluginRoot(string root)
@@ -127,4 +147,3 @@ public sealed class MewooRuntimePluginManagerTests
         }
     }
 }
-

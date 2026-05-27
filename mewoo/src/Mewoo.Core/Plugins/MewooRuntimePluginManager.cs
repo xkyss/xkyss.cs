@@ -51,5 +51,31 @@ public sealed class MewooRuntimePluginManager
 
         return registered;
     }
-}
 
+    public async ValueTask<bool> UnloadPluginAsync(
+        string pluginId,
+        MewooPluginHost pluginHost,
+        CancellationToken cancellationToken = default)
+    {
+        var loaded = _loadedPlugins.FirstOrDefault(plugin =>
+            string.Equals(plugin.Plugin.Id, pluginId, StringComparison.Ordinal));
+        if (loaded is null)
+        {
+            return false;
+        }
+
+        await pluginHost.UnloadPluginAsync(pluginId, cancellationToken);
+        _loadedPlugins.Remove(loaded);
+        loaded.LoadContext.Unload();
+        _logger?.Info("RuntimePluginManager", $"Unloaded runtime plugin '{pluginId}'.");
+        return true;
+    }
+
+    public async ValueTask UnloadAllAsync(MewooPluginHost pluginHost, CancellationToken cancellationToken = default)
+    {
+        foreach (var loaded in _loadedPlugins.ToArray())
+        {
+            await UnloadPluginAsync(loaded.Plugin.Id, pluginHost, cancellationToken);
+        }
+    }
+}

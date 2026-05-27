@@ -608,7 +608,7 @@ Wire runtime plugin instances into the existing `MewooPluginHost` registration a
 
 **Type:** AFK
 
-**Status:** Ready
+**Status:** Done
 
 **Blocked by:** Slice 019
 
@@ -620,11 +620,15 @@ Add runtime plugin unload orchestration around the existing lifecycle and releas
 
 ### Acceptance criteria
 
-- [ ] Deactivation removes visible contributions.
-- [ ] Plugin-owned MainArea tabs are closed during unload.
-- [ ] Plugin lifecycle cleanup is called before load-context unload.
-- [ ] Loader-held references are released.
-- [ ] Load-context unload success or residual risk is logged.
+- [x] Deactivation removes visible contributions.
+- [x] Plugin-owned MainArea tabs are closed during unload.
+- [x] Plugin lifecycle cleanup is called before load-context unload.
+- [x] Loader-held references are released.
+- [x] Load-context unload success or residual risk is logged.
+
+### Implementation notes
+
+Runtime unload is orchestrated by `MewooRuntimePluginManager`. It delegates lifecycle cleanup and contribution revocation to `MewooPluginHost`, then releases the runtime manager reference and requests load-context unload.
 
 ## Slice 021: Runtime Plugin Diagnostics UI
 
