@@ -12,12 +12,23 @@ namespace Mewoo.Plugins.RuntimeDiagnostics;
 public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
 {
     private readonly MewooRuntimePluginManager _runtimePlugins;
+    private readonly MewooPluginHost _pluginHost;
     private readonly IMewooLogger _logger;
+    private readonly string _pluginRoot;
+    private readonly IServiceProvider _services;
 
-    public RuntimeDiagnosticsPlugin(MewooRuntimePluginManager runtimePlugins, IMewooLogger logger)
+    public RuntimeDiagnosticsPlugin(
+        MewooRuntimePluginManager runtimePlugins,
+        MewooPluginHost pluginHost,
+        IMewooLogger logger,
+        string pluginRoot,
+        IServiceProvider services)
     {
         _runtimePlugins = runtimePlugins;
+        _pluginHost = pluginHost;
         _logger = logger;
+        _pluginRoot = pluginRoot;
+        _services = services;
     }
 
     public string Id => "runtimeDiagnostics";
@@ -41,7 +52,7 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
         registry.MainView("runtimeDiagnostics.home")
             .Title("Runtime Diagnostics")
             .CanOpenMultiple(false)
-            .Create(_ => new MewooView("runtimeDiagnostics.home", CreateMainView()));
+            .Create(ctx => new MewooView("runtimeDiagnostics.home", CreateMainView(ctx.Workbench)));
 
         registry.Command("runtimeDiagnostics.open")
             .Title("Open Runtime Diagnostics")
@@ -65,12 +76,26 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
         return panel;
     }
 
-    private StackPanel CreateMainView()
+    private StackPanel CreateMainView(IWorkbenchService workbench)
     {
         var panel = new StackPanel { Orientation = Orientation.Vertical }
             .Spacing(10)
-            .Margin(18)
-            .Children(new TextBlock().Text("Runtime Diagnostics").FontSize(22).SemiBold());
+            .Margin(18);
+
+        RenderMainView(panel, workbench);
+        return panel;
+    }
+
+    private void RenderMainView(StackPanel panel, IWorkbenchService workbench)
+    {
+        panel.Clear();
+        panel.Children(
+            new DockPanel().Children(
+                new Button()
+                    .DockRight()
+                    .Content("Refresh")
+                    .OnClick(() => RenderMainView(panel, workbench)),
+                new TextBlock().Text("Runtime Diagnostics").FontSize(22).SemiBold()));
 
         if (_runtimePlugins.PluginStatuses.Count == 0)
         {
@@ -80,7 +105,7 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
         {
             foreach (var status in _runtimePlugins.PluginStatuses)
             {
-                panel.Children(RuntimePluginBlock(status));
+                panel.Children(RuntimePluginBlock(status, panel, workbench));
             }
         }
 
@@ -103,14 +128,61 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
                     .FontSize(12));
             }
         }
-
-        return panel;
     }
 
-    private static Border RuntimePluginBlock(MewooRuntimePluginStatus status)
+    private Border RuntimePluginBlock(MewooRuntimePluginStatus status, StackPanel panel, IWorkbenchService workbench)
     {
         var descriptor = status.Descriptor;
         var manifest = descriptor.Manifest;
+        var actions = new StackPanel { Orientation = Orientation.Horizontal }.Spacing(6);
+        actions.Children(ActionButton("Reload", async () =>
+        {
+            await _runtimePlugins.ReloadPluginAsync(
+                manifest.Id,
+                _pluginRoot,
+                _pluginHost,
+                plugin => new RuntimePluginContext(plugin.Id, _services, workbench));
+            RenderMainView(panel, workbench);
+        }));
+
+        if (status.State is MewooRuntimePluginState.Loaded or MewooRuntimePluginState.Registered)
+        {
+            actions.Children(ActionButton("Unload", async () =>
+            {
+                await _runtimePlugins.UnloadPluginAsync(manifest.Id, _pluginHost);
+                RenderMainView(panel, workbench);
+            }));
+        }
+
+        if (status.State == MewooRuntimePluginState.Disabled)
+        {
+            actions.Children(ActionButton("Enable", async () =>
+            {
+                if (_runtimePlugins.SetPluginDisabled(manifest.Id, disabled: false))
+                {
+                    await _runtimePlugins.ReloadPluginAsync(
+                        manifest.Id,
+                        _pluginRoot,
+                        _pluginHost,
+                        plugin => new RuntimePluginContext(plugin.Id, _services, workbench));
+                }
+
+                RenderMainView(panel, workbench);
+            }));
+        }
+        else
+        {
+            actions.Children(ActionButton("Disable", async () =>
+            {
+                if (_runtimePlugins.SetPluginDisabled(manifest.Id, disabled: true))
+                {
+                    await _runtimePlugins.UnloadPluginAsync(manifest.Id, _pluginHost);
+                }
+
+                RenderMainView(panel, workbench);
+            }));
+        }
+
         return new Border()
             .Padding(10, 8)
             .Child(new StackPanel { Orientation = Orientation.Vertical }
@@ -121,6 +193,19 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
                     new TextBlock().Text($"Manifest: {descriptor.ManifestPath}").FontSize(12),
                     new TextBlock().Text($"Assembly: {descriptor.AssemblyPath}").FontSize(12),
                     new TextBlock().Text($"State: {status.State}").FontSize(12),
-                    new TextBlock().Text(status.Message ?? string.Empty).FontSize(12)));
+                    new TextBlock().Text(status.Message ?? string.Empty).FontSize(12),
+                    actions));
     }
+
+    private static Button ActionButton(string text, Func<Task> action)
+    {
+        return new Button()
+            .Content(text)
+            .OnClick(async () => await action());
+    }
+
+    private sealed record RuntimePluginContext(
+        string PluginId,
+        IServiceProvider Services,
+        IWorkbenchService Workbench) : IMewooPluginContext;
 }

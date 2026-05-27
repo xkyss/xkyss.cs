@@ -9,11 +9,13 @@ using Mewoo.Workbench;
 
 var logger = new InMemoryMewooLogger();
 Startup(logger);
+var services = new EmptyServiceProvider();
+var runtimePluginDirectory = GetRuntimePluginDirectory();
 var pluginHost = new MewooPluginHost(logger);
 var runtimePlugins = new MewooRuntimePluginManager(logger);
-runtimePlugins.LoadDiscoveredPlugins(GetRuntimePluginDirectory(), pluginHost);
+runtimePlugins.LoadDiscoveredPlugins(runtimePluginDirectory, pluginHost);
 pluginHost.RegisterPlugin(new QuickLauncherPlugin());
-pluginHost.RegisterPlugin(new RuntimeDiagnosticsPlugin(runtimePlugins, logger));
+pluginHost.RegisterPlugin(new RuntimeDiagnosticsPlugin(runtimePlugins, pluginHost, logger, runtimePluginDirectory, services));
 var themeController = new MewooThemeController();
 var stateStorage = new JsonFileStateStorage(GetStateDirectory());
 
@@ -23,11 +25,11 @@ Application
     .UseAccent(Accent.Purple)
     .BuildMainWindow(() =>
     {
-        window = new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider(), themeController, stateStorage, logger);
+        window = new MewooWorkbenchWindow(pluginHost, services, themeController, stateStorage, logger);
         window.Loaded += async () =>
         {
             await pluginHost.ActivateAllAsync(
-                plugin => new PluginContext(plugin.Id, new EmptyServiceProvider(), window));
+                plugin => new PluginContext(plugin.Id, services, window));
             var snapshot = await stateStorage.ReadJsonAsync<WorkbenchStateSnapshot>("workbench");
             await window.RestoreStateAsync(snapshot);
             if ((snapshot is null || snapshot.OpenMainViewIds.Count == 0)
@@ -35,7 +37,7 @@ Application
             {
                 await pluginHost.Commands.ExecuteAsync(
                     "quickLauncher.open",
-                    new MewooCommandContext(new EmptyServiceProvider(), window));
+                    new MewooCommandContext(services, window));
             }
         };
         return window;
