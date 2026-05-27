@@ -48,6 +48,13 @@ public sealed class WorkbenchState
 
     public void SetSidebarWidth(double width)
     {
+        if (width <= SidebarMinWidth + 8)
+        {
+            SidebarCollapsed = true;
+            Changed?.Invoke();
+            return;
+        }
+
         var old = SidebarWidth;
         SidebarWidth = width;
         if (Math.Abs(old - SidebarWidth) > 0.1)
