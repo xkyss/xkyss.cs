@@ -582,7 +582,7 @@ Resolve the manifest `entryPoint`, instantiate it, validate it implements `IMewo
 
 **Type:** AFK
 
-**Status:** Ready
+**Status:** Done
 
 **Blocked by:** Slice 018
 
@@ -594,11 +594,15 @@ Wire runtime plugin instances into the existing `MewooPluginHost` registration a
 
 ### Acceptance criteria
 
-- [ ] Runtime plugin contributions render through existing Workbench code.
-- [ ] Runtime commands register through the existing command registry.
-- [ ] Runtime plugin activation failures are logged and surfaced like compiled plugin failures.
-- [ ] Compiled V1 plugins still work unchanged.
-- [ ] Runtime plugin discovery order is deterministic.
+- [x] Runtime plugin contributions render through existing Workbench code.
+- [x] Runtime commands register through the existing command registry.
+- [x] Runtime plugin activation failures are logged and surfaced like compiled plugin failures.
+- [x] Compiled V1 plugins still work unchanged.
+- [x] Runtime plugin discovery order is deterministic.
+
+### Implementation notes
+
+`MewooRuntimePluginManager` discovers runtime manifests, creates plugin instances, registers them with the existing `MewooPluginHost`, and then lets the normal host activation flow activate compiled and runtime plugins together.
 
 ## Slice 020: Runtime Plugin Unload and Reference Release
 

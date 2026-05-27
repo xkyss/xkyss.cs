@@ -13,6 +13,14 @@ public sealed class ValidRuntimePlugin : IMewooPlugin
 
     public void Register(IMewooContributionRegistry registry)
     {
+        registry.Command("xkyss.validRuntimePlugin.ping")
+            .Title("Runtime Plugin Ping")
+            .Category("Runtime Plugin")
+            .Execute((_, _) => ValueTask.CompletedTask);
+
+        registry.StatusBarItem("xkyss.validRuntimePlugin.status")
+            .AlignLeft()
+            .Text("Runtime plugin loaded");
     }
 }
 
@@ -46,4 +54,3 @@ public sealed class ThrowingRuntimePlugin : IMewooPlugin
 public sealed class NotAPlugin
 {
 }
-
