@@ -2,11 +2,15 @@ namespace Mewoo.Workbench;
 
 public sealed class WorkbenchState
 {
+    public const double ActivityBarWidth = 42;
+    public const double MainAreaMinWidth = 560;
+    public const double SidebarDefaultWidth = 220;
     public const double SidebarMinWidth = 180;
     public const double SidebarMaxWidth = 420;
+    public const double SidebarCollapseWidth = 96;
     public const double PanelMinHeight = 120;
 
-    private double _sidebarWidth = 260;
+    private double _sidebarWidth = SidebarDefaultWidth;
     private double _panelHeight = 260;
     private readonly List<string> _openMainViewIds = [];
 
@@ -48,16 +52,30 @@ public sealed class WorkbenchState
 
     public void SetSidebarWidth(double width)
     {
-        if (width <= SidebarMinWidth + 8)
-        {
-            SidebarCollapsed = true;
-            Changed?.Invoke();
-            return;
-        }
-
         var old = SidebarWidth;
         SidebarWidth = width;
         if (Math.Abs(old - SidebarWidth) > 0.1)
+        {
+            Changed?.Invoke();
+        }
+    }
+
+    public void ResizeSidebar(double requestedWidth, double windowWidth)
+    {
+        var oldCollapsed = SidebarCollapsed;
+        var oldWidth = SidebarWidth;
+
+        if (requestedWidth <= SidebarCollapseWidth)
+        {
+            SidebarCollapsed = true;
+        }
+        else
+        {
+            SidebarCollapsed = false;
+            SidebarWidth = Math.Min(requestedWidth, GetSidebarMaxWidth(windowWidth));
+        }
+
+        if (oldCollapsed != SidebarCollapsed || Math.Abs(oldWidth - SidebarWidth) > 0.1)
         {
             Changed?.Invoke();
         }
@@ -140,5 +158,16 @@ public sealed class WorkbenchState
         _openMainViewIds.Clear();
         _openMainViewIds.AddRange(snapshot.OpenMainViewIds.Distinct(StringComparer.Ordinal));
         Changed?.Invoke();
+    }
+
+    private static double GetSidebarMaxWidth(double windowWidth)
+    {
+        if (double.IsNaN(windowWidth) || double.IsInfinity(windowWidth) || windowWidth <= 0)
+        {
+            return SidebarMaxWidth;
+        }
+
+        var maxByMainArea = windowWidth - ActivityBarWidth - MainAreaMinWidth;
+        return Math.Clamp(maxByMainArea, SidebarMinWidth, SidebarMaxWidth);
     }
 }

@@ -13,6 +13,33 @@ namespace Mewoo.Workbench;
 
 public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 {
+    private static readonly PathGeometry LightThemeIcon = PathGeometry.Parse(
+        @"M8.462,15.537C7.487,14.563,7,13.383,7,12c0-1.383,0.487-2.563,1.462-3.538S10.617,7,12,7
+            c1.383,0,2.563,0.487,3.537,1.462C16.513,9.438,17,10.617,17,12c0,1.383-0.487,2.563-1.463,3.537C14.563,16.513,13.383,17,12,17
+            C10.617,17,9.438,16.513,8.462,15.537z M5,13H1v-2h4V13z M23,13h-4v-2h4V13z M11,5V1h2v4H11z M11,23v-4h2v4H11z M6.4,7.75
+            L3.875,5.325L5.3,3.85l2.4,2.5L6.4,7.75z M18.7,20.15l-2.425-2.525L17.6,16.25l2.525,2.425L18.7,20.15z M16.25,6.4l2.425-2.525
+            L20.15,5.3l-2.5,2.4L16.25,6.4z M3.85,18.7l2.525-2.425L7.75,17.6l-2.425,2.525L3.85,18.7z");
+
+    private static readonly PathGeometry DarkThemeIcon = PathGeometry.Parse(
+        @"M12.058,19.904c-2.222,0-4.111-0.777-5.667-2.334c-1.556-1.555-2.333-3.444-2.333-5.667
+            c0-2.025,0.66-3.782,1.981-5.27C7.359,5.147,8.994,4.269,10.942,4c0.054,0,0.106,0.002,0.159,0.006
+            c0.052,0.004,0.103,0.009,0.153,0.017c-0.337,0.471-0.604,0.994-0.801,1.57s-0.295,1.18-0.295,1.811
+            c0,1.778,0.622,3.289,1.867,4.533c1.244,1.245,2.755,1.867,4.533,1.867c0.635,0,1.239-0.099,1.813-0.296
+            c0.574-0.195,1.09-0.463,1.549-0.801c0.007,0.051,0.013,0.102,0.017,0.154c0.004,0.051,0.006,0.104,0.006,0.158
+            c-0.257,1.949-1.128,3.583-2.615,4.904C15.84,19.244,14.084,19.904,12.058,19.904z M12.058,18.904c1.467,0,2.784-0.404,3.95-1.213
+            s2.017-1.863,2.55-3.162c-0.333,0.083-0.667,0.149-1,0.199c-0.333,0.051-0.667,0.075-1,0.075c-2.05,0-3.796-0.721-5.237-2.163
+            C9.878,11.2,9.158,9.454,9.158,7.404c0-0.333,0.025-0.667,0.075-1c0.05-0.333,0.117-0.667,0.2-1c-1.3,0.533-2.354,1.383-3.163,2.55
+            c-0.808,1.167-1.212,2.483-1.212,3.95c0,1.934,0.684,3.583,2.05,4.95C8.475,18.221,10.125,18.904,12.058,18.904z");
+
+    private static readonly PathGeometry SidebarIcon = PathGeometry.Parse(
+        "M3,5h18v2H3z M3,17h18v2H3z M3,5h2v14H3z M19,5h2v14h-2z M8,5h2v14H8z");
+
+    private static readonly PathGeometry PanelIcon = PathGeometry.Parse(
+        "M3,5h18v2H3z M3,17h18v2H3z M3,5h2v14H3z M19,5h2v14h-2z M3,13h18v2H3z");
+
+    private static readonly PathGeometry TopmostIcon = PathGeometry.Parse(
+        "M12,3l6,6h-4v8h-4V9H6z M5,19h14v2H5z");
+
     private readonly MewooPluginHost _pluginHost;
     private readonly IServiceProvider _services;
     private readonly MewooThemeController _themeController;
@@ -31,6 +58,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly Dictionary<string, TextBlock> _statusTextById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, MainViewDescriptor> _mainViews;
     private bool _isRestoringState;
+    private bool _isResizingSidebar;
 
     public MewooWorkbenchWindow(
         MewooPluginHost pluginHost,
@@ -150,10 +178,10 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             MenuText("Help"));
 
         TitleBarRight.Children(
-            IconButton(GlyphKind.Plus, "Toggle Dark/Light theme", _themeController.Toggle),
-            IconButton(GlyphKind.ChevronLeft, "Toggle sidebar", ToggleSidebar),
-            IconButton(GlyphKind.ChevronUp, "Toggle panel", TogglePanel),
-            IconButton(GlyphKind.WindowMaximize, "Always on top", ToggleAlwaysOnTop));
+            TitleChromeButton(ThemeIcon(), "Toggle Dark/Light theme", _themeController.Toggle),
+            TitleChromeButton(PathIcon(SidebarIcon, 14), "Toggle sidebar", ToggleSidebar),
+            TitleChromeButton(PathIcon(PanelIcon, 14), "Toggle panel", TogglePanel),
+            TitleChromeButton(PathIcon(TopmostIcon, 14), "Always on top", ToggleAlwaysOnTop));
     }
 
     private FrameworkElement BuildWorkbench()
@@ -187,26 +215,38 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         RenderLogs();
 
         var mainArea = _mainTabs.Inner;
+        mainArea.MinWidth = WorkbenchState.MainAreaMinWidth;
 
         _sidebarShell.DockLeft()
             .Width(_state.SidebarWidth)
             .WithTheme((t, b) => b.Background(t.Palette.ControlBackground))
             .Child(new DockPanel().Children(
-                ResizeGrip.Create(ResizeGripOrientation.Vertical, delta =>
+                ResizeGrip.CreateVerticalAbsolute(
+                    () => _state.SidebarWidth,
+                    width =>
                 {
-                    _state.SetSidebarWidth(_state.SidebarWidth + delta);
+                    _isResizingSidebar = true;
+                    _state.ResizeSidebar(width, ClientSize.Width);
+                },
+                    () =>
+                {
+                    _isResizingSidebar = false;
+                    ApplyState();
                 }).DockRight(),
                 _sidebarHost));
 
-        var mainColumn = new DockPanel().Children(
+        var mainColumn = new DockPanel
+        {
+            MinWidth = WorkbenchState.MainAreaMinWidth,
+        }.Children(
             _panelHost.DockBottom(),
             mainArea);
 
         var body = new DockPanel().Children(
             new Border()
                 .DockLeft()
-                .MinWidth(42)
-                .Width(42)
+                .MinWidth(WorkbenchState.ActivityBarWidth)
+                .Width(WorkbenchState.ActivityBarWidth)
                 .WithTheme((t, b) => b.Background(t.Palette.WindowBackground))
                 .Child(_activityBar),
             _sidebarShell,
@@ -374,18 +414,30 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         .CenterVertical()
         .Margin(8, 0);
 
-    private static Button IconButton(GlyphKind kind, string tooltip, Action? onClick = null)
+    private static PathShape ThemeIcon() => new PathShape()
+        .Center()
+        .Size(14)
+        .Stretch(Stretch.Uniform)
+        .WithTheme((t, s) => s.Data(t.IsDark ? LightThemeIcon : DarkThemeIcon).Fill(t.Palette.WindowText));
+
+    private static PathShape PathIcon(PathGeometry data, double size) => new PathShape()
+        .Center()
+        .Size(size)
+        .Stretch(Stretch.Uniform)
+        .WithTheme((t, s) => s.Data(data).Fill(t.Palette.WindowText));
+
+    private static Button TitleChromeButton(Element icon, string tooltip, Action onClick)
     {
         var button = new Button()
-            .ToolTip(tooltip)
-            .MinWidth(34)
-            .MinHeight(34)
-            .Content(new GlyphElement().Kind(kind).GlyphSize(5));
-
-        if (onClick is not null)
         {
-            button.Click += onClick;
+            Content = icon,
+            CornerRadius = 0,
+            StyleName = "mewoo.chrome",
+            MinWidth = 36,
+            MinHeight = 34,
         }
+            .ToolTip(tooltip)
+            .OnClick(onClick);
 
         return button;
     }
@@ -402,8 +454,8 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
     private void ApplyState()
     {
-        _sidebarShell.IsVisible = !_state.SidebarCollapsed;
-        _sidebarShell.Width = _state.SidebarWidth;
+        _sidebarShell.IsVisible = !_state.SidebarCollapsed || _isResizingSidebar;
+        _sidebarShell.Width = _state.SidebarCollapsed ? 0 : _state.SidebarWidth;
         _panelHost.IsVisible = _state.PanelVisible;
         _panelHost.Height = _state.PanelHeight;
     }
