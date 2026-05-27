@@ -357,6 +357,8 @@ URL, file, executable, and script targets are launched through `QuickLauncherLau
 
 **Type:** AFK
 
+**Status:** Done
+
 **Blocked by:** Slice 007, Slice 011
 
 **User stories covered:** As a user, I can understand plugin/view failures and open logs.
@@ -367,11 +369,21 @@ Add visible error states for plugin activation failures and unsupported view hos
 
 ### Acceptance criteria
 
-- [ ] Unsupported native views show an error view in MainArea.
-- [ ] Plugin activation failures show a Sidebar or Activity-level unavailable state.
-- [ ] Error views include Open Logs action.
-- [ ] Logs panel can show shell/plugin lifecycle errors.
-- [ ] Plugin failures do not crash the shell.
+- [x] Unsupported native views show an error view in MainArea.
+- [x] Plugin activation failures show a Sidebar or Activity-level unavailable state.
+- [x] Error views include Open Logs action.
+- [x] Logs panel can show shell/plugin lifecycle errors.
+- [x] Plugin failures do not crash the shell.
+
+### Implementation notes
+
+Mewoo now has a lightweight `IMewooLogger` abstraction and an in-memory logger implementation.
+
+Plugin lifecycle transitions and failures are logged by `MewooPluginHost`. App-level UI exceptions are also logged before being marked handled.
+
+Workbench Panel is now a Logs panel. Error views include an Open Logs action that reveals the Panel.
+
+Unsupported plugin native views and plugin activation failures are surfaced as visible error UI instead of crashing the shell.
 
 ## Slice 013: Human UI Review and Visual Tuning
 

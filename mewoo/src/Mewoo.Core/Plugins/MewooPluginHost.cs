@@ -1,4 +1,5 @@
 using Mewoo.Abstractions.Contributions;
+using Mewoo.Abstractions.Logging;
 using Mewoo.Abstractions.Plugins;
 using Mewoo.Core.Commands;
 using Mewoo.Core.Contributions;
@@ -8,6 +9,7 @@ namespace Mewoo.Core.Plugins;
 public sealed class MewooPluginHost
 {
     private readonly List<PluginEntry> _plugins = [];
+    private readonly IMewooLogger? _logger;
 
     private readonly Dictionary<string, MewooContributionSnapshot> _registeredContributions = new(StringComparer.Ordinal);
 
@@ -19,6 +21,11 @@ public sealed class MewooPluginHost
         new([], [], [], [], [], []);
 
     public IReadOnlyList<PluginEntry> Plugins => _plugins;
+
+    public MewooPluginHost(IMewooLogger? logger = null)
+    {
+        _logger = logger;
+    }
 
     public PluginEntry RegisterPlugin(IMewooPlugin plugin)
     {
@@ -33,10 +40,12 @@ public sealed class MewooPluginHost
 
             EnsureNoDuplicateVisibleOrRegistered(snapshot);
             _registeredContributions[plugin.Id] = snapshot;
+            _logger?.Info("PluginHost", $"Registered plugin '{plugin.Id}'.");
             return UpdateEntry(plugin.Id, MewooPluginState.Registered, null);
         }
         catch (Exception ex)
         {
+            _logger?.Error("PluginHost", $"Failed to register plugin '{plugin.Id}'.", ex);
             return UpdateEntry(plugin.Id, MewooPluginState.Failed, ex);
         }
     }
@@ -60,11 +69,13 @@ public sealed class MewooPluginHost
             }
 
             AddVisibleContributions(pluginId);
+            _logger?.Info("PluginHost", $"Activated plugin '{pluginId}'.");
             UpdateEntry(pluginId, MewooPluginState.Activated, null);
         }
         catch (Exception ex)
         {
             RemoveVisibleContributions(pluginId);
+            _logger?.Error("PluginHost", $"Failed to activate plugin '{pluginId}'.", ex);
             UpdateEntry(pluginId, MewooPluginState.Failed, ex);
         }
     }
@@ -95,11 +106,13 @@ public sealed class MewooPluginHost
             }
 
             RemoveVisibleContributions(pluginId);
+            _logger?.Info("PluginHost", $"Deactivated plugin '{pluginId}'.");
             UpdateEntry(pluginId, MewooPluginState.Deactivated, null);
         }
         catch (Exception ex)
         {
             RemoveVisibleContributions(pluginId);
+            _logger?.Error("PluginHost", $"Failed to deactivate plugin '{pluginId}'.", ex);
             UpdateEntry(pluginId, MewooPluginState.Failed, ex);
         }
     }
@@ -122,12 +135,14 @@ public sealed class MewooPluginHost
 
             RemoveVisibleContributions(pluginId);
             _registeredContributions.Remove(pluginId);
+            _logger?.Info("PluginHost", $"Unloaded plugin '{pluginId}'.");
             UpdateEntry(pluginId, MewooPluginState.Unloaded, null);
         }
         catch (Exception ex)
         {
             RemoveVisibleContributions(pluginId);
             _registeredContributions.Remove(pluginId);
+            _logger?.Error("PluginHost", $"Failed to unload plugin '{pluginId}'.", ex);
             UpdateEntry(pluginId, MewooPluginState.Failed, ex);
         }
     }
@@ -153,10 +168,12 @@ public sealed class MewooPluginHost
                 await lifecycle.DisposeAsync();
             }
 
+            _logger?.Info("PluginHost", $"Disposed plugin '{pluginId}'.");
             UpdateEntry(pluginId, MewooPluginState.Disposed, null);
         }
         catch (Exception ex)
         {
+            _logger?.Error("PluginHost", $"Failed to dispose plugin '{pluginId}'.", ex);
             UpdateEntry(pluginId, MewooPluginState.Failed, ex);
         }
     }

@@ -1,13 +1,14 @@
 using Aprillz.MewUI;
 using Mewoo.Abstractions;
+using Mewoo.Core.Logging;
 using Mewoo.Core.Plugins;
 using Mewoo.Core.Storage;
 using Mewoo.Plugins.QuickLauncher;
 using Mewoo.Workbench;
 
-Startup();
-
-var pluginHost = new MewooPluginHost();
+var logger = new InMemoryMewooLogger();
+Startup(logger);
+var pluginHost = new MewooPluginHost(logger);
 pluginHost.RegisterPlugin(new QuickLauncherPlugin());
 var themeController = new MewooThemeController();
 var stateStorage = new JsonFileStateStorage(GetStateDirectory());
@@ -18,7 +19,7 @@ Application
     .UseAccent(Accent.Purple)
     .BuildMainWindow(() =>
     {
-        window = new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider(), themeController, stateStorage);
+        window = new MewooWorkbenchWindow(pluginHost, new EmptyServiceProvider(), themeController, stateStorage, logger);
         window.Loaded += async () =>
         {
             await pluginHost.ActivateAllAsync(
@@ -43,7 +44,7 @@ static string GetStateDirectory()
     return Path.Combine(root, "Mewoo", "State");
 }
 
-static void Startup()
+static void Startup(InMemoryMewooLogger logger)
 {
     if (OperatingSystem.IsWindows())
     {
@@ -64,6 +65,7 @@ static void Startup()
     Application.DispatcherUnhandledException += e =>
     {
         Console.Error.WriteLine(e.Exception);
+        logger.Error("Application", "Unhandled UI exception.", e.Exception);
         e.Handled = true;
     };
 }

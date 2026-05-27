@@ -4,6 +4,7 @@ using Aprillz.MewUI.Rendering;
 using Mewoo.Abstractions;
 using Mewoo.Abstractions.Commands;
 using Mewoo.Abstractions.Contributions;
+using Mewoo.Abstractions.Logging;
 using Mewoo.Abstractions.Storage;
 using Mewoo.Abstractions.Views;
 using Mewoo.Core.Plugins;
@@ -16,6 +17,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly IServiceProvider _services;
     private readonly MewooThemeController _themeController;
     private readonly IStateStorage? _stateStorage;
+    private readonly IMewooLogger _logger;
     private readonly SemaphoreSlim _stateSaveLock = new(1, 1);
     private readonly WorkbenchState _state = new();
     private readonly StackPanel _activityBar = new() { Orientation = Orientation.Vertical };
@@ -24,6 +26,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly StackPanel _tabBar = new() { Orientation = Orientation.Horizontal };
     private readonly Border _mainViewHost = new();
     private readonly Border _panelHost = new();
+    private readonly StackPanel _logsPanel = new() { Orientation = Orientation.Vertical };
     private readonly StackPanel _statusLeft = new() { Orientation = Orientation.Horizontal };
     private readonly StackPanel _statusRight = new() { Orientation = Orientation.Horizontal };
     private readonly Dictionary<string, TextBlock> _statusTextById = new(StringComparer.Ordinal);
@@ -34,16 +37,19 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         MewooPluginHost pluginHost,
         IServiceProvider services,
         MewooThemeController? themeController = null,
-        IStateStorage? stateStorage = null)
+        IStateStorage? stateStorage = null,
+        IMewooLogger? logger = null)
     {
         _pluginHost = pluginHost;
         _services = services;
         _themeController = themeController ?? new MewooThemeController();
         _stateStorage = stateStorage;
+        _logger = logger ?? new NullMewooLogger();
         _mainViews = pluginHost.VisibleContributions.MainViews.ToDictionary(x => x.Id, StringComparer.Ordinal);
         _state.Changed += OnWorkbenchStateChanged;
         _pluginHost.ContributionsChanged += RenderContributions;
         _themeController.Changed += OnThemeChanged;
+        _logger.Changed += RenderLogs;
 
         Title = "Mewoo";
         this.Resizable(1200, 760);
@@ -166,8 +172,9 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             {
                 _state.SetPanelHeight(_state.PanelHeight + delta, ClientSize.Height);
             }).DockTop(),
-            new TextBlock().DockTop().Text("Panel").SemiBold().Margin(12, 8),
-            new TextBlock().Text("Logs and plugin output will appear here.").Margin(12));
+            new TextBlock().DockTop().Text("Logs").SemiBold().Margin(12, 8),
+            _logsPanel);
+        RenderLogs();
 
         var mainArea = new DockPanel().Children(
             new Border()
@@ -232,7 +239,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
         if (_state.OpenMainViewIds.Count == 0)
         {
-            _mainViewHost.Child = ErrorBlock("No view is open.");
+            _mainViewHost.Child = EmptyBlock("No view is open.");
         }
 
         foreach (var activity in _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id))
@@ -270,8 +277,10 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         else
         {
             _sidebarHost.Child = ErrorBlock("No active plugins.");
-            _mainViewHost.Child = ErrorBlock("No view is open.");
+            _mainViewHost.Child = EmptyBlock("No view is open.");
         }
+
+        RenderPluginFailures();
     }
 
     private Button ActivityButton(ActivityDescriptor activity)
@@ -294,6 +303,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         var container = _pluginHost.VisibleContributions.ViewContainers.FirstOrDefault(x => x.Id == activity.ViewContainerId);
         if (container is null)
         {
+            _logger.Error("Workbench", $"Missing view container '{activity.ViewContainerId}' for activity '{activity.Id}'.");
             _sidebarHost.Child = ErrorBlock($"Missing view container: {activity.ViewContainerId}");
             return;
         }
@@ -315,7 +325,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     {
         return view.NativeView is UIElement element
             ? element
-            : ErrorBlock($"View '{view.Id}' returned unsupported native view '{view.NativeView.GetType().FullName}'.");
+            : UnsupportedViewBlock(view);
     }
 
     private Button CreateTabButton(MainViewDescriptor descriptor)
@@ -355,6 +365,16 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         _sidebarShell.Width = _state.SidebarWidth;
         _panelHost.IsVisible = _state.PanelVisible;
         _panelHost.Height = _state.PanelHeight;
+    }
+
+    private void ShowLogs()
+    {
+        if (!_state.PanelVisible)
+        {
+            _state.TogglePanel();
+        }
+
+        RenderLogs();
     }
 
     private void OnWorkbenchStateChanged()
@@ -423,6 +443,51 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             .Margin(8, 0));
     }
 
+    private void RenderLogs()
+    {
+        _logsPanel.Clear();
+
+        var entries = _logger.Entries
+            .TakeLast(100)
+            .ToArray();
+
+        if (entries.Length == 0)
+        {
+            _logsPanel.Children(new TextBlock()
+                .Text("No logs yet.")
+                .Margin(12)
+                .FontSize(12));
+            return;
+        }
+
+        foreach (var entry in entries)
+        {
+            var message = $"[{entry.Timestamp:HH:mm:ss}] {entry.Level} {entry.Source}: {entry.Message}";
+            if (!string.IsNullOrWhiteSpace(entry.Exception))
+            {
+                message += $" - {entry.Exception.Split(Environment.NewLine)[0]}";
+            }
+
+            _logsPanel.Children(new TextBlock()
+                .Text(message)
+                .FontSize(12)
+                .Margin(12, 2));
+        }
+    }
+
+    private void RenderPluginFailures()
+    {
+        var failed = _pluginHost.Plugins.FirstOrDefault(entry => entry.State == Mewoo.Abstractions.Plugins.MewooPluginState.Failed);
+        if (failed is null)
+        {
+            return;
+        }
+
+        _sidebarHost.Child = ErrorBlock(
+            $"{failed.Plugin.DisplayName} unavailable",
+            failed.Error?.Message ?? "Plugin failed.");
+    }
+
     private static Button TextButton(string text, string tooltip, Action? onClick = null)
     {
         var button = new Button()
@@ -438,12 +503,51 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         return button;
     }
 
-    private static TextBlock ErrorBlock(string message) => new TextBlock()
+    private UIElement UnsupportedViewBlock(IMewooView view)
+    {
+        _logger.Error("Workbench", $"View '{view.Id}' returned unsupported native view '{view.NativeView.GetType().FullName}'.");
+        return ErrorBlock("View failed to load", $"View '{view.Id}' returned unsupported native view.");
+    }
+
+    private static TextBlock EmptyBlock(string message) => new TextBlock()
         .Text(message)
-        .Margin(16)
-        .Foreground(Color.FromRgb(232, 17, 35));
+        .Margin(16);
+
+    private UIElement ErrorBlock(string title, string? detail = null)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Vertical }
+            .Spacing(8)
+            .Margin(16)
+            .Children(
+                new TextBlock()
+                    .Text(title)
+                    .SemiBold()
+                    .Foreground(Color.FromRgb(232, 17, 35)));
+
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            panel.Children(new TextBlock().Text(detail).FontSize(12));
+        }
+
+        panel.Children(new Button()
+            .Content("Open Logs")
+            .OnClick(ShowLogs));
+
+        return panel;
+    }
 
     private sealed record WorkbenchViewContext(string PluginId, IServiceProvider Services, IWorkbenchService Workbench) : IMewooViewContext;
+
+    private sealed class NullMewooLogger : IMewooLogger
+    {
+        public event Action? Changed { add { } remove { } }
+
+        public IReadOnlyList<MewooLogEntry> Entries => [];
+
+        public void Info(string source, string message) { }
+
+        public void Error(string source, string message, Exception? exception = null) { }
+    }
 }
 
 public sealed record MewooCommandContext(IServiceProvider Services, IWorkbenchService Workbench) : IMewooCommandContext;
