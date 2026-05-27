@@ -1,6 +1,6 @@
 # Mewoo Development Plan
 
-This document is the local issue tracker for Mewoo V1. Each item is a tracer-bullet slice that should be independently demoable or verifiable.
+This document is the local issue tracker for Mewoo V1 and V2. Each item is a tracer-bullet slice that should be independently demoable or verifiable.
 
 ## Milestones
 
@@ -27,6 +27,18 @@ Includes slice 013.
 Goal: make the first real plugin feel operable through visible click targets and direct item execution.
 
 Includes slice 014.
+
+### V1 Baseline
+
+Tag: `v1-baseline`
+
+Baseline commit: V1 shell and Quick Launcher tracer bullet are usable enough to start the second-stage runtime plugin work.
+
+### Milestone 5: Runtime Plugin Manifest Foundation
+
+Goal: introduce the V2 runtime plugin shape without changing the V1 compiled plugin path.
+
+Includes slice 015.
 
 ## Slice 001: Lock MewUI Baseline and Create Runnable App Skeleton
 
@@ -442,4 +454,34 @@ Turn Quick Launcher group and item rows into explicit click targets. Keep single
 ### Implementation notes
 
 Launcher rows remain safe on single click by updating selection/status only. Double click runs the selected target through the existing `QuickLauncherLaunchService`, so command execution and direct row execution share the same status/error behavior.
+
+## Slice 015: Add Runtime Plugin Manifest Discovery
+
+**Type:** AFK
+
+**Status:** Done
+
+**Blocked by:** V1 baseline
+
+**User stories covered:** As the shell, I can discover runtime plugin manifests from the local plugin directory before implementing runtime assembly loading.
+
+### What to build
+
+Define the V2 runtime plugin manifest contract and a catalog that scans local plugin directories for `mewoo.plugin.json`. Do not load external assemblies yet.
+
+### Acceptance criteria
+
+- [x] A runtime plugin manifest model exists.
+- [x] Manifest fields include plugin id, display name, version, assembly path, and entry point type.
+- [x] Manifest assembly paths must be relative and stay inside the plugin directory.
+- [x] A runtime plugin catalog scans the local plugin root for manifest files.
+- [x] Disabled runtime plugins are skipped.
+- [x] Invalid manifests are logged without crashing app startup.
+- [x] App startup discovers runtime plugin manifests without affecting compiled V1 plugins.
+
+### Implementation notes
+
+The local runtime plugin root is `%LocalAppData%\Mewoo\Plugins`.
+
+Runtime discovery currently stops at manifest validation and logging. Assembly loading, dependency handling, unload boundaries, trust model, and plugin activation through runtime descriptors are deferred to later V2 slices.
 

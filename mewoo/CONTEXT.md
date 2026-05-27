@@ -69,6 +69,25 @@ Mewoo uses a phased plugin strategy:
 
 V1 should design lifecycle and contribution ownership so V2 can be added later, but V1 does not implement runtime assembly scanning, plugin manifests, dependency isolation, hot reload, or plugin marketplace behavior.
 
+The V1 baseline is tagged as `v1-baseline`. After that baseline, V2 starts with local runtime plugin manifest discovery before implementing assembly loading.
+
+## V2 Runtime Plugin Manifest Discovery
+
+V2 runtime plugins are discovered from `%LocalAppData%\Mewoo\Plugins`. Each plugin lives in its own directory and declares a `mewoo.plugin.json` manifest.
+
+Initial manifest fields:
+
+- `id`: stable plugin id.
+- `displayName`: user-facing name.
+- `version`: plugin package version.
+- `assembly`: relative path to the plugin assembly.
+- `entryPoint`: fully-qualified plugin type name implementing `IMewooPlugin`.
+- `minimumMewooVersion`: optional compatibility floor.
+- `disabled`: optional local skip flag.
+- `metadata`: optional string key-value metadata.
+
+The first V2 slice only validates and logs runtime plugin manifests. It does not load external assemblies yet.
+
 ## V1 Plugin Lifecycle
 
 V1 lifecycle states:

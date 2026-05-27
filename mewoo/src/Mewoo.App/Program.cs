@@ -8,6 +8,7 @@ using Mewoo.Workbench;
 
 var logger = new InMemoryMewooLogger();
 Startup(logger);
+DiscoverRuntimePlugins(logger);
 var pluginHost = new MewooPluginHost(logger);
 pluginHost.RegisterPlugin(new QuickLauncherPlugin());
 var themeController = new MewooThemeController();
@@ -42,6 +43,21 @@ static string GetStateDirectory()
 {
     var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
     return Path.Combine(root, "Mewoo", "State");
+}
+
+static string GetRuntimePluginDirectory()
+{
+    var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+    return Path.Combine(root, "Mewoo", "Plugins");
+}
+
+static void DiscoverRuntimePlugins(InMemoryMewooLogger logger)
+{
+    var pluginDirectory = GetRuntimePluginDirectory();
+    Directory.CreateDirectory(pluginDirectory);
+
+    var catalog = new MewooRuntimePluginCatalog(logger);
+    _ = catalog.Discover(pluginDirectory);
 }
 
 static void Startup(InMemoryMewooLogger logger)
