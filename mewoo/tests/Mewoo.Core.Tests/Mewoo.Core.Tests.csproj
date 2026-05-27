@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mewoo.Core\Mewoo.Core.csproj" />
+    <ProjectReference Include="..\Mewoo.TestPlugins.ValidRuntimePlugin\Mewoo.TestPlugins.ValidRuntimePlugin.csproj" />
   </ItemGroup>
 
   <ItemGroup>

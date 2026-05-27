@@ -556,7 +556,7 @@ Runtime assemblies load through `MewooRuntimePluginLoadContext`, a collectible p
 
 **Type:** AFK
 
-**Status:** Ready
+**Status:** Done
 
 **Blocked by:** Slice 017
 
@@ -568,11 +568,15 @@ Resolve the manifest `entryPoint`, instantiate it, validate it implements `IMewo
 
 ### Acceptance criteria
 
-- [ ] Missing entry point type fails the plugin only.
-- [ ] Entry point not implementing `IMewooPlugin` fails the plugin only.
-- [ ] Entry point constructor failure is logged.
-- [ ] Manifest id mismatch is rejected.
-- [ ] Valid runtime plugin instances can be handed to `MewooPluginHost`.
+- [x] Missing entry point type fails the plugin only.
+- [x] Entry point not implementing `IMewooPlugin` fails the plugin only.
+- [x] Entry point constructor failure is logged.
+- [x] Manifest id mismatch is rejected.
+- [x] Valid runtime plugin instances can be handed to `MewooPluginHost`.
+
+### Implementation notes
+
+`MewooRuntimePluginFactory` composes manifest descriptor, load context, and `entryPoint` instantiation into a loaded runtime plugin. It validates `IMewooPlugin` type identity through the shared `Mewoo.Abstractions` assembly and rejects manifest/plugin id mismatches before registration.
 
 ## Slice 019: Register and Activate Runtime Plugins
 

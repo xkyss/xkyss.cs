@@ -8,5 +8,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Mewoo.Core.Tests/Mewoo.Core.Tests.csproj" />
+    <Project Path="tests/Mewoo.TestPlugins.ValidRuntimePlugin/Mewoo.TestPlugins.ValidRuntimePlugin.csproj" />
   </Folder>
 </Solution>
