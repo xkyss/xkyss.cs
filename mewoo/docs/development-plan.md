@@ -322,6 +322,8 @@ The MainArea renders grouped launcher items as a list. Search input is visible i
 
 **Type:** AFK
 
+**Status:** Done
+
 **Blocked by:** Slice 010
 
 **User stories covered:** As a user, I can run the selected launch item and see the result.
@@ -332,14 +334,24 @@ Implement Quick Launcher commands and action execution for URL, file, executable
 
 ### Acceptance criteria
 
-- [ ] `quickLauncher.open` opens or focuses the launcher MainArea tab.
-- [ ] `quickLauncher.focusSearch` focuses the launcher search field.
-- [ ] `quickLauncher.runSelected` runs the selected item.
-- [ ] `quickLauncher.reload` reloads JSON configuration.
-- [ ] `quickLauncher.openConfig` opens the configuration target.
-- [ ] URL targets open in the default browser.
-- [ ] File, executable, and script targets invoke the expected local target.
-- [ ] StatusBar updates after selection and execution.
+- [x] `quickLauncher.open` opens or focuses the launcher MainArea tab.
+- [x] `quickLauncher.focusSearch` focuses the launcher search field.
+- [x] `quickLauncher.runSelected` runs the selected item.
+- [x] `quickLauncher.reload` reloads JSON configuration.
+- [x] `quickLauncher.openConfig` opens the configuration target.
+- [x] URL targets open in the default browser.
+- [x] File, executable, and script targets invoke the expected local target.
+- [x] StatusBar updates after selection and execution.
+
+### Implementation notes
+
+Quick Launcher now maintains a selected launcher item and updates the StatusBar when an item is selected or a command runs.
+
+`quickLauncher.runSelected` runs the selected item, or falls back to the first configured item when nothing has been selected.
+
+URL, file, executable, and script targets are launched through `QuickLauncherLaunchService`. PowerShell scripts are invoked through `powershell -NoProfile -ExecutionPolicy Bypass -File`.
+
+`quickLauncher.reload` reloads the JSON configuration and refreshes the launcher MainArea. `quickLauncher.openConfig` opens the JSON configuration file through the shell.
 
 ## Slice 012: Implement Error Views, Logs Panel, and Plugin Failure Feedback
 

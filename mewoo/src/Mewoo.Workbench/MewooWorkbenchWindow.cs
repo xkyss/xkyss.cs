@@ -26,6 +26,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly Border _panelHost = new();
     private readonly StackPanel _statusLeft = new() { Orientation = Orientation.Horizontal };
     private readonly StackPanel _statusRight = new() { Orientation = Orientation.Horizontal };
+    private readonly Dictionary<string, TextBlock> _statusTextById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, MainViewDescriptor> _mainViews;
     private bool _isRestoringState;
 
@@ -79,6 +80,14 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         _mainViewHost.Child = HostView(descriptor.CreateView(new WorkbenchViewContext(descriptor.OwnerPluginId, _services, this)));
         _state.OpenMainView(mainViewId);
         await ValueTask.CompletedTask;
+    }
+
+    public void UpdateStatusBarItem(string statusBarItemId, string text)
+    {
+        if (_statusTextById.TryGetValue(statusBarItemId, out var status))
+        {
+            status.Text = text;
+        }
     }
 
     public async ValueTask RestoreStateAsync(WorkbenchStateSnapshot? snapshot, CancellationToken cancellationToken = default)
@@ -197,6 +206,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         _tabBar.Clear();
         _statusLeft.Clear();
         _statusRight.Clear();
+        _statusTextById.Clear();
         _mainViews.Clear();
 
         foreach (var mainView in _pluginHost.VisibleContributions.MainViews)
@@ -246,6 +256,8 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             {
                 _statusLeft.Children(status);
             }
+
+            _statusTextById[item.Id] = status;
         }
 
         RenderThemeStatus();

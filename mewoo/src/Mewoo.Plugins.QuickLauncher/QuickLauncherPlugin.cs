@@ -1,5 +1,6 @@
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
+using Mewoo.Abstractions;
 using Mewoo.Abstractions.Contributions;
 using Mewoo.Abstractions.Plugins;
 using Mewoo.Abstractions.Views;
@@ -8,7 +9,10 @@ namespace Mewoo.Plugins.QuickLauncher;
 
 public sealed class QuickLauncherPlugin : IMewooPlugin
 {
-    private readonly QuickLauncherConfig _config = QuickLauncherConfig.LoadOrCreateDefault();
+    private QuickLauncherConfig _config = QuickLauncherConfig.LoadOrCreateDefault();
+    private QuickLauncherItem? _selectedItem;
+    private TextBox? _mainSearchBox;
+    private TextBox? _sidebarSearchBox;
 
     public string Id => "quickLauncher";
 
@@ -25,13 +29,13 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
         registry.ViewContainer("quickLauncher.views")
             .Title("Launcher")
             .AddView("quickLauncher.shortcuts", view => view
-                .Title("Shortcuts")
-                .Create(ctx => new MewooView("quickLauncher.shortcuts", CreateSidebar(_config))));
+            .Title("Shortcuts")
+                .Create(ctx => new MewooView("quickLauncher.shortcuts", CreateSidebar(ctx.Workbench))));
 
         registry.MainView("quickLauncher.home")
             .Title("Launcher")
             .CanOpenMultiple(false)
-            .Create(ctx => new MewooView("quickLauncher.home", CreateMainView(_config)));
+            .Create(ctx => new MewooView("quickLauncher.home", CreateMainView(ctx.Workbench)));
 
         registry.Command("quickLauncher.open")
             .Title("Open Launcher")
@@ -39,64 +43,133 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
             .Execute(async (ctx, cancellationToken) =>
                 await ctx.Workbench.OpenMainViewAsync("quickLauncher.home", cancellationToken));
 
+        registry.Command("quickLauncher.focusSearch")
+            .Title("Focus Launcher Search")
+            .Category("Quick Launcher")
+            .Execute(async (ctx, cancellationToken) =>
+            {
+                await ctx.Workbench.OpenMainViewAsync("quickLauncher.home", cancellationToken);
+                _mainSearchBox?.Focus();
+                SetStatus(ctx.Workbench, "Search focused");
+            });
+
+        registry.Command("quickLauncher.runSelected")
+            .Title("Run Selected Launcher Item")
+            .Category("Quick Launcher")
+            .CanExecute(_ => GetSelectedOrDefault() is not null)
+            .Execute((ctx, _) =>
+            {
+                var selected = GetSelectedOrDefault();
+                if (selected is null)
+                {
+                    SetStatus(ctx.Workbench, "No launcher item selected");
+                    return ValueTask.CompletedTask;
+                }
+
+                try
+                {
+                    QuickLauncherLaunchService.Run(selected);
+                    SetStatus(ctx.Workbench, $"Ran: {selected.Title}");
+                }
+                catch (Exception ex)
+                {
+                    SetStatus(ctx.Workbench, $"Run failed: {ex.Message}");
+                }
+
+                return ValueTask.CompletedTask;
+            });
+
+        registry.Command("quickLauncher.reload")
+            .Title("Reload Launcher Config")
+            .Category("Quick Launcher")
+            .Execute(async (ctx, cancellationToken) =>
+            {
+                _config = QuickLauncherConfig.LoadOrCreateDefault();
+                _selectedItem = null;
+                SetStatus(ctx.Workbench, $"Reloaded: {_config.Groups.Sum(group => group.Items.Count)} items");
+                await ctx.Workbench.OpenMainViewAsync("quickLauncher.home", cancellationToken);
+            });
+
+        registry.Command("quickLauncher.openConfig")
+            .Title("Open Launcher Config")
+            .Category("Quick Launcher")
+            .Execute((ctx, _) =>
+            {
+                try
+                {
+                    QuickLauncherLaunchService.OpenConfig();
+                    SetStatus(ctx.Workbench, "Opened launcher config");
+                }
+                catch (Exception ex)
+                {
+                    SetStatus(ctx.Workbench, $"Open config failed: {ex.Message}");
+                }
+
+                return ValueTask.CompletedTask;
+            });
+
         registry.StatusBarItem("quickLauncher.status")
             .AlignLeft()
             .Text($"QuickLauncher: {_config.Groups.Sum(group => group.Items.Count)} items");
     }
 
-    private static StackPanel CreateSidebar(QuickLauncherConfig config)
+    private StackPanel CreateSidebar(IWorkbenchService workbench)
     {
-        var recentItems = config.Groups
+        var recentItems = _config.Groups
             .SelectMany(group => group.Items)
             .Take(5)
             .ToArray();
+
+        _sidebarSearchBox = new TextBox().Placeholder("Search shortcuts");
 
         return new StackPanel { Orientation = Orientation.Vertical }
             .Spacing(8)
             .Margin(12)
             .Children(
-                new TextBox().Placeholder("Search shortcuts"),
+                _sidebarSearchBox,
                 new TextBlock().Text("Groups").SemiBold(),
                 new StackPanel { Orientation = Orientation.Vertical }
                     .Spacing(4)
-                    .Children(config.Groups
+                    .Children(_config.Groups
                         .Select(group => new TextBlock().Text($"- {group.Title}") as Element)
                         .ToArray()),
                 new TextBlock().Text("Recent").SemiBold().Margin(0, 12, 0, 0),
                 new StackPanel { Orientation = Orientation.Vertical }
                     .Spacing(4)
                     .Children(recentItems
-                        .Select(item => new TextBlock().Text($"- {item.Title}") as Element)
+                        .Select(item => SidebarRecentItem(item, workbench) as Element)
                         .ToArray()));
     }
 
-    private static StackPanel CreateMainView(QuickLauncherConfig config)
+    private StackPanel CreateMainView(IWorkbenchService workbench)
     {
         var content = new StackPanel { Orientation = Orientation.Vertical }
             .Spacing(10)
             .Margin(18);
 
+        _mainSearchBox = new TextBox().Placeholder("Search websites, apps, scripts...");
+
         content.Children(
             new TextBlock().Text("Launcher").FontSize(22).SemiBold(),
-            new TextBox().Placeholder("Search websites, apps, scripts..."),
+            _mainSearchBox,
             new TextBlock()
                 .Text($"Config: {QuickLauncherConfig.GetDefaultConfigPath()}")
                 .FontSize(11));
 
-        foreach (var group in config.Groups)
+        foreach (var group in _config.Groups)
         {
             content.Children(new TextBlock().Text(group.Title).SemiBold().Margin(0, 10, 0, 0));
 
             foreach (var item in group.Items)
             {
-                content.Children(LauncherRow(item));
+                content.Children(LauncherRow(item, workbench));
             }
         }
 
         return content;
     }
 
-    private static Border LauncherRow(QuickLauncherItem item)
+    private Border LauncherRow(QuickLauncherItem item, IWorkbenchService workbench)
     {
         var content = new StackPanel { Orientation = Orientation.Vertical }
             .Spacing(2)
@@ -108,6 +181,48 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
 
         return new Border()
             .Padding(10, 6)
-            .Child(content);
+            .Child(content)
+            .OnMouseDown(e =>
+            {
+                if (e.Button != MouseButton.Left)
+                {
+                    return;
+                }
+
+                SelectItem(item, workbench);
+                e.Handled = true;
+            });
+    }
+
+    private TextBlock SidebarRecentItem(QuickLauncherItem item, IWorkbenchService workbench)
+    {
+        var text = new TextBlock().Text($"- {item.Title}");
+        text.MouseDown += e =>
+        {
+            if (e.Button != MouseButton.Left)
+            {
+                return;
+            }
+
+            SelectItem(item, workbench);
+            e.Handled = true;
+        };
+        return text;
+    }
+
+    private QuickLauncherItem? GetSelectedOrDefault()
+    {
+        return _selectedItem ?? _config.Groups.SelectMany(group => group.Items).FirstOrDefault();
+    }
+
+    private void SelectItem(QuickLauncherItem item, IWorkbenchService workbench)
+    {
+        _selectedItem = item;
+        SetStatus(workbench, $"Selected: {item.Title}");
+    }
+
+    private static void SetStatus(IWorkbenchService workbench, string text)
+    {
+        workbench.UpdateStatusBarItem("quickLauncher.status", $"QuickLauncher: {text}");
     }
 }
