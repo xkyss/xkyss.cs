@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Mewoo.Samples.RuntimeSmokePlugin/Mewoo.Samples.RuntimeSmokePlugin.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Mewoo.Abstractions/Mewoo.Abstractions.csproj" />
     <Project Path="src/Mewoo.App/Mewoo.App.csproj" />

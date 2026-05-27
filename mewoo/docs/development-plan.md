@@ -71,11 +71,10 @@ Goal: make runtime plugins diagnosable, unloadable, and locally packageable.
 
 Goal: prove V2 with a real external plugin workflow, improve runtime diagnostics operations, and prepare a `v2-baseline` tag before V3.
 
-- [ ] [Issue 024: Create an External Runtime Plugin Smoke Sample](issues/024-external-runtime-plugin-smoke-sample.md)
+- [x] [Issue 024: Create an External Runtime Plugin Smoke Sample](issues/024-external-runtime-plugin-smoke-sample.md)
 - [ ] [Issue 025: Add Runtime Diagnostics Operations](issues/025-runtime-diagnostics-operations.md)
 - [ ] [Issue 026: Verify Collectible Load Context Unload](issues/026-collectible-load-context-unload-verification.md)
 - [ ] [Issue 027: Document Runtime Plugin Author Workflow](issues/027-runtime-plugin-authoring-guide.md)
 - [ ] [Issue 028: Runtime Plugin Failure UX Pass](issues/028-runtime-plugin-failure-ux-pass.md)
 - [ ] [Issue 029: End-to-End Runtime Plugin Road Test](issues/029-runtime-plugin-road-test.md)
 - [ ] [Issue 030: Tag V2 Baseline](issues/030-v2-baseline.md)
-
