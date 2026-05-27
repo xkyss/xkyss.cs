@@ -22,6 +22,12 @@ Goal: review screenshots/running UI against the ASCII visual design and tune the
 
 Includes slice 013.
 
+### Milestone 4: Quick Launcher Interaction Refinement
+
+Goal: make the first real plugin feel operable through visible click targets and direct item execution.
+
+Includes slice 014.
+
 ## Slice 001: Lock MewUI Baseline and Create Runnable App Skeleton
 
 **Type:** AFK
@@ -400,9 +406,40 @@ Run the app, compare it against the ASCII UI visual design, capture feedback, an
 ### Acceptance criteria
 
 - [ ] The running UI is reviewed against `docs/design/v1-ui-visual-design.md`.
-- [ ] TitleBar behavior and density are approved or adjusted.
-- [ ] ActivityBar, Sidebar, MainArea, Panel, and StatusBar sizing are approved or adjusted.
+- [x] TitleBar behavior and density are approved or adjusted.
+- [x] ActivityBar, Sidebar, MainArea, Panel, and StatusBar sizing are approved or adjusted.
 - [ ] Dark and Light themes are visually checked.
 - [ ] Quick Launcher first-use flow is checked.
 - [ ] Follow-up issues are created locally for anything intentionally deferred.
+
+### Implementation notes
+
+First feedback pass removed the TitleBar app/version text, changed shell actions to icon buttons, reduced ActivityBar density, replaced the selected border with a left accent line, moved Panel under the MainArea column, added Panel tabs, introduced closable MainArea tabs, and made Sidebar drag-left collapse directly.
+
+## Slice 014: Make Quick Launcher Groups and Items Clickable
+
+**Type:** AFK
+
+**Status:** Done
+
+**Blocked by:** Slice 013 first feedback pass
+
+**User stories covered:** As a user, I can click launcher groups and items instead of treating the launcher as a static list.
+
+### What to build
+
+Turn Quick Launcher group and item rows into explicit click targets. Keep single-click selection for safe preview/status feedback, and support double-click run for fast launch.
+
+### Acceptance criteria
+
+- [x] Sidebar group rows can be clicked.
+- [x] Clicking a Sidebar group opens the Launcher MainArea and selects that group's first item when available.
+- [x] Sidebar recent rows can be clicked.
+- [x] MainArea launcher rows can be clicked.
+- [x] Double-clicking a launcher item runs it.
+- [x] StatusBar updates after group/item selection and run attempts.
+
+### Implementation notes
+
+Launcher rows remain safe on single click by updating selection/status only. Double click runs the selected target through the existing `QuickLauncherLaunchService`, so command execution and direct row execution share the same status/error behavior.
 

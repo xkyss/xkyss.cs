@@ -66,15 +66,7 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
                     return ValueTask.CompletedTask;
                 }
 
-                try
-                {
-                    QuickLauncherLaunchService.Run(selected);
-                    SetStatus(ctx.Workbench, $"Ran: {selected.Title}");
-                }
-                catch (Exception ex)
-                {
-                    SetStatus(ctx.Workbench, $"Run failed: {ex.Message}");
-                }
+                RunItem(selected, ctx.Workbench);
 
                 return ValueTask.CompletedTask;
             });
@@ -131,7 +123,7 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
                 new StackPanel { Orientation = Orientation.Vertical }
                     .Spacing(4)
                     .Children(_config.Groups
-                        .Select(group => new TextBlock().Text($"- {group.Title}") as Element)
+                        .Select(group => SidebarGroupItem(group, workbench) as Element)
                         .ToArray()),
                 new TextBlock().Text("Recent").SemiBold().Margin(0, 12, 0, 0),
                 new StackPanel { Orientation = Orientation.Vertical }
@@ -190,14 +182,55 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
                 }
 
                 SelectItem(item, workbench);
+                if (e.ClickCount >= 2)
+                {
+                    RunItem(item, workbench);
+                }
+
                 e.Handled = true;
             });
     }
 
-    private TextBlock SidebarRecentItem(QuickLauncherItem item, IWorkbenchService workbench)
+    private Border SidebarGroupItem(QuickLauncherGroup group, IWorkbenchService workbench)
     {
-        var text = new TextBlock().Text($"- {item.Title}");
-        text.MouseDown += e =>
+        var itemCount = group.Items.Count;
+        var groupItem = new Border()
+            .Padding(6, 3)
+            .ToolTip($"{itemCount} items")
+            .Child(new DockPanel().Children(
+                new TextBlock().DockRight().Text(itemCount.ToString()).FontSize(11),
+                new TextBlock().Text(group.Title)));
+
+        groupItem.MouseDown += e =>
+        {
+            if (e.Button != MouseButton.Left)
+            {
+                return;
+            }
+
+            _ = workbench.OpenMainViewAsync("quickLauncher.home").AsTask();
+            if (group.Items.FirstOrDefault() is { } firstItem)
+            {
+                SelectItem(firstItem, workbench);
+            }
+            else
+            {
+                SetStatus(workbench, $"Group: {group.Title} is empty");
+            }
+
+            e.Handled = true;
+        };
+
+        return groupItem;
+    }
+
+    private Border SidebarRecentItem(QuickLauncherItem item, IWorkbenchService workbench)
+    {
+        var row = new Border()
+            .Padding(6, 3)
+            .Child(new TextBlock().Text(item.Title));
+
+        row.MouseDown += e =>
         {
             if (e.Button != MouseButton.Left)
             {
@@ -205,9 +238,15 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
             }
 
             SelectItem(item, workbench);
+            if (e.ClickCount >= 2)
+            {
+                RunItem(item, workbench);
+            }
+
             e.Handled = true;
         };
-        return text;
+
+        return row;
     }
 
     private QuickLauncherItem? GetSelectedOrDefault()
@@ -219,6 +258,19 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
     {
         _selectedItem = item;
         SetStatus(workbench, $"Selected: {item.Title}");
+    }
+
+    private static void RunItem(QuickLauncherItem item, IWorkbenchService workbench)
+    {
+        try
+        {
+            QuickLauncherLaunchService.Run(item);
+            SetStatus(workbench, $"Ran: {item.Title}");
+        }
+        catch (Exception ex)
+        {
+            SetStatus(workbench, $"Run failed: {ex.Message}");
+        }
     }
 
     private static void SetStatus(IWorkbenchService workbench, string text)
