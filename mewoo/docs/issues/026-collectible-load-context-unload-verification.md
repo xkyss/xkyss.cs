@@ -6,13 +6,12 @@ Add best-effort unload verification using `WeakReference`, forced GC, and diagno
 
 ## Acceptance criteria
 
-- [ ] Runtime unload creates a weak reference to the load context before release.
-- [ ] Runtime unload forces a bounded GC verification loop.
-- [ ] Successful load-context collection is logged.
-- [ ] Remaining live load-context risk is logged.
-- [ ] Tests cover the success path where no plugin references remain.
+- [x] Runtime unload creates a weak reference to the load context before release.
+- [x] Runtime unload forces a bounded GC verification loop.
+- [x] Successful load-context collection is logged.
+- [x] Remaining live load-context risk is logged.
+- [x] Tests cover the success path where no plugin references remain.
 
 ## Blocked by
 
 - Slice 020
-

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Mewoo.Abstractions.Logging;
 using Mewoo.Abstractions.Plugins;
@@ -59,19 +60,47 @@ public sealed class MewooRuntimePluginManager
         MewooPluginHost pluginHost,
         CancellationToken cancellationToken = default)
     {
-        var loaded = _loadedPlugins.FirstOrDefault(plugin =>
-            string.Equals(plugin.Plugin.Id, pluginId, StringComparison.Ordinal));
-        if (loaded is null)
+        var unload = await UnloadAndReleasePluginAsync(pluginId, pluginHost, cancellationToken);
+        if (unload is null)
         {
             return false;
         }
 
-        await pluginHost.UnloadPluginAsync(pluginId, cancellationToken);
-        _loadedPlugins.Remove(loaded);
-        loaded.LoadContext.Unload();
-        SetStatus(loaded.Descriptor, MewooRuntimePluginState.Discovered, "Plugin was unloaded.");
-        _logger?.Info("RuntimePluginManager", $"Unloaded runtime plugin '{pluginId}'.");
+        await Task.Yield();
+        var collected = VerifyLoadContextCollected(unload.LoadContextReference);
+        SetStatus(unload.Descriptor, MewooRuntimePluginState.Discovered, "Plugin was unloaded.");
+        _logger?.Info("RuntimePluginManager", $"Unloaded runtime plugin '{unload.PluginId}'.");
+        if (collected)
+        {
+            _logger?.Info("RuntimePluginManager", $"Runtime plugin '{unload.PluginId}' load context was collected.");
+        }
+        else
+        {
+            _logger?.Error("RuntimePluginManager", $"Runtime plugin '{unload.PluginId}' load context is still alive after unload verification.");
+        }
+
         return true;
+    }
+
+    private async ValueTask<RuntimePluginUnloadResult?> UnloadAndReleasePluginAsync(
+        string pluginId,
+        MewooPluginHost pluginHost,
+        CancellationToken cancellationToken)
+    {
+        var loaded = _loadedPlugins.FirstOrDefault(plugin =>
+            string.Equals(plugin.Plugin.Id, pluginId, StringComparison.Ordinal));
+        if (loaded is null)
+        {
+            return null;
+        }
+
+        await pluginHost.UnloadPluginAsync(pluginId, cancellationToken);
+        var descriptor = loaded.Descriptor;
+        _loadedPlugins.Remove(loaded);
+        pluginHost.ForgetPlugin(pluginId);
+        var unloadReference = RequestLoadContextUnload(loaded.LoadContext);
+
+        return new RuntimePluginUnloadResult(pluginId, descriptor, unloadReference);
     }
 
     public async ValueTask UnloadAllAsync(MewooPluginHost pluginHost, CancellationToken cancellationToken = default)
@@ -217,4 +246,33 @@ public sealed class MewooRuntimePluginManager
             _pluginStatuses[index] = status;
         }
     }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference RequestLoadContextUnload(MewooRuntimePluginLoadContext loadContext)
+    {
+        loadContext.Unload();
+        return new WeakReference(loadContext, trackResurrection: false);
+    }
+
+    private static bool VerifyLoadContextCollected(WeakReference unloadReference)
+    {
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            if (!unloadReference.IsAlive)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private sealed record RuntimePluginUnloadResult(
+        string PluginId,
+        MewooRuntimePluginDescriptor Descriptor,
+        WeakReference LoadContextReference);
 }

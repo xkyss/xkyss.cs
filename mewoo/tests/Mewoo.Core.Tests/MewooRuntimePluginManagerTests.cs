@@ -34,8 +34,9 @@ public sealed class MewooRuntimePluginManagerTests
     {
         using var directory = RuntimePluginRoot.Create();
         directory.WriteValidRuntimePlugin();
-        var pluginHost = new MewooPluginHost();
-        var manager = new MewooRuntimePluginManager();
+        var logger = new InMemoryMewooLogger();
+        var pluginHost = new MewooPluginHost(logger);
+        var manager = new MewooRuntimePluginManager(logger);
         manager.LoadDiscoveredPlugins(directory.Root, pluginHost);
         await pluginHost.ActivateAllAsync(plugin => new TestPluginContext(plugin.Id));
 
@@ -46,7 +47,9 @@ public sealed class MewooRuntimePluginManagerTests
         Assert.IsFalse(pluginHost.Commands.Contains("xkyss.validRuntimePlugin.ping"));
         Assert.IsFalse(pluginHost.VisibleContributions.StatusBarItems.Any(item =>
             item.Id == "xkyss.validRuntimePlugin.status"));
-        Assert.AreEqual(MewooPluginState.Unloaded, pluginHost.Plugins.Single().State);
+        Assert.AreEqual(0, pluginHost.Plugins.Count);
+        Assert.IsTrue(logger.Entries.Any(entry =>
+            entry.Message.Contains("load context was collected", StringComparison.Ordinal)));
     }
 
     [TestMethod]

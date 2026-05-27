@@ -178,6 +178,22 @@ public sealed class MewooPluginHost
         }
     }
 
+    internal bool ForgetPlugin(string pluginId)
+    {
+        var index = _plugins.FindIndex(entry => entry.Plugin.Id == pluginId);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        RemoveVisibleContributions(pluginId);
+        Commands.UnregisterOwner(pluginId);
+        _registeredContributions.Remove(pluginId);
+        _plugins.RemoveAt(index);
+        _logger?.Info("PluginHost", $"Forgot plugin '{pluginId}'.");
+        return true;
+    }
+
     public MewooContributionSnapshot GetRegisteredContributions(string pluginId)
     {
         return _registeredContributions.TryGetValue(pluginId, out var snapshot)
