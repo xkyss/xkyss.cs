@@ -11,4 +11,7 @@
     <Project Path="tests/Mewoo.Core.Tests/Mewoo.Core.Tests.csproj" />
     <Project Path="tests/Mewoo.TestPlugins.ValidRuntimePlugin/Mewoo.TestPlugins.ValidRuntimePlugin.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Mewoo.PluginPackager/Mewoo.PluginPackager.csproj" />
+  </Folder>
 </Solution>

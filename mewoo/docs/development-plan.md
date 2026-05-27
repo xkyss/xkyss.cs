@@ -684,7 +684,7 @@ Runtime plugin discovery now keeps disabled and incompatible plugins in `PluginS
 
 **Type:** AFK
 
-**Status:** Ready
+**Status:** Done
 
 **Blocked by:** Slice 019
 
@@ -696,9 +696,13 @@ Add a simple packaging convention or command that publishes a plugin project int
 
 ### Acceptance criteria
 
-- [ ] Packaging output includes `mewoo.plugin.json`.
-- [ ] Packaging output includes the plugin assembly.
-- [ ] Packaging output includes plugin-private dependencies.
-- [ ] Packaging does not copy host-shared assemblies unnecessarily.
-- [ ] A packaged sample runtime plugin can be discovered by Mewoo.
+- [x] Packaging output includes `mewoo.plugin.json`.
+- [x] Packaging output includes the plugin assembly.
+- [x] Packaging output includes plugin-private dependencies.
+- [x] Packaging does not copy host-shared assemblies unnecessarily.
+- [x] A packaged sample runtime plugin can be discovered by Mewoo.
+
+### Implementation notes
+
+`tools/Mewoo.PluginPackager` publishes a plugin project into the local runtime plugin folder shape, writes `mewoo.plugin.json`, and removes host-shared assemblies such as `Mewoo.Abstractions.dll` and `Aprillz.MewUI*` from the plugin package.
 
