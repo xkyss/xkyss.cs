@@ -26,8 +26,16 @@ public sealed partial class MewooPluginManifestReader
         }
 
         var json = File.ReadAllText(fullManifestPath);
-        var manifest = JsonSerializer.Deserialize<MewooPluginManifest>(json, JsonOptions)
-            ?? throw new InvalidOperationException($"Plugin manifest '{fullManifestPath}' is empty.");
+        MewooPluginManifest manifest;
+        try
+        {
+            manifest = JsonSerializer.Deserialize<MewooPluginManifest>(json, JsonOptions)
+                ?? throw new InvalidOperationException($"Plugin manifest '{fullManifestPath}' is empty.");
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Plugin manifest '{fullManifestPath}' is invalid: {ex.Message}", ex);
+        }
 
         Validate(manifest, fullManifestPath);
 
@@ -82,4 +90,3 @@ public sealed partial class MewooPluginManifestReader
     [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)*$", RegexOptions.CultureInvariant)]
     private static partial Regex PluginIdRegex();
 }
-

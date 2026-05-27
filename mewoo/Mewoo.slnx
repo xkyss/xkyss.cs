@@ -6,4 +6,7 @@
     <Project Path="src/Mewoo.Plugins.QuickLauncher/Mewoo.Plugins.QuickLauncher.csproj" />
     <Project Path="src/Mewoo.Workbench/Mewoo.Workbench.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Mewoo.Core.Tests/Mewoo.Core.Tests.csproj" />
+  </Folder>
 </Solution>

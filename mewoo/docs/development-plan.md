@@ -501,7 +501,7 @@ Runtime discovery currently stops at manifest validation and logging. Assembly l
 
 **Type:** AFK
 
-**Status:** Ready
+**Status:** Done
 
 **Blocked by:** Slice 015
 
@@ -513,16 +513,18 @@ Turn the initial manifest discovery into a tighter schema contract with examples
 
 ### Acceptance criteria
 
-- [ ] Manifest documentation includes a complete example.
-- [ ] Required field validation is covered.
-- [ ] Relative assembly path validation is covered.
-- [ ] Disabled plugin behavior is covered.
-- [ ] Manifest id format validation is covered.
-- [ ] Manifest id and future plugin instance id matching rule is documented.
+- [x] Manifest documentation includes a complete example.
+- [x] Required field validation is covered.
+- [x] Relative assembly path validation is covered.
+- [x] Disabled plugin behavior is covered.
+- [x] Manifest id format validation is covered.
+- [x] Manifest id and future plugin instance id matching rule is documented.
 
 ### Implementation notes
 
 The design reference is `docs/design/v2-runtime-plugin-design.md`.
+
+Manifest schema validation is covered by `Mewoo.Core.Tests`. The reader wraps JSON deserialization failures as manifest validation failures so catalog discovery can log invalid manifests consistently.
 
 ## Slice 017: Implement Runtime Plugin Load Context
 
