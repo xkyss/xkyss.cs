@@ -85,7 +85,7 @@ Goal: move from manually copied runtime plugin folders to installable local plug
 
 - [x] [Issue 031: Define V3 Plugin Package Format](issues/031-v3-plugin-package-format.md)
 - [x] [Issue 032: Local Plugin Installer Service](issues/032-v3-local-plugin-installer-service.md)
-- [ ] [Issue 033: Plugin Uninstall and Update Operations](issues/033-v3-plugin-uninstall-and-update.md)
+- [x] [Issue 033: Plugin Uninstall and Update Operations](issues/033-v3-plugin-uninstall-and-update.md)
 - [ ] [Issue 034: Plugin Catalog Metadata UI](issues/034-v3-plugin-catalog-metadata-ui.md)
 
 ### Milestone 10: V3 Trust and Isolation Exploration

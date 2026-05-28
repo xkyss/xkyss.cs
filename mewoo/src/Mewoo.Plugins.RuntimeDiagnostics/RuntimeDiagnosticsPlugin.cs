@@ -13,6 +13,7 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
 {
     private readonly MewooRuntimePluginManager _runtimePlugins;
     private readonly MewooPluginHost _pluginHost;
+    private readonly MewooPluginPackageOperations _packageOperations = new();
     private readonly IMewooLogger _logger;
     private readonly string _pluginRoot;
     private readonly IServiceProvider _services;
@@ -194,6 +195,32 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
             }));
         }
 
+        actions.Children(ActionButton("Update", async () =>
+        {
+            var packagePath = Path.Combine(_pluginRoot, $"{manifest.Id}{MewooPluginPackageFormat.Extension}");
+            var result = await _packageOperations.UpdateAsync(
+                packagePath,
+                _pluginRoot,
+                _runtimePlugins,
+                _pluginHost,
+                plugin => new RuntimePluginContext(plugin.Id, _services, workbench));
+
+            LogOperationResult("Update", result);
+            RenderMainView(panel, workbench);
+        }));
+
+        actions.Children(ActionButton("Uninstall", async () =>
+        {
+            var result = await _packageOperations.UninstallAsync(
+                manifest.Id,
+                _pluginRoot,
+                _runtimePlugins,
+                _pluginHost);
+
+            LogOperationResult("Uninstall", result);
+            RenderMainView(panel, workbench);
+        }));
+
         return new Border()
             .Padding(10, 8)
             .Child(new StackPanel { Orientation = Orientation.Vertical }
@@ -234,6 +261,21 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
         return new Button()
             .Content(text)
             .OnClick(async () => await action());
+    }
+
+    private void LogOperationResult(string operation, MewooPluginOperationResult result)
+    {
+        if (result.Success)
+        {
+            _logger.Info(
+                "RuntimePlugin.PackageOperation",
+                $"{operation} succeeded for plugin '{result.PluginId}' at {result.Path}.");
+            return;
+        }
+
+        _logger.Error(
+            "RuntimePlugin.PackageOperation",
+            $"{operation} failed for plugin '{result.PluginId ?? "unknown"}': {result.Issue?.ShortMessage ?? "Unknown error"}");
     }
 
     private sealed record RuntimePluginContext(
