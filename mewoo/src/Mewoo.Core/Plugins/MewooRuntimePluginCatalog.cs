@@ -8,12 +8,15 @@ public sealed class MewooRuntimePluginCatalog
 
     private readonly MewooPluginManifestReader _reader;
     private readonly IMewooLogger? _logger;
+    private readonly List<MewooRuntimePluginIssue> _discoveryIssues = [];
 
     public MewooRuntimePluginCatalog(IMewooLogger? logger = null, MewooPluginManifestReader? reader = null)
     {
         _logger = logger;
         _reader = reader ?? new MewooPluginManifestReader();
     }
+
+    public IReadOnlyList<MewooRuntimePluginIssue> DiscoveryIssues => _discoveryIssues;
 
     public IReadOnlyList<MewooRuntimePluginDescriptor> Discover(string pluginRoot)
     {
@@ -22,6 +25,7 @@ public sealed class MewooRuntimePluginCatalog
             throw new ArgumentException("Plugin root is required.", nameof(pluginRoot));
         }
 
+        _discoveryIssues.Clear();
         var fullRoot = Path.GetFullPath(pluginRoot);
         if (!Directory.Exists(fullRoot))
         {
@@ -54,6 +58,10 @@ public sealed class MewooRuntimePluginCatalog
             }
             catch (Exception ex)
             {
+                _discoveryIssues.Add(new MewooRuntimePluginIssue(
+                    MewooRuntimePluginIssueCategory.Manifest,
+                    ex.Message,
+                    manifestPath));
                 _logger?.Error("RuntimePluginCatalog", $"Failed to read runtime plugin manifest '{manifestPath}'.", ex);
             }
         }

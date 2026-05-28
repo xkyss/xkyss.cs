@@ -23,7 +23,8 @@ public sealed class MewooRuntimePluginCatalogTests
             """);
 
         var logger = new InMemoryMewooLogger();
-        var descriptors = new MewooRuntimePluginCatalog(logger).Discover(directory.Root);
+        var catalog = new MewooRuntimePluginCatalog(logger);
+        var descriptors = catalog.Discover(directory.Root);
 
         Assert.AreEqual(1, descriptors.Count);
         Assert.IsTrue(descriptors[0].Manifest.Disabled);
@@ -56,10 +57,14 @@ public sealed class MewooRuntimePluginCatalogTests
             """);
 
         var logger = new InMemoryMewooLogger();
-        var descriptors = new MewooRuntimePluginCatalog(logger).Discover(directory.Root);
+        var catalog = new MewooRuntimePluginCatalog(logger);
+        var descriptors = catalog.Discover(directory.Root);
 
         Assert.AreEqual(1, descriptors.Count);
         Assert.AreEqual("xkyss.validPlugin", descriptors[0].Manifest.Id);
+        Assert.AreEqual(1, catalog.DiscoveryIssues.Count);
+        Assert.AreEqual(MewooRuntimePluginIssueCategory.Manifest, catalog.DiscoveryIssues[0].Category);
+        StringAssert.Contains(catalog.DiscoveryIssues[0].ShortMessage, "invalid plugin id");
         Assert.IsTrue(logger.Entries.Any(entry => entry.Message.Contains("Failed to read runtime plugin manifest", StringComparison.Ordinal)));
     }
 

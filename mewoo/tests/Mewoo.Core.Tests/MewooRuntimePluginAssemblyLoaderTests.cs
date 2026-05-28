@@ -16,9 +16,10 @@ public sealed class MewooRuntimePluginAssemblyLoaderTests
         var assemblyPath = directory.CopyAssembly(sourceAssemblyPath);
         var descriptor = directory.CreateDescriptor(Path.GetFileName(assemblyPath));
 
-        var loaded = new MewooRuntimePluginAssemblyLoader().TryLoad(descriptor);
+        var loaded = new MewooRuntimePluginAssemblyLoader().TryLoad(descriptor, out var issue);
 
         Assert.IsNotNull(loaded);
+        Assert.IsNull(issue);
         Assert.AreEqual(Assembly.GetExecutingAssembly().GetName().Name, loaded.Assembly.GetName().Name);
         loaded.LoadContext.Unload();
     }
@@ -30,9 +31,13 @@ public sealed class MewooRuntimePluginAssemblyLoaderTests
         var descriptor = directory.CreateDescriptor("MissingPlugin.dll");
         var logger = new InMemoryMewooLogger();
 
-        var loaded = new MewooRuntimePluginAssemblyLoader(logger).TryLoad(descriptor);
+        var loaded = new MewooRuntimePluginAssemblyLoader(logger).TryLoad(descriptor, out var issue);
 
         Assert.IsNull(loaded);
+        Assert.IsNotNull(issue);
+        Assert.AreEqual(MewooRuntimePluginIssueCategory.Assembly, issue.Category);
+        Assert.AreEqual(descriptor.ManifestPath, issue.ManifestPath);
+        Assert.AreEqual(descriptor.AssemblyPath, issue.AssemblyPath);
         Assert.IsTrue(logger.Entries.Any(entry =>
             entry.Message.Contains("Failed to load runtime plugin assembly", StringComparison.Ordinal)));
     }

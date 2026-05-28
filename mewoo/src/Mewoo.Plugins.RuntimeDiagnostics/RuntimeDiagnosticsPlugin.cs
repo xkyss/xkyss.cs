@@ -95,14 +95,25 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
                     .DockRight()
                     .Content("Refresh")
                     .OnClick(() => RenderMainView(panel, workbench)),
+                new Button()
+                    .DockRight()
+                    .Content("Open Logs")
+                    .OnClick(workbench.OpenLogsPanel),
                 new TextBlock().Text("Runtime Diagnostics").FontSize(22).SemiBold()));
 
-        if (_runtimePlugins.PluginStatuses.Count == 0)
+        if (_runtimePlugins.PluginStatuses.Count == 0 && _runtimePlugins.DiscoveryIssues.Count == 0)
         {
-            panel.Children(new TextBlock().Text("No runtime plugins are discovered.").FontSize(12));
+            panel.Children(new TextBlock()
+                .Text("No runtime plugins are discovered. Add a plugin folder with mewoo.plugin.json under the runtime plugin directory.")
+                .FontSize(12));
         }
         else
         {
+            foreach (var issue in _runtimePlugins.DiscoveryIssues)
+            {
+                panel.Children(RuntimeDiscoveryIssueBlock(issue));
+            }
+
             foreach (var status in _runtimePlugins.PluginStatuses)
             {
                 panel.Children(RuntimePluginBlock(status, panel, workbench));
@@ -193,8 +204,29 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
                     new TextBlock().Text($"Manifest: {descriptor.ManifestPath}").FontSize(12),
                     new TextBlock().Text($"Assembly: {descriptor.AssemblyPath}").FontSize(12),
                     new TextBlock().Text($"State: {status.State}").FontSize(12),
-                    new TextBlock().Text(status.Message ?? string.Empty).FontSize(12),
+                    new TextBlock().Text($"Category: {status.CategoryLabel}").FontSize(12),
+                    new TextBlock().Text($"Message: {status.ShortMessage}").FontSize(12),
                     actions));
+    }
+
+    private static Border RuntimeDiscoveryIssueBlock(MewooRuntimePluginIssue issue)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Vertical }
+            .Spacing(4)
+            .Children(
+                new TextBlock().Text("Runtime plugin discovery issue").SemiBold(),
+                new TextBlock().Text($"Category: {issue.Category}").FontSize(12),
+                new TextBlock().Text($"Message: {issue.ShortMessage}").FontSize(12),
+                new TextBlock().Text($"Manifest: {issue.ManifestPath}").FontSize(12));
+
+        if (!string.IsNullOrWhiteSpace(issue.AssemblyPath))
+        {
+            panel.Children(new TextBlock().Text($"Assembly: {issue.AssemblyPath}").FontSize(12));
+        }
+
+        return new Border()
+            .Padding(10, 8)
+            .Child(panel);
     }
 
     private static Button ActionButton(string text, Func<Task> action)

@@ -6,16 +6,16 @@ Run the complete runtime plugin workflow manually and record results in the deve
 
 ## Acceptance criteria
 
-- [ ] Package sample runtime plugin with PluginPackager.
-- [ ] Start Mewoo from a clean state.
-- [ ] Confirm sample runtime plugin appears in ActivityBar.
-- [ ] Confirm Sidebar/MainArea/command/StatusBar contributions work.
-- [ ] Confirm Runtime Diagnostics shows correct state.
-- [ ] Confirm Disable/Enable works.
-- [ ] Confirm Unload/Reload works.
-- [ ] Confirm incompatible plugin does not load.
-- [ ] Confirm invalid manifest does not crash startup.
-- [ ] Record follow-up issues for anything deferred.
+- [x] Package sample runtime plugin with PluginPackager.
+- [x] Start Mewoo from a clean state.
+- [x] Confirm sample runtime plugin appears in ActivityBar.
+- [x] Confirm Sidebar/MainArea/command/StatusBar contributions work.
+- [x] Confirm Runtime Diagnostics shows correct state.
+- [x] Confirm Disable/Enable works.
+- [x] Confirm Unload/Reload works.
+- [x] Confirm incompatible plugin does not load.
+- [x] Confirm invalid manifest does not crash startup.
+- [x] Record follow-up issues for anything deferred.
 
 ## Blocked by
 
@@ -24,3 +24,10 @@ Run the complete runtime plugin workflow manually and record results in the deve
 - Issue 026
 - Issue 028
 
+## Road Test Notes
+
+- Packaged the sample runtime plugin with `tools/Mewoo.PluginPackager` into `.build/roadtest/Plugins/mewoo.samples.runtimeSmoke`.
+- Confirmed the package contains `mewoo.plugin.json` and `Mewoo.Samples.RuntimeSmokePlugin.dll`.
+- Added `RuntimePluginRoadTestCoversContributionsOperationsAndFailures` to cover a clean runtime root, Activity/ViewContainer/MainView/Command/StatusBar contribution registration, diagnostics state, disable/enable, unload/reload, incompatible plugin rejection, and invalid manifest resilience.
+- `dotnet test Mewoo.slnx --no-restore --verbosity minimal` passes with 25 tests.
+- No deferred follow-up issues were found for the V2 baseline.

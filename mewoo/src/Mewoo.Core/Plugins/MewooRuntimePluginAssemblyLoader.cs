@@ -11,8 +11,11 @@ public sealed class MewooRuntimePluginAssemblyLoader
         _logger = logger;
     }
 
-    public MewooLoadedRuntimePluginAssembly? TryLoad(MewooRuntimePluginDescriptor descriptor)
+    public MewooLoadedRuntimePluginAssembly? TryLoad(
+        MewooRuntimePluginDescriptor descriptor,
+        out MewooRuntimePluginIssue? issue)
     {
+        issue = null;
         try
         {
             var loadContext = new MewooRuntimePluginLoadContext(descriptor.AssemblyPath);
@@ -23,6 +26,11 @@ public sealed class MewooRuntimePluginAssemblyLoader
         }
         catch (Exception ex)
         {
+            issue = new MewooRuntimePluginIssue(
+                MewooRuntimePluginIssueCategory.Assembly,
+                ex.Message,
+                descriptor.ManifestPath,
+                descriptor.AssemblyPath);
             _logger?.Error(
                 "RuntimePluginLoader",
                 $"Failed to load runtime plugin assembly '{descriptor.Manifest.Id}'.",
@@ -31,4 +39,3 @@ public sealed class MewooRuntimePluginAssemblyLoader
         }
     }
 }
-

@@ -14,9 +14,12 @@ public sealed class MewooRuntimePluginFactory
         _assemblyLoader = assemblyLoader ?? new MewooRuntimePluginAssemblyLoader(logger);
     }
 
-    public MewooLoadedRuntimePlugin? TryCreate(MewooRuntimePluginDescriptor descriptor)
+    public MewooLoadedRuntimePlugin? TryCreate(
+        MewooRuntimePluginDescriptor descriptor,
+        out MewooRuntimePluginIssue? issue)
     {
-        var loadedAssembly = _assemblyLoader.TryLoad(descriptor);
+        issue = null;
+        var loadedAssembly = _assemblyLoader.TryLoad(descriptor, out issue);
         if (loadedAssembly is null)
         {
             return null;
@@ -49,9 +52,13 @@ public sealed class MewooRuntimePluginFactory
         catch (Exception ex)
         {
             loadedAssembly.LoadContext.Unload();
+            issue = new MewooRuntimePluginIssue(
+                MewooRuntimePluginIssueCategory.EntryPoint,
+                ex.Message,
+                descriptor.ManifestPath,
+                descriptor.AssemblyPath);
             _logger?.Error("RuntimePluginFactory", $"Failed to create runtime plugin '{descriptor.Manifest.Id}'.", ex);
             return null;
         }
     }
 }
-

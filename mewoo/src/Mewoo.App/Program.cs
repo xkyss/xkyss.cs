@@ -28,6 +28,9 @@ Application
         window = new MewooWorkbenchWindow(pluginHost, services, themeController, stateStorage, logger);
         window.Loaded += async () =>
         {
+            await runtimePlugins.ActivateLoadedPluginsAsync(
+                pluginHost,
+                plugin => new PluginContext(plugin.Id, services, window));
             await pluginHost.ActivateAllAsync(
                 plugin => new PluginContext(plugin.Id, services, window));
             var snapshot = await stateStorage.ReadJsonAsync<WorkbenchStateSnapshot>("workbench");

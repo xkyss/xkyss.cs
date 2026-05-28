@@ -17,6 +17,7 @@ public sealed class MewooRuntimePluginManager
     private readonly IMewooLogger? _logger;
     private readonly List<MewooLoadedRuntimePlugin> _loadedPlugins = [];
     private readonly List<MewooRuntimePluginStatus> _pluginStatuses = [];
+    private readonly List<MewooRuntimePluginIssue> _discoveryIssues = [];
     private readonly Version _currentVersion;
 
     public MewooRuntimePluginManager(
@@ -35,10 +36,16 @@ public sealed class MewooRuntimePluginManager
 
     public IReadOnlyList<MewooRuntimePluginStatus> PluginStatuses => _pluginStatuses;
 
+    public IReadOnlyList<MewooRuntimePluginIssue> DiscoveryIssues => _discoveryIssues;
+
     public IReadOnlyList<MewooLoadedRuntimePlugin> LoadDiscoveredPlugins(string pluginRoot, MewooPluginHost pluginHost)
     {
         var registered = new List<MewooLoadedRuntimePlugin>();
-        foreach (var descriptor in _catalog.Discover(pluginRoot))
+        var descriptors = _catalog.Discover(pluginRoot);
+        _discoveryIssues.Clear();
+        _discoveryIssues.AddRange(_catalog.DiscoveryIssues);
+
+        foreach (var descriptor in descriptors)
         {
             if (_loadedPlugins.Any(plugin => string.Equals(plugin.Plugin.Id, descriptor.Manifest.Id, StringComparison.Ordinal)))
             {
@@ -55,6 +62,17 @@ public sealed class MewooRuntimePluginManager
         return registered;
     }
 
+    public async ValueTask ActivateLoadedPluginsAsync(
+        MewooPluginHost pluginHost,
+        Func<IMewooPlugin, IMewooPluginContext> createContext,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var loaded in _loadedPlugins.ToArray())
+        {
+            await ActivateRuntimePluginAsync(loaded, pluginHost, createContext, cancellationToken);
+        }
+    }
+
     public async ValueTask<bool> UnloadPluginAsync(
         string pluginId,
         MewooPluginHost pluginHost,
@@ -68,7 +86,16 @@ public sealed class MewooRuntimePluginManager
 
         await Task.Yield();
         var collected = VerifyLoadContextCollected(unload.LoadContextReference);
-        SetStatus(unload.Descriptor, MewooRuntimePluginState.Discovered, "Plugin was unloaded.");
+        var currentDescriptor = _pluginStatuses
+            .FirstOrDefault(status => string.Equals(status.Descriptor.Manifest.Id, unload.PluginId, StringComparison.Ordinal))
+            ?.Descriptor ?? unload.Descriptor;
+        SetStatus(
+            currentDescriptor,
+            currentDescriptor.Manifest.Disabled ? MewooRuntimePluginState.Disabled : MewooRuntimePluginState.Discovered,
+            currentDescriptor.Manifest.Disabled ? "Plugin is disabled by manifest." : "Plugin was unloaded.",
+            currentDescriptor.Manifest.Disabled
+                ? MewooRuntimePluginIssueCategory.Disabled
+                : MewooRuntimePluginIssueCategory.None);
         _logger?.Info("RuntimePluginManager", $"Unloaded runtime plugin '{unload.PluginId}'.");
         if (collected)
         {
@@ -120,7 +147,10 @@ public sealed class MewooRuntimePluginManager
     {
         await UnloadPluginAsync(pluginId, pluginHost, cancellationToken);
 
-        var descriptor = _catalog.Discover(pluginRoot)
+        var descriptors = _catalog.Discover(pluginRoot);
+        _discoveryIssues.Clear();
+        _discoveryIssues.AddRange(_catalog.DiscoveryIssues);
+        var descriptor = descriptors
             .FirstOrDefault(item => string.Equals(item.Manifest.Id, pluginId, StringComparison.Ordinal));
         if (descriptor is null)
         {
@@ -134,7 +164,7 @@ public sealed class MewooRuntimePluginManager
             return false;
         }
 
-        await pluginHost.ActivatePluginAsync(loaded.Plugin.Id, createContext(loaded.Plugin), cancellationToken);
+        await ActivateRuntimePluginAsync(loaded, pluginHost, createContext, cancellationToken);
         return pluginHost.Plugins.Any(entry =>
             string.Equals(entry.Plugin.Id, loaded.Plugin.Id, StringComparison.Ordinal)
             && entry.State == MewooPluginState.Activated);
@@ -157,7 +187,8 @@ public sealed class MewooRuntimePluginManager
         SetStatus(
             descriptor,
             disabled ? MewooRuntimePluginState.Disabled : MewooRuntimePluginState.Discovered,
-            disabled ? "Plugin is disabled by manifest." : "Plugin is enabled.");
+            disabled ? "Plugin is disabled by manifest." : "Plugin is enabled.",
+            disabled ? MewooRuntimePluginIssueCategory.Disabled : MewooRuntimePluginIssueCategory.None);
         _logger?.Info(
             "RuntimePluginManager",
             $"{(disabled ? "Disabled" : "Enabled")} runtime plugin '{pluginId}'.");
@@ -172,21 +203,33 @@ public sealed class MewooRuntimePluginManager
 
         if (descriptor.Manifest.Disabled)
         {
-            SetStatus(descriptor, MewooRuntimePluginState.Disabled, "Plugin is disabled by manifest.");
+            SetStatus(
+                descriptor,
+                MewooRuntimePluginState.Disabled,
+                "Plugin is disabled by manifest.",
+                MewooRuntimePluginIssueCategory.Disabled);
             return null;
         }
 
         if (!IsCompatible(descriptor, out var compatibilityMessage))
         {
-            SetStatus(descriptor, MewooRuntimePluginState.Incompatible, compatibilityMessage);
+            SetStatus(
+                descriptor,
+                MewooRuntimePluginState.Incompatible,
+                compatibilityMessage,
+                MewooRuntimePluginIssueCategory.Compatibility);
             _logger?.Info("RuntimePluginManager", compatibilityMessage!);
             return null;
         }
 
-        var loaded = _factory.TryCreate(descriptor);
+        var loaded = _factory.TryCreate(descriptor, out var issue);
         if (loaded is null)
         {
-            SetStatus(descriptor, MewooRuntimePluginState.Failed, "Plugin entry point could not be created.");
+            SetStatus(
+                descriptor,
+                MewooRuntimePluginState.Failed,
+                issue?.Message ?? "Plugin entry point could not be created.",
+                issue?.Category ?? MewooRuntimePluginIssueCategory.EntryPoint);
             return null;
         }
 
@@ -195,7 +238,11 @@ public sealed class MewooRuntimePluginManager
         if (entry.State == MewooPluginState.Failed)
         {
             loaded.LoadContext.Unload();
-            SetStatus(descriptor, MewooRuntimePluginState.Failed, entry.Error?.Message);
+            SetStatus(
+                descriptor,
+                MewooRuntimePluginState.Failed,
+                entry.Error?.Message,
+                MewooRuntimePluginIssueCategory.Registration);
             _logger?.Error(
                 "RuntimePluginManager",
                 $"Runtime plugin '{loaded.Plugin.Id}' failed registration.",
@@ -207,6 +254,31 @@ public sealed class MewooRuntimePluginManager
         SetStatus(descriptor, MewooRuntimePluginState.Registered);
         _logger?.Info("RuntimePluginManager", $"Registered runtime plugin '{loaded.Plugin.Id}'.");
         return loaded;
+    }
+
+    private async ValueTask ActivateRuntimePluginAsync(
+        MewooLoadedRuntimePlugin loaded,
+        MewooPluginHost pluginHost,
+        Func<IMewooPlugin, IMewooPluginContext> createContext,
+        CancellationToken cancellationToken)
+    {
+        await pluginHost.ActivatePluginAsync(loaded.Plugin.Id, createContext(loaded.Plugin), cancellationToken);
+        var entry = pluginHost.Plugins.FirstOrDefault(plugin =>
+            string.Equals(plugin.Plugin.Id, loaded.Plugin.Id, StringComparison.Ordinal));
+        if (entry?.State == MewooPluginState.Failed)
+        {
+            SetStatus(
+                loaded.Descriptor,
+                MewooRuntimePluginState.Failed,
+                entry.Error?.Message,
+                MewooRuntimePluginIssueCategory.Activation);
+            return;
+        }
+
+        if (entry?.State == MewooPluginState.Activated)
+        {
+            SetStatus(loaded.Descriptor, MewooRuntimePluginState.Registered, "Plugin is registered and active.");
+        }
     }
 
     private bool IsCompatible(MewooRuntimePluginDescriptor descriptor, out string? message)
@@ -232,11 +304,15 @@ public sealed class MewooRuntimePluginManager
         return false;
     }
 
-    private void SetStatus(MewooRuntimePluginDescriptor descriptor, MewooRuntimePluginState state, string? message = null)
+    private void SetStatus(
+        MewooRuntimePluginDescriptor descriptor,
+        MewooRuntimePluginState state,
+        string? message = null,
+        MewooRuntimePluginIssueCategory issueCategory = MewooRuntimePluginIssueCategory.None)
     {
         var index = _pluginStatuses.FindIndex(status =>
             string.Equals(status.Descriptor.Manifest.Id, descriptor.Manifest.Id, StringComparison.Ordinal));
-        var status = new MewooRuntimePluginStatus(descriptor, state, message);
+        var status = new MewooRuntimePluginStatus(descriptor, state, message, issueCategory);
         if (index < 0)
         {
             _pluginStatuses.Add(status);

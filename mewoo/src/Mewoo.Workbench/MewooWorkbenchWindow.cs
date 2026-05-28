@@ -128,6 +128,11 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         }
     }
 
+    public void OpenLogsPanel()
+    {
+        ShowLogs();
+    }
+
     public async ValueTask RestoreStateAsync(WorkbenchStateSnapshot? snapshot, CancellationToken cancellationToken = default)
     {
         if (snapshot is null)

@@ -16,9 +16,10 @@ public sealed class MewooRuntimePluginFactoryTests
         using var directory = RuntimePluginTestDirectory.Create();
         var descriptor = directory.CreateDescriptor(ValidEntryPoint);
 
-        var loaded = new MewooRuntimePluginFactory().TryCreate(descriptor);
+        var loaded = new MewooRuntimePluginFactory().TryCreate(descriptor, out var issue);
 
         Assert.IsNotNull(loaded);
+        Assert.IsNull(issue);
         Assert.AreEqual("xkyss.validRuntimePlugin", loaded.Plugin.Id);
         loaded.LoadContext.Unload();
     }
@@ -30,9 +31,12 @@ public sealed class MewooRuntimePluginFactoryTests
         var descriptor = directory.CreateDescriptor("Mewoo.TestPlugins.ValidRuntimePlugin.MissingPlugin");
         var logger = new InMemoryMewooLogger();
 
-        var loaded = new MewooRuntimePluginFactory(logger).TryCreate(descriptor);
+        var loaded = new MewooRuntimePluginFactory(logger).TryCreate(descriptor, out var issue);
 
         Assert.IsNull(loaded);
+        Assert.IsNotNull(issue);
+        Assert.AreEqual(MewooRuntimePluginIssueCategory.EntryPoint, issue.Category);
+        StringAssert.Contains(issue.Message, "was not found");
         Assert.IsTrue(logger.Entries.Any(entry =>
             entry.Message.Contains("Failed to create runtime plugin", StringComparison.Ordinal)
             && entry.Exception?.Contains("was not found", StringComparison.Ordinal) == true));
@@ -45,9 +49,11 @@ public sealed class MewooRuntimePluginFactoryTests
         var descriptor = directory.CreateDescriptor("Mewoo.TestPlugins.ValidRuntimePlugin.NotAPlugin");
         var logger = new InMemoryMewooLogger();
 
-        var loaded = new MewooRuntimePluginFactory(logger).TryCreate(descriptor);
+        var loaded = new MewooRuntimePluginFactory(logger).TryCreate(descriptor, out var issue);
 
         Assert.IsNull(loaded);
+        Assert.IsNotNull(issue);
+        Assert.AreEqual(MewooRuntimePluginIssueCategory.EntryPoint, issue.Category);
         Assert.IsTrue(logger.Entries.Any(entry =>
             entry.Exception?.Contains("does not implement IMewooPlugin", StringComparison.Ordinal) == true));
     }
@@ -59,9 +65,11 @@ public sealed class MewooRuntimePluginFactoryTests
         var descriptor = directory.CreateDescriptor("Mewoo.TestPlugins.ValidRuntimePlugin.DifferentIdRuntimePlugin");
         var logger = new InMemoryMewooLogger();
 
-        var loaded = new MewooRuntimePluginFactory(logger).TryCreate(descriptor);
+        var loaded = new MewooRuntimePluginFactory(logger).TryCreate(descriptor, out var issue);
 
         Assert.IsNull(loaded);
+        Assert.IsNotNull(issue);
+        Assert.AreEqual(MewooRuntimePluginIssueCategory.EntryPoint, issue.Category);
         Assert.IsTrue(logger.Entries.Any(entry =>
             entry.Exception?.Contains("does not match plugin id", StringComparison.Ordinal) == true));
     }
@@ -73,9 +81,11 @@ public sealed class MewooRuntimePluginFactoryTests
         var descriptor = directory.CreateDescriptor("Mewoo.TestPlugins.ValidRuntimePlugin.ThrowingRuntimePlugin");
         var logger = new InMemoryMewooLogger();
 
-        var loaded = new MewooRuntimePluginFactory(logger).TryCreate(descriptor);
+        var loaded = new MewooRuntimePluginFactory(logger).TryCreate(descriptor, out var issue);
 
         Assert.IsNull(loaded);
+        Assert.IsNotNull(issue);
+        Assert.AreEqual(MewooRuntimePluginIssueCategory.EntryPoint, issue.Category);
         Assert.IsTrue(logger.Entries.Any(entry =>
             entry.Exception?.Contains("Constructor failed", StringComparison.Ordinal) == true));
     }
@@ -156,4 +166,3 @@ public sealed class MewooRuntimePluginFactoryTests
         }
     }
 }
-
