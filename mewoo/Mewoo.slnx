@@ -12,6 +12,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Mewoo.Core.Tests/Mewoo.Core.Tests.csproj" />
+    <Project Path="tests/Mewoo.TestPlugins.OutOfProcessProbeHost/Mewoo.TestPlugins.OutOfProcessProbeHost.csproj" />
     <Project Path="tests/Mewoo.TestPlugins.ValidRuntimePlugin/Mewoo.TestPlugins.ValidRuntimePlugin.csproj" />
   </Folder>
   <Folder Name="/tools/">
