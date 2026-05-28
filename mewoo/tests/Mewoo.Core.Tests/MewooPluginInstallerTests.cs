@@ -21,6 +21,7 @@ public sealed class MewooPluginInstallerTests
         Assert.IsTrue(result.Success);
         Assert.AreEqual("xkyss.installPlugin", result.PluginId);
         Assert.AreEqual(Path.Combine(directory.PluginRoot, "xkyss.installPlugin"), result.InstalledPath);
+        Assert.AreEqual(MewooPluginTrustDiagnostics.LocalCodeTrustWarning, result.TrustWarning);
         Assert.IsTrue(File.Exists(Path.Combine(result.InstalledPath!, MewooPluginPackageFormat.ManifestEntryName)));
         Assert.IsTrue(File.Exists(Path.Combine(result.InstalledPath!, "InstallPlugin.dll")));
         Assert.IsTrue(File.Exists(Path.Combine(result.InstalledPath!, "PrivateDependency.dll")));

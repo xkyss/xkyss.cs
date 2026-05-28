@@ -92,5 +92,5 @@ Goal: move from manually copied runtime plugin folders to installable local plug
 
 Goal: make plugin trust explicit and decide whether V3 isolation should remain in-process, become out-of-process, or use a hybrid model.
 
-- [ ] [Issue 035: Plugin Trust and Permission Declarations](issues/035-v3-plugin-trust-and-permission-declarations.md)
+- [x] [Issue 035: Plugin Trust and Permission Declarations](issues/035-v3-plugin-trust-and-permission-declarations.md)
 - [ ] [Issue 036: Out-of-Process Plugin Host Spike](issues/036-v3-out-of-process-plugin-spike.md)

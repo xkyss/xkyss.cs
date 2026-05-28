@@ -18,6 +18,20 @@ public sealed class MewooPluginManifestReaderTests
               "assembly": "QuickLauncherPlus.dll",
               "entryPoint": "Xkyss.Mewoo.Plugins.QuickLauncherPlus.Plugin",
               "minimumMewooVersion": "1.0.0",
+              "trust": {
+                "trustedLocalCode": true,
+                "reason": "Built by the local workspace."
+              },
+              "permissions": [
+                {
+                  "kind": "filesystem",
+                  "reason": "Reads launcher configuration."
+                },
+                {
+                  "kind": "processLaunch",
+                  "reason": "Runs configured commands."
+                }
+              ],
               "metadata": {
                 "author": "xkyss"
               }
@@ -30,6 +44,11 @@ public sealed class MewooPluginManifestReaderTests
         Assert.AreEqual("Quick Launcher Plus", descriptor.Manifest.DisplayName);
         Assert.AreEqual("0.1.0", descriptor.Manifest.Version);
         Assert.AreEqual("Xkyss.Mewoo.Plugins.QuickLauncherPlus.Plugin", descriptor.Manifest.EntryPoint);
+        Assert.IsNotNull(descriptor.Manifest.Trust);
+        Assert.IsTrue(descriptor.Manifest.Trust.TrustedLocalCode);
+        Assert.AreEqual(2, descriptor.Manifest.Permissions.Count);
+        Assert.AreEqual("filesystem", descriptor.Manifest.Permissions[0].Kind);
+        Assert.AreEqual("processLaunch", descriptor.Manifest.Permissions[1].Kind);
         Assert.AreEqual("xkyss", descriptor.Manifest.Metadata["author"]);
         Assert.AreEqual(Path.Combine(directory.PluginDirectory, "QuickLauncherPlus.dll"), descriptor.AssemblyPath);
     }

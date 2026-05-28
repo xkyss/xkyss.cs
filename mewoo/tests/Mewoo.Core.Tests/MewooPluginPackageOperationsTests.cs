@@ -29,7 +29,7 @@ public sealed class MewooPluginPackageOperationsTests
             runtimePlugins,
             pluginHost);
 
-        Assert.IsTrue(result.Success);
+        Assert.IsTrue(result.Success, result.Issue?.ShortMessage);
         Assert.IsFalse(Directory.Exists(Path.Combine(directory.PluginRoot, TestPluginId)));
         Assert.AreEqual(0, runtimePlugins.LoadedPlugins.Count);
         Assert.AreEqual(0, pluginHost.Plugins.Count);
@@ -225,4 +225,3 @@ public sealed class MewooPluginPackageOperationsTests
         }
     }
 }
-

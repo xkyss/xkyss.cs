@@ -47,7 +47,7 @@ public sealed class MewooPluginPackageOperations
                     installPath);
             }
 
-            Directory.Delete(installPath, recursive: true);
+            await DeleteDirectoryWithRetryAsync(installPath, cancellationToken);
             return MewooPluginOperationResult.Succeeded(pluginId, installPath);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -110,5 +110,24 @@ public sealed class MewooPluginPackageOperations
 
         return MewooPluginOperationResult.Succeeded(pluginId, install.InstalledPath);
     }
-}
 
+    private static async ValueTask DeleteDirectoryWithRetryAsync(string path, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            try
+            {
+                Directory.Delete(path, recursive: true);
+                return;
+            }
+            catch (Exception ex) when (attempt < 7 && ex is IOException or UnauthorizedAccessException)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                await Task.Delay(50, cancellationToken);
+            }
+        }
+
+        Directory.Delete(path, recursive: true);
+    }
+}

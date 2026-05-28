@@ -53,7 +53,10 @@ public sealed class MewooPluginInstaller
             Directory.CreateDirectory(stagingPath);
             ExtractPackage(package, stagingPath);
             PromoteStaging(stagingPath, installPath, backupPath);
-            return MewooPluginInstallResult.Succeeded(package.PackageId, installPath);
+            return MewooPluginInstallResult.Succeeded(
+                package.PackageId,
+                installPath,
+                MewooPluginTrustDiagnostics.LocalCodeTrustWarning);
         }
         catch (Exception ex) when (ex is IOException
             or UnauthorizedAccessException
@@ -136,4 +139,3 @@ public sealed class MewooPluginInstaller
         }
     }
 }
-

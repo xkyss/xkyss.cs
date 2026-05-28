@@ -16,7 +16,25 @@ public sealed record MewooPluginManifest
 
     public bool Disabled { get; init; }
 
+    public MewooPluginTrustDeclaration? Trust { get; init; }
+
+    public IReadOnlyList<MewooPluginPermissionDeclaration> Permissions { get; init; } =
+        [];
+
     public IReadOnlyDictionary<string, string> Metadata { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
 }
 
+public sealed record MewooPluginTrustDeclaration
+{
+    public bool TrustedLocalCode { get; init; }
+
+    public string? Reason { get; init; }
+}
+
+public sealed record MewooPluginPermissionDeclaration
+{
+    public required string Kind { get; init; }
+
+    public string? Reason { get; init; }
+}

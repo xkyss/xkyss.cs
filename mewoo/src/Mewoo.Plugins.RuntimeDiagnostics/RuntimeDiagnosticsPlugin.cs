@@ -255,6 +255,8 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
                     new TextBlock().Text($"Catalog State: {entry.StateLabel}").FontSize(12),
                     new TextBlock().Text($"Package Version: {entry.Version ?? "Unknown"}").FontSize(12),
                     new TextBlock().Text($"Publisher: {FormatPublisher(entry)}").FontSize(12),
+                    new TextBlock().Text($"Trust: {entry.TrustLabel}").FontSize(12),
+                    new TextBlock().Text($"Permissions: {entry.PermissionSummary}").FontSize(12),
                     new TextBlock().Text($"Manifest: {descriptor.ManifestPath}").FontSize(12),
                     new TextBlock().Text($"Assembly: {descriptor.AssemblyPath}").FontSize(12),
                     new TextBlock().Text($"State: {status.State}").FontSize(12),
@@ -270,6 +272,8 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
             .Children(
                 new TextBlock().Text(entry.DisplayName).SemiBold(),
                 new TextBlock().Text($"Catalog State: {entry.StateLabel}").FontSize(12),
+                new TextBlock().Text($"Trust: {entry.TrustLabel}").FontSize(12),
+                new TextBlock().Text($"Permissions: {entry.PermissionSummary}").FontSize(12),
                 new TextBlock().Text($"Category: {entry.CategoryLabel}").FontSize(12),
                 new TextBlock().Text($"Message: {entry.Message}").FontSize(12),
                 new TextBlock().Text($"Manifest: {entry.ManifestPath}").FontSize(12));

@@ -6,6 +6,9 @@ public sealed record MewooPluginCatalogEntry(
     string? Version,
     string? Publisher,
     string? PublisherDisplayName,
+    string TrustLabel,
+    string PermissionSummary,
+    IReadOnlyList<string> PermissionLabels,
     MewooPluginCatalogEntryState State,
     string StateLabel,
     string CategoryLabel,
@@ -65,12 +68,16 @@ public static class MewooPluginCatalogDisplay
     {
         var manifest = status.Descriptor.Manifest;
         var state = ToCatalogState(status.State);
+        var trust = MewooPluginTrustDiagnostics.CreateSummary(manifest);
         return new MewooPluginCatalogEntry(
             manifest.Id,
             manifest.DisplayName,
             manifest.Version,
             TryMetadata(manifest.Metadata, MewooPluginPackageFormat.PublisherMetadataKey),
             TryMetadata(manifest.Metadata, MewooPluginPackageFormat.PublisherDisplayNameMetadataKey),
+            trust.TrustLabel,
+            trust.PermissionSummary,
+            trust.PermissionLabels,
             state,
             ToStateLabel(state),
             status.CategoryLabel,
@@ -87,6 +94,9 @@ public static class MewooPluginCatalogDisplay
             null,
             null,
             null,
+            "Unknown local code",
+            "Permission declarations are unavailable because the manifest could not be read.",
+            [],
             MewooPluginCatalogEntryState.Discovered,
             ToStateLabel(MewooPluginCatalogEntryState.Discovered),
             issue.Category.ToString(),

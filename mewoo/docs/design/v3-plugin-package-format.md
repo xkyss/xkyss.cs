@@ -58,7 +58,38 @@ Optional publisher metadata is carried through manifest `metadata`:
 }
 ```
 
-Issue 035 may add stronger trust and permission declarations. Issue 031 only defines local package shape and validation.
+Packages may also declare local-code trust intent and requested permissions:
+
+```json
+{
+  "trust": {
+    "trustedLocalCode": true,
+    "reason": "Built and installed from the local workspace."
+  },
+  "permissions": [
+    {
+      "kind": "filesystem",
+      "reason": "Reads and writes plugin configuration."
+    },
+    {
+      "kind": "processLaunch",
+      "reason": "Runs user-configured commands."
+    },
+    {
+      "kind": "network",
+      "reason": "Fetches remote plugin data."
+    },
+    {
+      "kind": "nativeInterop",
+      "reason": "Calls a plugin-private native library."
+    }
+  ]
+}
+```
+
+If a package omits permission declarations, diagnostics treat that conservatively as undeclared local code access. V3 declarations are visible trust metadata; they are not a sandbox or enforcement boundary by themselves.
+
+Issue 036 will use these declarations as input for the isolation decision. The declarations are informational until an isolation boundary exists.
 
 ## Validation Rules
 
@@ -90,4 +121,3 @@ A valid V3 package unwraps to a valid V2 runtime plugin directory:
 ```
 
 Issue 032 owns staging, extraction, replacement, and install failure cleanup.
-

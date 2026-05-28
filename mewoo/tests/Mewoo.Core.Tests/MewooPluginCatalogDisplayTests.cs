@@ -61,6 +61,44 @@ public sealed class MewooPluginCatalogDisplayTests
     }
 
     [TestMethod]
+    public void CreateEntriesShowsConservativeTrustSummaryWhenPermissionsAreMissing()
+    {
+        var entries = MewooPluginCatalogDisplay.CreateEntries(
+            [Status("undeclared", MewooRuntimePluginState.Registered)],
+            []);
+
+        Assert.AreEqual("Local code trust not declared", entries[0].TrustLabel);
+        Assert.AreEqual(
+            "No permissions declared; treat as full local code access.",
+            entries[0].PermissionSummary);
+        Assert.AreEqual(0, entries[0].PermissionLabels.Count);
+    }
+
+    [TestMethod]
+    public void CreateEntriesShowsDeclaredTrustAndPermissionLabels()
+    {
+        var entries = MewooPluginCatalogDisplay.CreateEntries(
+            [
+                Status(
+                    "declared",
+                    MewooRuntimePluginState.Registered,
+                    trust: new MewooPluginTrustDeclaration { TrustedLocalCode = true },
+                    permissions:
+                    [
+                        new MewooPluginPermissionDeclaration { Kind = MewooPluginPermissionKinds.Filesystem },
+                        new MewooPluginPermissionDeclaration { Kind = MewooPluginPermissionKinds.Network },
+                        new MewooPluginPermissionDeclaration { Kind = MewooPluginPermissionKinds.NativeInterop },
+                    ]),
+            ],
+            []);
+
+        Assert.AreEqual("Trusted local code declared", entries[0].TrustLabel);
+        CollectionAssert.AreEqual(
+            new[] { "Filesystem", "Network", "Native interop" },
+            entries[0].PermissionLabels.ToArray());
+    }
+
+    [TestMethod]
     public void CreateOperationMapsSuccessAndFailureMessages()
     {
         var timestamp = new DateTimeOffset(2026, 5, 28, 12, 0, 0, TimeSpan.Zero);
@@ -87,7 +125,9 @@ public sealed class MewooPluginCatalogDisplayTests
     private static MewooRuntimePluginStatus Status(
         string id,
         MewooRuntimePluginState state,
-        IReadOnlyDictionary<string, string>? metadata = null)
+        IReadOnlyDictionary<string, string>? metadata = null,
+        MewooPluginTrustDeclaration? trust = null,
+        IReadOnlyList<MewooPluginPermissionDeclaration>? permissions = null)
     {
         var manifest = new MewooPluginManifest
         {
@@ -96,6 +136,8 @@ public sealed class MewooPluginCatalogDisplayTests
             Version = "0.1.0",
             Assembly = $"{id}.dll",
             EntryPoint = $"{id}.Plugin",
+            Trust = trust,
+            Permissions = permissions ?? [],
             Metadata = metadata ?? new Dictionary<string, string>(),
         };
 
