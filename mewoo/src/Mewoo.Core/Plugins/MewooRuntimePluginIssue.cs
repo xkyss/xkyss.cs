@@ -27,4 +27,5 @@ public enum MewooRuntimePluginIssueCategory
     Activation,
     Disabled,
     Unload,
+    Package,
 }

@@ -78,3 +78,19 @@ Goal: prove V2 with a real external plugin workflow, improve runtime diagnostics
 - [x] [Issue 028: Runtime Plugin Failure UX Pass](issues/028-runtime-plugin-failure-ux-pass.md)
 - [x] [Issue 029: End-to-End Runtime Plugin Road Test](issues/029-runtime-plugin-road-test.md)
 - [x] [Issue 030: Tag V2 Baseline](issues/030-v2-baseline.md)
+
+### Milestone 9: V3 Local Plugin Package Management
+
+Goal: move from manually copied runtime plugin folders to installable local plugin packages with update, uninstall, and clearer package metadata.
+
+- [x] [Issue 031: Define V3 Plugin Package Format](issues/031-v3-plugin-package-format.md)
+- [ ] [Issue 032: Local Plugin Installer Service](issues/032-v3-local-plugin-installer-service.md)
+- [ ] [Issue 033: Plugin Uninstall and Update Operations](issues/033-v3-plugin-uninstall-and-update.md)
+- [ ] [Issue 034: Plugin Catalog Metadata UI](issues/034-v3-plugin-catalog-metadata-ui.md)
+
+### Milestone 10: V3 Trust and Isolation Exploration
+
+Goal: make plugin trust explicit and decide whether V3 isolation should remain in-process, become out-of-process, or use a hybrid model.
+
+- [ ] [Issue 035: Plugin Trust and Permission Declarations](issues/035-v3-plugin-trust-and-permission-declarations.md)
+- [ ] [Issue 036: Out-of-Process Plugin Host Spike](issues/036-v3-out-of-process-plugin-spike.md)

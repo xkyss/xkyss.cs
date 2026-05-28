@@ -26,18 +26,7 @@ public sealed partial class MewooPluginManifestReader
         }
 
         var json = File.ReadAllText(fullManifestPath);
-        MewooPluginManifest manifest;
-        try
-        {
-            manifest = JsonSerializer.Deserialize<MewooPluginManifest>(json, JsonOptions)
-                ?? throw new InvalidOperationException($"Plugin manifest '{fullManifestPath}' is empty.");
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException($"Plugin manifest '{fullManifestPath}' is invalid: {ex.Message}", ex);
-        }
-
-        Validate(manifest, fullManifestPath);
+        var manifest = ReadManifestJson(json, fullManifestPath);
 
         var pluginDirectory = Path.GetDirectoryName(fullManifestPath)
             ?? throw new InvalidOperationException($"Plugin manifest '{fullManifestPath}' has no containing directory.");
@@ -48,6 +37,28 @@ public sealed partial class MewooPluginManifestReader
             fullManifestPath,
             pluginDirectory,
             assemblyPath);
+    }
+
+    public MewooPluginManifest ReadManifestJson(string json, string manifestPath)
+    {
+        if (string.IsNullOrWhiteSpace(manifestPath))
+        {
+            throw new ArgumentException("Manifest path is required.", nameof(manifestPath));
+        }
+
+        MewooPluginManifest manifest;
+        try
+        {
+            manifest = JsonSerializer.Deserialize<MewooPluginManifest>(json, JsonOptions)
+                ?? throw new InvalidOperationException($"Plugin manifest '{manifestPath}' is empty.");
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Plugin manifest '{manifestPath}' is invalid: {ex.Message}", ex);
+        }
+
+        Validate(manifest, manifestPath);
+        return manifest;
     }
 
     private static void Validate(MewooPluginManifest manifest, string manifestPath)

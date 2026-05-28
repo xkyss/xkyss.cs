@@ -16,6 +16,7 @@ public sealed record MewooRuntimePluginStatus(
         MewooRuntimePluginIssueCategory.Activation => "Activation",
         MewooRuntimePluginIssueCategory.Disabled => "Disabled",
         MewooRuntimePluginIssueCategory.Unload => "Unload",
+        MewooRuntimePluginIssueCategory.Package => "Package",
         _ => State switch
         {
             MewooRuntimePluginState.Disabled => "Disabled",

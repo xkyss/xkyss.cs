@@ -71,6 +71,14 @@ V1 should design lifecycle and contribution ownership so V2 can be added later, 
 
 The V1 baseline is tagged as `v1-baseline`. After that baseline, V2 starts with local runtime plugin manifest discovery before implementing assembly loading.
 
+## V3 Local Plugin Packages
+
+V3 starts by wrapping V2 runtime plugin directories into installable local package artifacts before adding stronger trust or isolation behavior.
+
+V3 package files use the `.mewoo-plugin` extension and are ZIP archives. The archive root must contain `mewoo.plugin.json`; the manifest `assembly` path must point to an assembly entry inside the archive. Package identity comes from the manifest `id`, `displayName`, and `version` fields. Optional publisher metadata uses manifest `metadata.publisher` and `metadata.publisherDisplayName`.
+
+Package validation must not extract files or modify `%LocalAppData%\Mewoo\Plugins`. Install staging, replacement, update, and uninstall behavior belongs to later V3 slices.
+
 ## V2 Runtime Plugin Manifest Discovery
 
 V2 runtime plugins are discovered from `%LocalAppData%\Mewoo\Plugins`. Each plugin lives in its own directory and declares a `mewoo.plugin.json` manifest.
