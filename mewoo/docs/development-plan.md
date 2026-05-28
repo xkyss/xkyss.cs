@@ -84,7 +84,7 @@ Goal: prove V2 with a real external plugin workflow, improve runtime diagnostics
 Goal: move from manually copied runtime plugin folders to installable local plugin packages with update, uninstall, and clearer package metadata.
 
 - [x] [Issue 031: Define V3 Plugin Package Format](issues/031-v3-plugin-package-format.md)
-- [ ] [Issue 032: Local Plugin Installer Service](issues/032-v3-local-plugin-installer-service.md)
+- [x] [Issue 032: Local Plugin Installer Service](issues/032-v3-local-plugin-installer-service.md)
 - [ ] [Issue 033: Plugin Uninstall and Update Operations](issues/033-v3-plugin-uninstall-and-update.md)
 - [ ] [Issue 034: Plugin Catalog Metadata UI](issues/034-v3-plugin-catalog-metadata-ui.md)
 

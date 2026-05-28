@@ -6,14 +6,22 @@ Add a core service that installs a V3 plugin package into the runtime plugin roo
 
 ## Acceptance criteria
 
-- [ ] Installer validates package layout before writing to the plugin root.
-- [ ] Installer writes into a temporary staging directory first.
-- [ ] Installer atomically replaces or promotes the package into `%LocalAppData%\Mewoo\Plugins\<pluginId>`.
-- [ ] Installer refuses package id mismatches.
-- [ ] Installer returns structured success and failure results for UI diagnostics.
-- [ ] Unit tests cover successful install, invalid package, id mismatch, and existing plugin replacement.
+- [x] Installer validates package layout before writing to the plugin root.
+- [x] Installer writes into a temporary staging directory first.
+- [x] Installer atomically replaces or promotes the package into `%LocalAppData%\Mewoo\Plugins\<pluginId>`.
+- [x] Installer refuses package id mismatches.
+- [x] Installer returns structured success and failure results for UI diagnostics.
+- [x] Unit tests cover successful install, invalid package, id mismatch, and existing plugin replacement.
 
 ## Blocked by
 
 - Issue 031
+
+## Status
+
+Done
+
+## Verification
+
+- `dotnet test tests/Mewoo.Core.Tests/Mewoo.Core.Tests.csproj --no-restore --verbosity minimal`
 
