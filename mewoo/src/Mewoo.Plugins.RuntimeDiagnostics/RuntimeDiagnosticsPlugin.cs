@@ -14,6 +14,7 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
     private readonly MewooRuntimePluginManager _runtimePlugins;
     private readonly MewooPluginHost _pluginHost;
     private readonly MewooPluginPackageOperations _packageOperations = new();
+    private readonly List<MewooPluginCatalogOperation> _operationResults = [];
     private readonly IMewooLogger _logger;
     private readonly string _pluginRoot;
     private readonly IServiceProvider _services;
@@ -105,19 +106,39 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
         if (_runtimePlugins.PluginStatuses.Count == 0 && _runtimePlugins.DiscoveryIssues.Count == 0)
         {
             panel.Children(new TextBlock()
-                .Text("No runtime plugins are discovered. Add a plugin folder with mewoo.plugin.json under the runtime plugin directory.")
+                .Text($"No local plugin packages are installed. Add an installed plugin folder under '{_pluginRoot}', or place an update package named '<pluginId>{MewooPluginPackageFormat.Extension}' in that directory for an installed plugin.")
                 .FontSize(12));
         }
         else
         {
-            foreach (var issue in _runtimePlugins.DiscoveryIssues)
+            var catalogEntries = MewooPluginCatalogDisplay.CreateEntries(
+                _runtimePlugins.PluginStatuses,
+                _runtimePlugins.DiscoveryIssues);
+            foreach (var entry in catalogEntries.Where(entry => entry.State == MewooPluginCatalogEntryState.Discovered))
             {
-                panel.Children(RuntimeDiscoveryIssueBlock(issue));
+                panel.Children(RuntimeDiscoveryIssueBlock(entry));
             }
 
             foreach (var status in _runtimePlugins.PluginStatuses)
             {
-                panel.Children(RuntimePluginBlock(status, panel, workbench));
+                var entry = catalogEntries.First(item =>
+                    string.Equals(item.PluginId, status.Descriptor.Manifest.Id, StringComparison.Ordinal));
+                panel.Children(RuntimePluginBlock(status, entry, panel, workbench));
+            }
+        }
+
+        panel.Children(new TextBlock().Text("Recent Package Operations").SemiBold().Margin(0, 12, 0, 0));
+        if (_operationResults.Count == 0)
+        {
+            panel.Children(new TextBlock().Text("No install, update, or uninstall operations have run in this session.").FontSize(12));
+        }
+        else
+        {
+            foreach (var operation in _operationResults.Take(10))
+            {
+                panel.Children(new TextBlock()
+                    .Text($"[{operation.Timestamp:HH:mm:ss}] {operation.Operation} {(operation.Success ? "OK" : "Failed")} {operation.PluginId ?? "unknown"}: {operation.Message}")
+                    .FontSize(12));
             }
         }
 
@@ -142,7 +163,11 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
         }
     }
 
-    private Border RuntimePluginBlock(MewooRuntimePluginStatus status, StackPanel panel, IWorkbenchService workbench)
+    private Border RuntimePluginBlock(
+        MewooRuntimePluginStatus status,
+        MewooPluginCatalogEntry entry,
+        StackPanel panel,
+        IWorkbenchService workbench)
     {
         var descriptor = status.Descriptor;
         var manifest = descriptor.Manifest;
@@ -227,7 +252,9 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
                 .Spacing(4)
                 .Children(
                     new TextBlock().Text($"{manifest.DisplayName} ({manifest.Id})").SemiBold(),
-                    new TextBlock().Text($"Version: {manifest.Version}").FontSize(12),
+                    new TextBlock().Text($"Catalog State: {entry.StateLabel}").FontSize(12),
+                    new TextBlock().Text($"Package Version: {entry.Version ?? "Unknown"}").FontSize(12),
+                    new TextBlock().Text($"Publisher: {FormatPublisher(entry)}").FontSize(12),
                     new TextBlock().Text($"Manifest: {descriptor.ManifestPath}").FontSize(12),
                     new TextBlock().Text($"Assembly: {descriptor.AssemblyPath}").FontSize(12),
                     new TextBlock().Text($"State: {status.State}").FontSize(12),
@@ -236,19 +263,20 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
                     actions));
     }
 
-    private static Border RuntimeDiscoveryIssueBlock(MewooRuntimePluginIssue issue)
+    private static Border RuntimeDiscoveryIssueBlock(MewooPluginCatalogEntry entry)
     {
         var panel = new StackPanel { Orientation = Orientation.Vertical }
             .Spacing(4)
             .Children(
-                new TextBlock().Text("Runtime plugin discovery issue").SemiBold(),
-                new TextBlock().Text($"Category: {issue.Category}").FontSize(12),
-                new TextBlock().Text($"Message: {issue.ShortMessage}").FontSize(12),
-                new TextBlock().Text($"Manifest: {issue.ManifestPath}").FontSize(12));
+                new TextBlock().Text(entry.DisplayName).SemiBold(),
+                new TextBlock().Text($"Catalog State: {entry.StateLabel}").FontSize(12),
+                new TextBlock().Text($"Category: {entry.CategoryLabel}").FontSize(12),
+                new TextBlock().Text($"Message: {entry.Message}").FontSize(12),
+                new TextBlock().Text($"Manifest: {entry.ManifestPath}").FontSize(12));
 
-        if (!string.IsNullOrWhiteSpace(issue.AssemblyPath))
+        if (!string.IsNullOrWhiteSpace(entry.AssemblyPath))
         {
-            panel.Children(new TextBlock().Text($"Assembly: {issue.AssemblyPath}").FontSize(12));
+            panel.Children(new TextBlock().Text($"Assembly: {entry.AssemblyPath}").FontSize(12));
         }
 
         return new Border()
@@ -265,6 +293,12 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
 
     private void LogOperationResult(string operation, MewooPluginOperationResult result)
     {
+        _operationResults.Insert(0, MewooPluginCatalogDisplay.CreateOperation(operation, result, DateTimeOffset.Now));
+        if (_operationResults.Count > 25)
+        {
+            _operationResults.RemoveRange(25, _operationResults.Count - 25);
+        }
+
         if (result.Success)
         {
             _logger.Info(
@@ -276,6 +310,16 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
         _logger.Error(
             "RuntimePlugin.PackageOperation",
             $"{operation} failed for plugin '{result.PluginId ?? "unknown"}': {result.Issue?.ShortMessage ?? "Unknown error"}");
+    }
+
+    private static string FormatPublisher(MewooPluginCatalogEntry entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry.PublisherDisplayName) && !string.IsNullOrWhiteSpace(entry.Publisher))
+        {
+            return $"{entry.PublisherDisplayName} ({entry.Publisher})";
+        }
+
+        return entry.PublisherDisplayName ?? entry.Publisher ?? "Not declared";
     }
 
     private sealed record RuntimePluginContext(
