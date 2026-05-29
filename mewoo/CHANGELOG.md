@@ -1,0 +1,25 @@
+# Changelog
+
+All notable changes to Mewoo are recorded here.
+
+## 0.5.0 - 2026-05-29
+
+### Features
+
+- Added Activity Workspace scoping so Activity switches now isolate Sidebar, MainArea tabs, Panel state, and Activity-scoped StatusBar items.
+- Added per-Activity MainArea tab stacks and made MainView commands switch to their owning Activity Workspace.
+- Added per-Activity Panel visibility, height, active panel tab, and Logs panel opening behavior.
+- Added Activity-scoped StatusBar rendering with explicit global StatusBar items.
+- Completed the V5 Activity Workspace road test coverage.
+
+### Tests
+
+- Added focused tests for Activity Workspace scope inference, per-Activity MainArea tabs, Panel scope, StatusBar scope, and V5 road test behavior.
+- Verified the full solution with `dotnet build Mewoo.slnx --no-restore --verbosity minimal` and `dotnet test Mewoo.slnx --no-restore --verbosity minimal`.
+
+## Historical Baselines
+
+- `0.4.0` / V4: Local Plugin Manager product surface, local package install/update flows, broken install cleanup, author workflow, and V4 baseline readiness.
+- `0.3.0` / V3: Local plugin package format, installer, uninstall/update operations, catalog metadata, trust declarations, and isolation exploration.
+- `0.2.0` / V2: Runtime plugin manifest discovery, runtime assembly loading, lifecycle operations, diagnostics, compatibility handling, and authoring guide.
+- `0.1.0` / V1: Runnable shell skeleton, compiled plugin contribution model, workbench layout, command execution, theme switching, persistence, Quick Launcher, logs, and plugin failure feedback.
