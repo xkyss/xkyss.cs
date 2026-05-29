@@ -104,9 +104,15 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             throw new KeyNotFoundException($"Main view id '{mainViewId}' is not registered.");
         }
 
+        var activityId = ResolveMainViewActivity(descriptor);
+        if (!string.Equals(_state.ActiveActivityId, activityId, StringComparison.Ordinal))
+        {
+            SelectActivityById(activityId);
+        }
+
         if (!_state.OpenMainViewIds.Contains(mainViewId, StringComparer.Ordinal) || descriptor.CanOpenMultiple)
         {
-            AddMainTab(descriptor);
+            AddMainTab(descriptor, activityId);
             _mainTabs.SelectLast();
         }
         else
@@ -116,7 +122,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         }
 
         Title = $"Mewoo - {descriptor.Title}";
-        _state.OpenMainView(mainViewId);
+        _state.OpenMainView(mainViewId, activityId);
         await ValueTask.CompletedTask;
     }
 
@@ -149,24 +155,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             _state.Restore(snapshot, ClientSize.Height);
             ApplyState();
             RenderContributions();
-
-            foreach (var mainViewId in snapshot.OpenMainViewIds)
-            {
-                if (string.Equals(mainViewId, snapshot.ActiveMainViewId, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                if (_mainViews.ContainsKey(mainViewId))
-                {
-                    await OpenMainViewAsync(mainViewId, cancellationToken);
-                }
-            }
-
-            if (snapshot.ActiveMainViewId is not null && _mainViews.ContainsKey(snapshot.ActiveMainViewId))
-            {
-                await OpenMainViewAsync(snapshot.ActiveMainViewId, cancellationToken);
-            }
+            await ValueTask.CompletedTask;
         }
         finally
         {
@@ -277,21 +266,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             _mainViews[mainView.Id] = mainView;
         }
 
-        foreach (var openMainViewId in _state.OpenMainViewIds.ToArray())
-        {
-            if (!_mainViews.ContainsKey(openMainViewId))
-            {
-                _state.RemoveMainView(openMainViewId);
-            }
-        }
-
-        foreach (var openMainViewId in _state.OpenMainViewIds)
-        {
-            if (_mainViews.TryGetValue(openMainViewId, out var descriptor))
-            {
-                AddMainTab(descriptor);
-            }
-        }
+        _state.RemoveMainViewsExcept(_mainViews.Keys.ToHashSet(StringComparer.Ordinal));
 
         foreach (var activity in _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id))
         {
@@ -397,7 +372,20 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
         _sidebarHost.Child = views;
         _state.SetActiveActivity(activity.Id);
+        RenderMainTabsForActiveActivity();
         RenderActivityBar();
+    }
+
+    private void SelectActivityById(string activityId)
+    {
+        var activity = _pluginHost.VisibleContributions.Activities.FirstOrDefault(x =>
+            string.Equals(x.Id, activityId, StringComparison.Ordinal));
+        if (activity is null)
+        {
+            throw new InvalidOperationException($"Activity '{activityId}' is not registered.");
+        }
+
+        SelectActivity(activity);
     }
 
     private FrameworkElement HostView(IMewooView view)
@@ -407,13 +395,62 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             : UnsupportedViewBlock(view);
     }
 
-    private void AddMainTab(MainViewDescriptor descriptor)
+    private void RenderMainTabsForActiveActivity()
+    {
+        _mainTabs.Clear();
+        foreach (var openMainViewId in _state.OpenMainViewIds)
+        {
+            if (_mainViews.TryGetValue(openMainViewId, out var descriptor))
+            {
+                AddMainTab(descriptor, _state.ActiveActivityId);
+            }
+        }
+
+        if (_state.ActiveMainViewId is null)
+        {
+            return;
+        }
+
+        var activeIndex = _state.OpenMainViewIds.ToList().FindIndex(id =>
+            string.Equals(id, _state.ActiveMainViewId, StringComparison.Ordinal));
+        if (activeIndex >= 0)
+        {
+            _mainTabs.Select(activeIndex);
+        }
+    }
+
+    private void AddMainTab(MainViewDescriptor descriptor, string? activityId)
     {
         _mainTabs.AddTab(
             descriptor.Title,
             HostView(descriptor.CreateView(new WorkbenchViewContext(descriptor.OwnerPluginId, _services, this))),
             closable: true,
-            onClose: () => _state.RemoveMainView(descriptor.Id));
+            onClose: () => _state.RemoveMainView(descriptor.Id, activityId));
+    }
+
+    private string ResolveMainViewActivity(MainViewDescriptor descriptor)
+    {
+        if (!descriptor.IsGlobal)
+        {
+            if (descriptor.ActivityScopeId is null)
+            {
+                throw new InvalidOperationException($"Main view '{descriptor.Id}' does not have an Activity scope.");
+            }
+
+            return descriptor.ActivityScopeId;
+        }
+
+        var activeActivityId = _state.ActiveActivityId;
+        if (activeActivityId is not null)
+        {
+            return activeActivityId;
+        }
+
+        return _pluginHost.VisibleContributions.Activities
+            .OrderBy(x => x.Order)
+            .ThenBy(x => x.Id)
+            .FirstOrDefault()?.Id
+            ?? throw new InvalidOperationException($"Global main view '{descriptor.Id}' requires at least one Activity.");
     }
 
     private static TextBlock MenuText(string text) => new TextBlock()

@@ -37,7 +37,7 @@ Application
                 plugin => new PluginContext(plugin.Id, services, window));
             var snapshot = await stateStorage.ReadJsonAsync<WorkbenchStateSnapshot>("workbench");
             await window.RestoreStateAsync(snapshot);
-            if ((snapshot is null || snapshot.OpenMainViewIds.Count == 0)
+            if ((snapshot is null || !HasOpenMainViews(snapshot))
                 && pluginHost.Commands.Contains("quickLauncher.open"))
             {
                 await pluginHost.Commands.ExecuteAsync(
@@ -88,6 +88,10 @@ static void Startup(InMemoryMewooLogger logger)
         e.Handled = true;
     };
 }
+
+static bool HasOpenMainViews(WorkbenchStateSnapshot snapshot) =>
+    snapshot.ActivityMainViews?.Any(activity => activity.OpenMainViewIds.Count > 0) == true
+    || snapshot.OpenMainViewIds.Count > 0;
 
 internal sealed class EmptyServiceProvider : IServiceProvider
 {

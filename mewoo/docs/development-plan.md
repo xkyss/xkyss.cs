@@ -127,7 +127,7 @@ Goal: align authoring tools with Plugin Manager and freeze a stable V4 baseline.
 Goal: make Activity switching change the full Activity Workspace instead of only the Sidebar.
 
 - [x] [Issue 046: Activity Workspace Scope Model](issues/046-v5-activity-workspace-scope-model.md)
-- [ ] [Issue 047: MainArea Per-Activity Tabs](issues/047-v5-mainarea-per-activity-tabs.md)
+- [x] [Issue 047: MainArea Per-Activity Tabs](issues/047-v5-mainarea-per-activity-tabs.md)
 - [ ] [Issue 048: Panel and Logs Activity Scope](issues/048-v5-panel-and-logs-activity-scope.md)
 - [ ] [Issue 049: StatusBar Activity and Global Scope](issues/049-v5-statusbar-activity-and-global-scope.md)
 - [ ] [Issue 050: Activity Workspace Road Test](issues/050-v5-activity-workspace-road-test.md)

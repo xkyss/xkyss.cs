@@ -12,7 +12,7 @@ public sealed class WorkbenchState
 
     private double _sidebarWidth = SidebarDefaultWidth;
     private double _panelHeight = 260;
-    private readonly List<string> _openMainViewIds = [];
+    private readonly Dictionary<string, ActivityMainViewState> _mainViewsByActivity = new(StringComparer.Ordinal);
 
     public event Action? Changed;
 
@@ -24,7 +24,12 @@ public sealed class WorkbenchState
 
     public string? ActiveMainViewId { get; private set; }
 
-    public IReadOnlyList<string> OpenMainViewIds => _openMainViewIds;
+    public IReadOnlyList<string> OpenMainViewIds =>
+        ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var state)
+            ? state.OpenMainViewIds
+            : [];
+
+    public IReadOnlyDictionary<string, ActivityMainViewState> ActivityMainViews => _mainViewsByActivity;
 
     public double SidebarWidth
     {
@@ -100,36 +105,103 @@ public sealed class WorkbenchState
         }
 
         ActiveActivityId = activityId;
+        ActiveMainViewId = activityId is not null && _mainViewsByActivity.TryGetValue(activityId, out var state)
+            ? state.ActiveMainViewId
+            : null;
         Changed?.Invoke();
     }
 
-    public void OpenMainView(string mainViewId)
+    public void OpenMainView(string mainViewId, string activityId)
     {
-        if (!_openMainViewIds.Any(id => string.Equals(id, mainViewId, StringComparison.Ordinal)))
+        if (string.IsNullOrWhiteSpace(activityId))
         {
-            _openMainViewIds.Add(mainViewId);
+            throw new ArgumentException("Activity id is required.", nameof(activityId));
         }
 
-        if (ActiveMainViewId != mainViewId)
+        var state = GetOrCreateMainViewState(activityId);
+        if (!state.OpenMainViewIds.Any(id => string.Equals(id, mainViewId, StringComparison.Ordinal)))
         {
-            ActiveMainViewId = mainViewId;
+            state.MutableOpenMainViewIds.Add(mainViewId);
         }
 
+        if (state.ActiveMainViewId != mainViewId)
+        {
+            state.ActiveMainViewId = mainViewId;
+        }
+
+        ActiveActivityId = activityId;
+        ActiveMainViewId = state.ActiveMainViewId;
         Changed?.Invoke();
     }
 
-    public void RemoveMainView(string mainViewId)
+    public void RemoveMainView(string mainViewId, string? activityId = null)
     {
-        if (!_openMainViewIds.Remove(mainViewId))
+        var changed = false;
+        if (activityId is not null)
+        {
+            changed = RemoveMainViewFromActivity(mainViewId, activityId);
+        }
+        else
+        {
+            foreach (var key in _mainViewsByActivity.Keys.ToArray())
+            {
+                changed = RemoveMainViewFromActivity(mainViewId, key) || changed;
+            }
+        }
+
+        if (!changed)
         {
             return;
         }
 
-        if (ActiveMainViewId == mainViewId)
+        if (ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var activeState))
         {
-            ActiveMainViewId = _openMainViewIds.LastOrDefault();
+            ActiveMainViewId = activeState.ActiveMainViewId;
+        }
+        else
+        {
+            ActiveMainViewId = null;
         }
 
+        Changed?.Invoke();
+    }
+
+    public void RemoveMainViewsExcept(IReadOnlySet<string> availableMainViewIds)
+    {
+        var changed = false;
+        foreach (var (activityId, state) in _mainViewsByActivity.ToArray())
+        {
+            for (var index = state.OpenMainViewIds.Count - 1; index >= 0; index--)
+            {
+                if (availableMainViewIds.Contains(state.OpenMainViewIds[index]))
+                {
+                    continue;
+                }
+
+                state.MutableOpenMainViewIds.RemoveAt(index);
+                changed = true;
+            }
+
+            if (state.ActiveMainViewId is not null && !availableMainViewIds.Contains(state.ActiveMainViewId))
+            {
+                state.ActiveMainViewId = state.OpenMainViewIds.LastOrDefault();
+                changed = true;
+            }
+
+            if (state.OpenMainViewIds.Count == 0)
+            {
+                _mainViewsByActivity.Remove(activityId);
+            }
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        ActiveMainViewId = ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var activeState)
+            ? activeState.ActiveMainViewId
+            : null;
         Changed?.Invoke();
     }
 
@@ -142,9 +214,15 @@ public sealed class WorkbenchState
             PanelHeight,
             ActiveActivityId,
             ActiveMainViewId,
-            _openMainViewIds.ToArray(),
+            OpenMainViewIds.ToArray(),
             themeId,
-            isAlwaysOnTop);
+            isAlwaysOnTop,
+            _mainViewsByActivity
+                .Select(pair => new ActivityMainViewStateSnapshot(
+                    pair.Key,
+                    pair.Value.ActiveMainViewId,
+                    pair.Value.OpenMainViewIds.ToArray()))
+                .ToArray());
     }
 
     public void Restore(WorkbenchStateSnapshot snapshot, double windowHeight)
@@ -154,10 +232,68 @@ public sealed class WorkbenchState
         PanelVisible = snapshot.PanelVisible;
         PanelHeight = Math.Clamp(snapshot.PanelHeight, PanelMinHeight, Math.Max(PanelMinHeight, windowHeight * 0.5));
         ActiveActivityId = snapshot.ActiveActivityId;
-        ActiveMainViewId = snapshot.ActiveMainViewId;
-        _openMainViewIds.Clear();
-        _openMainViewIds.AddRange(snapshot.OpenMainViewIds.Distinct(StringComparer.Ordinal));
+        _mainViewsByActivity.Clear();
+        if (snapshot.ActivityMainViews is { Count: > 0 })
+        {
+            foreach (var activityState in snapshot.ActivityMainViews)
+            {
+                if (string.IsNullOrWhiteSpace(activityState.ActivityId))
+                {
+                    continue;
+                }
+
+                var state = GetOrCreateMainViewState(activityState.ActivityId);
+                state.MutableOpenMainViewIds.AddRange(activityState.OpenMainViewIds.Distinct(StringComparer.Ordinal));
+                state.ActiveMainViewId = state.OpenMainViewIds.Contains(activityState.ActiveMainViewId, StringComparer.Ordinal)
+                    ? activityState.ActiveMainViewId
+                    : state.OpenMainViewIds.LastOrDefault();
+            }
+        }
+        else if (snapshot.ActiveActivityId is not null)
+        {
+            var state = GetOrCreateMainViewState(snapshot.ActiveActivityId);
+            state.MutableOpenMainViewIds.AddRange(snapshot.OpenMainViewIds.Distinct(StringComparer.Ordinal));
+            state.ActiveMainViewId = state.OpenMainViewIds.Contains(snapshot.ActiveMainViewId, StringComparer.Ordinal)
+                ? snapshot.ActiveMainViewId
+                : state.OpenMainViewIds.LastOrDefault();
+        }
+
+        ActiveMainViewId = ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var activeState)
+            ? activeState.ActiveMainViewId
+            : null;
         Changed?.Invoke();
+    }
+
+    private ActivityMainViewState GetOrCreateMainViewState(string activityId)
+    {
+        if (!_mainViewsByActivity.TryGetValue(activityId, out var state))
+        {
+            state = new ActivityMainViewState();
+            _mainViewsByActivity[activityId] = state;
+        }
+
+        return state;
+    }
+
+    private bool RemoveMainViewFromActivity(string mainViewId, string activityId)
+    {
+        if (!_mainViewsByActivity.TryGetValue(activityId, out var state)
+            || !state.MutableOpenMainViewIds.Remove(mainViewId))
+        {
+            return false;
+        }
+
+        if (state.ActiveMainViewId == mainViewId)
+        {
+            state.ActiveMainViewId = state.OpenMainViewIds.LastOrDefault();
+        }
+
+        if (state.OpenMainViewIds.Count == 0)
+        {
+            _mainViewsByActivity.Remove(activityId);
+        }
+
+        return true;
     }
 
     private static double GetSidebarMaxWidth(double windowWidth)
@@ -170,4 +306,15 @@ public sealed class WorkbenchState
         var maxByMainArea = windowWidth - ActivityBarWidth - MainAreaMinWidth;
         return Math.Clamp(maxByMainArea, SidebarMinWidth, SidebarMaxWidth);
     }
+}
+
+public sealed class ActivityMainViewState
+{
+    private readonly List<string> _openMainViewIds = [];
+
+    public string? ActiveMainViewId { get; internal set; }
+
+    public IReadOnlyList<string> OpenMainViewIds => _openMainViewIds;
+
+    internal List<string> MutableOpenMainViewIds => _openMainViewIds;
 }
