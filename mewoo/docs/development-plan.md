@@ -118,5 +118,5 @@ Goal: make install, update, broken install cleanup, and operation feedback usabl
 
 Goal: align authoring tools with Plugin Manager and freeze a stable V4 baseline.
 
-- [ ] [Issue 044: Author Workflow and V4 Road Test](issues/044-v4-author-workflow-and-road-test.md)
+- [x] [Issue 044: Author Workflow and V4 Road Test](issues/044-v4-author-workflow-and-road-test.md)
 - [ ] [Issue 045: Tag V4 Baseline](issues/045-v4-baseline.md)

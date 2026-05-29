@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text.Json;
 using Mewoo.Abstractions.Plugins;
 using Mewoo.Core.Plugins;
@@ -26,6 +27,15 @@ static async Task<int> PackageAsync(PackageOptions options)
         ? GetDefaultPluginRoot()
         : Path.GetFullPath(options.OutputRoot);
     var packageDirectory = Path.Combine(packageRoot, options.PluginId);
+    if (options.PackageFile is not null
+        && !string.Equals(
+            Path.GetExtension(options.PackageFile),
+            MewooPluginPackageFormat.Extension,
+            StringComparison.OrdinalIgnoreCase))
+    {
+        Console.Error.WriteLine($"Package file extension must be '{MewooPluginPackageFormat.Extension}'.");
+        return 1;
+    }
 
     if (Directory.Exists(packageDirectory))
     {
@@ -43,6 +53,12 @@ static async Task<int> PackageAsync(PackageOptions options)
     RemoveHostSharedAssemblies(packageDirectory);
     WriteManifest(options, projectPath, packageDirectory);
     Console.WriteLine($"Packaged runtime plugin '{options.PluginId}' to {packageDirectory}");
+    if (options.PackageFile is not null)
+    {
+        CreatePackageFile(packageDirectory, options.PackageFile);
+        Console.WriteLine($"Wrote plugin package '{Path.GetFullPath(options.PackageFile)}'");
+    }
+
     return 0;
 }
 
@@ -90,6 +106,17 @@ static void RemoveHostSharedAssemblies(string packageDirectory)
 static void WriteManifest(PackageOptions options, string projectPath, string packageDirectory)
 {
     var assemblyName = Path.GetFileNameWithoutExtension(projectPath) + ".dll";
+    var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
+    if (!string.IsNullOrWhiteSpace(options.Publisher))
+    {
+        metadata[MewooPluginPackageFormat.PublisherMetadataKey] = options.Publisher;
+    }
+
+    if (!string.IsNullOrWhiteSpace(options.PublisherDisplayName))
+    {
+        metadata[MewooPluginPackageFormat.PublisherDisplayNameMetadataKey] = options.PublisherDisplayName;
+    }
+
     var manifest = new MewooPluginManifest
     {
         Id = options.PluginId,
@@ -99,6 +126,21 @@ static void WriteManifest(PackageOptions options, string projectPath, string pac
         EntryPoint = options.EntryPoint,
         MinimumMewooVersion = options.MinimumMewooVersion,
         Disabled = false,
+        Trust = options.TrustedLocalCode.HasValue || !string.IsNullOrWhiteSpace(options.TrustReason)
+            ? new MewooPluginTrustDeclaration
+            {
+                TrustedLocalCode = options.TrustedLocalCode == true,
+                Reason = options.TrustReason,
+            }
+            : null,
+        Permissions = options.Permissions
+            .Select(permission => new MewooPluginPermissionDeclaration
+            {
+                Kind = permission,
+                Reason = options.PermissionReason,
+            })
+            .ToArray(),
+        Metadata = metadata,
     };
 
     var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web)
@@ -106,6 +148,22 @@ static void WriteManifest(PackageOptions options, string projectPath, string pac
         WriteIndented = true,
     });
     File.WriteAllText(Path.Combine(packageDirectory, MewooRuntimePluginCatalog.ManifestFileName), json);
+}
+
+static void CreatePackageFile(string packageDirectory, string packageFile)
+{
+    var fullPackageFile = Path.GetFullPath(packageFile);
+    Directory.CreateDirectory(Path.GetDirectoryName(fullPackageFile)!);
+    if (File.Exists(fullPackageFile))
+    {
+        File.Delete(fullPackageFile);
+    }
+
+    ZipFile.CreateFromDirectory(
+        packageDirectory,
+        fullPackageFile,
+        CompressionLevel.Optimal,
+        includeBaseDirectory: false);
 }
 
 static string GetDefaultPluginRoot()
@@ -122,7 +180,14 @@ internal sealed record PackageOptions(
     string EntryPoint,
     string Configuration,
     string? OutputRoot,
-    string? MinimumMewooVersion)
+    string? PackageFile,
+    string? MinimumMewooVersion,
+    string? Publisher,
+    string? PublisherDisplayName,
+    bool? TrustedLocalCode,
+    string? TrustReason,
+    IReadOnlyList<string> Permissions,
+    string? PermissionReason)
 {
     public static PackageOptions? Parse(string[] args)
     {
@@ -156,14 +221,21 @@ internal sealed record PackageOptions(
                     entryPoint,
                     values.GetValueOrDefault("configuration", "Release"),
                     values.GetValueOrDefault("output-root"),
-                    values.GetValueOrDefault("minimum-mewoo-version"))
+                    values.GetValueOrDefault("package-file"),
+                    values.GetValueOrDefault("minimum-mewoo-version"),
+                    values.GetValueOrDefault("publisher"),
+                    values.GetValueOrDefault("publisher-display-name"),
+                    ParseOptionalBool(values.GetValueOrDefault("trusted-local-code")),
+                    values.GetValueOrDefault("trust-reason"),
+                    ParsePermissions(values.GetValueOrDefault("permissions")),
+                    values.GetValueOrDefault("permission-reason"))
                 : null;
     }
 
     public static void PrintUsage()
     {
         Console.WriteLine("Usage:");
-        Console.WriteLine("  dotnet run --project tools/Mewoo.PluginPackager -- --project <plugin.csproj> --id <pluginId> --display-name <name> --version <version> --entry-point <type> [--output-root <dir>] [--configuration Release] [--minimum-mewoo-version 1.0.0]");
+        Console.WriteLine("  dotnet run --project tools/Mewoo.PluginPackager -- --project <plugin.csproj> --id <pluginId> --display-name <name> --version <version> --entry-point <type> [--output-root <dir>] [--package-file <plugin.mewoo-plugin>] [--configuration Release] [--minimum-mewoo-version 1.0.0] [--publisher <id>] [--publisher-display-name <name>] [--trusted-local-code true] [--trust-reason <text>] [--permissions filesystem,network] [--permission-reason <text>]");
     }
 
     private static string? Required(IReadOnlyDictionary<string, string> values, string key)
@@ -172,4 +244,19 @@ internal sealed record PackageOptions(
             ? value
             : null;
     }
+
+    private static bool? ParseOptionalBool(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return bool.TryParse(value, out var parsed) ? parsed : null;
+    }
+
+    private static IReadOnlyList<string> ParsePermissions(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
