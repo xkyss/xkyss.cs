@@ -79,6 +79,99 @@ public sealed class MewooPluginInstallFlowTests
         Assert.AreEqual("Package is invalid.", failure.Message);
     }
 
+    [TestMethod]
+    public void UpdatePreviewRejectsPackageIdMismatch()
+    {
+        using var directory = TestInstallFlowDirectory.Create();
+        var packagePath = directory.WritePackage(
+            """
+            {
+              "id": "xkyss.otherPlugin",
+              "displayName": "Other Plugin",
+              "version": "2.0.0",
+              "assembly": "OtherPlugin.dll",
+              "entryPoint": "Xkyss.OtherPlugin.Plugin"
+            }
+            """,
+            ("OtherPlugin.dll", "plugin bytes"));
+
+        var preview = new MewooPluginUpdatePreviewer().Preview(
+            packagePath,
+            InstalledEntry(pluginId: "xkyss.installedPlugin", version: "1.0.0"));
+
+        Assert.IsFalse(preview.Success);
+        Assert.IsFalse(preview.PluginIdMatches);
+        Assert.AreEqual("xkyss.installedPlugin", preview.InstalledPluginId);
+        Assert.AreEqual("xkyss.otherPlugin", preview.PackagePluginId);
+        StringAssert.Contains(preview.Message, "does not match");
+    }
+
+    [TestMethod]
+    public void UpdatePreviewShowsCurrentVersionPackageVersionPublisherTrustAndPermissions()
+    {
+        using var directory = TestInstallFlowDirectory.Create();
+        var packagePath = directory.WritePackage(
+            """
+            {
+              "id": "xkyss.previewPlugin",
+              "displayName": "Preview Plugin",
+              "version": "1.2.0",
+              "assembly": "PreviewPlugin.dll",
+              "entryPoint": "Xkyss.PreviewPlugin.Plugin",
+              "trust": {
+                "trustedLocalCode": true
+              },
+              "permissions": [
+                {
+                  "kind": "filesystem",
+                  "reason": "Reads local notes."
+                }
+              ],
+              "metadata": {
+                "publisher": "xkyss",
+                "publisherDisplayName": "xkyss labs"
+              }
+            }
+            """,
+            ("PreviewPlugin.dll", "plugin bytes"));
+
+        var preview = new MewooPluginUpdatePreviewer().Preview(
+            packagePath,
+            InstalledEntry(pluginId: "xkyss.previewPlugin", version: "1.0.0"));
+
+        Assert.IsTrue(preview.Success);
+        Assert.IsTrue(preview.PluginIdMatches);
+        Assert.AreEqual("1.0.0", preview.CurrentVersion);
+        Assert.AreEqual("1.2.0", preview.PackageVersion);
+        Assert.AreEqual("Newer version", preview.VersionComparisonLabel);
+        Assert.AreEqual("xkyss", preview.Publisher);
+        Assert.AreEqual("xkyss labs", preview.PublisherDisplayName);
+        Assert.AreEqual("Trusted local code declared", preview.TrustLabel);
+        CollectionAssert.AreEqual(new[] { "Filesystem" }, preview.PermissionLabels.ToArray());
+        Assert.AreEqual(MewooPluginTrustDiagnostics.LocalCodeTrustWarning, preview.TrustWarning);
+    }
+
+    [TestMethod]
+    public void CreateResultSummaryMapsUpdateSuccessAndFailure()
+    {
+        var success = MewooPluginUpdateFlowDisplay.CreateResultSummary(
+            MewooPluginOperationResult.Succeeded("xkyss.previewPlugin", "plugins/xkyss.previewPlugin"));
+        var failure = MewooPluginUpdateFlowDisplay.CreateResultSummary(
+            MewooPluginOperationResult.Failed(
+                "xkyss.previewPlugin",
+                new MewooRuntimePluginIssue(
+                    MewooRuntimePluginIssueCategory.Package,
+                    "Package update failed.",
+                    "bad.mewoo-plugin"),
+                "plugins/xkyss.previewPlugin"));
+
+        Assert.IsTrue(success.Success);
+        Assert.AreEqual("Updated plugin 'xkyss.previewPlugin'.", success.Message);
+        Assert.IsFalse(failure.Success);
+        StringAssert.Contains(failure.Message, "Package update failed.");
+        StringAssert.Contains(failure.Message, "Previous installed package was preserved when possible.");
+    }
+
     private sealed class TestInstallFlowDirectory : IDisposable
     {
         private TestInstallFlowDirectory(string root)
@@ -137,4 +230,19 @@ public sealed class MewooPluginInstallFlowTests
             writer.Write(contents);
         }
     }
+
+    private static MewooPluginManagerCatalogEntry InstalledEntry(string pluginId, string version) =>
+        new(
+            pluginId,
+            "Installed Plugin",
+            version,
+            "xkyss",
+            "xkyss labs",
+            "Trusted local code declared",
+            "No permissions declared; treat as full local code access.",
+            [],
+            MewooPluginManagerCatalogState.Enabled,
+            "Enabled",
+            "Plugin is installed and enabled.",
+            Path.Combine(Path.GetTempPath(), pluginId));
 }
