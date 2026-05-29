@@ -47,6 +47,22 @@ The first tracer bullet is a Quick Launcher plugin.
 
 The active Activity Bar selection is an `ActivityId`, not a `PluginId`.
 
+An `Activity Workspace` is the workbench scope owned by the active Activity. It includes the Activity-scoped Sidebar, MainArea, Panel, and StatusBar content.
+
+The ActivityBar, TitleBar, theme, window state, global commands, and plugin lifecycle remain global shell concerns outside an Activity Workspace.
+
+MainArea tabs are scoped to an Activity Workspace. Switching Activity restores that Activity's own open MainArea tabs and active MainArea tab instead of sharing one global tab stack.
+
+Panel visibility, height, active panel tab, and activity-scoped panel tabs belong to the current Activity Workspace. Global panel content such as Logs may be opened from any Activity Workspace, but the global content does not make Panel visibility global.
+
+StatusBar is rendered for the current Activity Workspace. StatusBar contributions are Activity-scoped by default and may explicitly opt into global scope for shell-level or cross-Activity state.
+
+MainArea views have an owning Activity Workspace. Opening a MainArea view should switch to its owning Activity Workspace rather than opening foreign content inside the current Activity Workspace. Ownership may be inferred from the owner plugin's Activity until an explicit API exists.
+
+Plugin ownership and Activity Workspace ownership are separate. `OwnerPluginId` describes lifecycle, permissions, unload, diagnostics, and contribution ownership. `ActivityScopeId` describes where a UI contribution appears and which Activity Workspace state it belongs to.
+
+Activity Workspace ownership is explicit when a contribution declares `ActivityScopeId`. Without an explicit Activity scope, ownership is inferred from `ActivityBarItem -> ViewContainer`, then from a single Activity contributed by the same plugin. Multi-Activity plugins must declare or provide enough structure to infer Activity scope. Global contributions must opt into global scope explicitly.
+
 Activity Bar contributions use this shape:
 
 ```text

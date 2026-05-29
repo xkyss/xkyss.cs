@@ -7,7 +7,8 @@ This document is the local issue index for Mewoo. Detailed per-slice issue docum
 - V1 baseline tag: `v1-baseline`
 - Planned V2 baseline tag: `v2-baseline`
 - Planned V3 baseline tag: `v3-baseline`
-- Planned V4 baseline tag: `v4-baseline`
+- V4 baseline tag: `v4-baseline`
+- Planned V5 baseline tag: `v5-baseline`
 
 ## Milestones
 
@@ -120,3 +121,13 @@ Goal: align authoring tools with Plugin Manager and freeze a stable V4 baseline.
 
 - [x] [Issue 044: Author Workflow and V4 Road Test](issues/044-v4-author-workflow-and-road-test.md)
 - [x] [Issue 045: Tag V4 Baseline](issues/045-v4-baseline.md)
+
+### Milestone 14: V5 Activity Workspace Scoping
+
+Goal: make Activity switching change the full Activity Workspace instead of only the Sidebar.
+
+- [ ] [Issue 046: Activity Workspace Scope Model](issues/046-v5-activity-workspace-scope-model.md)
+- [ ] [Issue 047: MainArea Per-Activity Tabs](issues/047-v5-mainarea-per-activity-tabs.md)
+- [ ] [Issue 048: Panel and Logs Activity Scope](issues/048-v5-panel-and-logs-activity-scope.md)
+- [ ] [Issue 049: StatusBar Activity and Global Scope](issues/049-v5-statusbar-activity-and-global-scope.md)
+- [ ] [Issue 050: Activity Workspace Road Test](issues/050-v5-activity-workspace-road-test.md)
