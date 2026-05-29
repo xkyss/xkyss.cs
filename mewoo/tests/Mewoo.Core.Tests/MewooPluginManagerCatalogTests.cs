@@ -79,6 +79,7 @@ public sealed class MewooPluginManagerCatalogTests
         using var directory = TestPluginManagerCatalogDirectory.Create();
         directory.CreateBrokenDirectory("missingManifest");
         directory.CreateInvalidManifestDirectory("invalidManifest");
+        directory.CreateInvalidIdDirectory("invalidId");
         directory.CreateMissingAssemblyDirectory("missingAssembly");
 
         var entries = new MewooPluginManagerCatalog().CreateEntries(
@@ -87,9 +88,11 @@ public sealed class MewooPluginManagerCatalogTests
             []);
 
         CollectionAssert.AreEqual(
-            new[] { "invalidManifest", "missingAssembly", "missingManifest" },
+            new[] { "invalidId", "invalidManifest", "missingAssembly", "missingManifest" },
             entries.Select(entry => entry.DisplayName).ToArray());
         Assert.IsTrue(entries.All(entry => entry.State == MewooPluginManagerCatalogState.Broken));
+        Assert.IsTrue(entries.All(entry => !string.IsNullOrWhiteSpace(entry.Message)));
+        Assert.IsTrue(entries.Any(entry => entry.Message.Contains("invalid plugin id", StringComparison.OrdinalIgnoreCase)));
         Assert.IsTrue(entries.Any(entry => entry.Message.Contains("manifest", StringComparison.OrdinalIgnoreCase)));
         Assert.IsTrue(entries.Any(entry => entry.Message.Contains("assembly", StringComparison.OrdinalIgnoreCase)));
     }
@@ -179,6 +182,23 @@ public sealed class MewooPluginManagerCatalogTests
             var directory = Path.Combine(PluginRoot, name);
             Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, MewooRuntimePluginCatalog.ManifestFileName), "{ bad json");
+        }
+
+        public void CreateInvalidIdDirectory(string name)
+        {
+            var directory = Path.Combine(PluginRoot, name);
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(
+                Path.Combine(directory, MewooRuntimePluginCatalog.ManifestFileName),
+                """
+                {
+                  "id": "bad id",
+                  "displayName": "Invalid Id",
+                  "version": "0.1.0",
+                  "assembly": "InvalidId.dll",
+                  "entryPoint": "Xkyss.Plugin"
+                }
+                """);
         }
 
         public void CreateMissingAssemblyDirectory(string name)

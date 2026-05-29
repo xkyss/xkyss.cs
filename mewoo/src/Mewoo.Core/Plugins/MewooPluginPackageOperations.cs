@@ -62,6 +62,68 @@ public sealed class MewooPluginPackageOperations
         }
     }
 
+    public async ValueTask<MewooPluginOperationResult> RemoveBrokenInstallAsync(
+        MewooPluginManagerCatalogEntry entry,
+        string pluginRoot,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(pluginRoot))
+        {
+            throw new ArgumentException("Plugin root is required.", nameof(pluginRoot));
+        }
+
+        var fullPluginRoot = Path.GetFullPath(pluginRoot);
+        var installPath = Path.GetFullPath(entry.PluginDirectory);
+        if (entry.State != MewooPluginManagerCatalogState.Broken)
+        {
+            return MewooPluginOperationResult.Failed(
+                entry.PluginId,
+                new MewooRuntimePluginIssue(
+                    MewooRuntimePluginIssueCategory.Package,
+                    "Only broken plugin installs can be removed with this operation.",
+                    installPath),
+                installPath);
+        }
+
+        if (!IsDirectoryInsidePluginRoot(installPath, fullPluginRoot))
+        {
+            return MewooPluginOperationResult.Failed(
+                entry.PluginId,
+                new MewooRuntimePluginIssue(
+                    MewooRuntimePluginIssueCategory.Package,
+                    "Broken plugin directory is outside the configured plugin root.",
+                    installPath),
+                installPath);
+        }
+
+        if (!Directory.Exists(installPath))
+        {
+            return MewooPluginOperationResult.Failed(
+                entry.PluginId,
+                new MewooRuntimePluginIssue(
+                    MewooRuntimePluginIssueCategory.Package,
+                    $"Broken plugin directory was not found: {installPath}",
+                    installPath),
+                installPath);
+        }
+
+        try
+        {
+            await DeleteDirectoryWithRetryAsync(installPath, cancellationToken);
+            return MewooPluginOperationResult.Succeeded(entry.PluginId ?? entry.DisplayName, installPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return MewooPluginOperationResult.Failed(
+                entry.PluginId,
+                new MewooRuntimePluginIssue(
+                    MewooRuntimePluginIssueCategory.Package,
+                    ex.Message,
+                    installPath),
+                installPath);
+        }
+    }
+
     public async ValueTask<MewooPluginOperationResult> UpdateAsync(
         string packagePath,
         string pluginRoot,
@@ -129,5 +191,16 @@ public sealed class MewooPluginPackageOperations
         }
 
         Directory.Delete(path, recursive: true);
+    }
+
+    private static bool IsDirectoryInsidePluginRoot(string directory, string pluginRoot)
+    {
+        var relativePath = Path.GetRelativePath(pluginRoot, directory);
+        return !string.IsNullOrWhiteSpace(relativePath)
+            && relativePath != "."
+            && relativePath != ".."
+            && !relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            && !relativePath.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal)
+            && !Path.IsPathRooted(relativePath);
     }
 }

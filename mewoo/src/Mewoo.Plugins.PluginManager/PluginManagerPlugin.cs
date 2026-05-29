@@ -472,12 +472,29 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             }));
         }
 
-        actions.Children(ActionButton("Update from File", async () =>
-        {
-            await ChooseUpdatePackageAsync(entry, workbench);
-        }));
-
         if (entry.PluginId is not null && entry.State != MewooPluginManagerCatalogState.Broken)
+        {
+            actions.Children(ActionButton("Update from File", async () =>
+            {
+                await ChooseUpdatePackageAsync(entry, workbench);
+            }));
+        }
+
+        if (entry.State == MewooPluginManagerCatalogState.Broken)
+        {
+            actions.Children(ActionButton("Remove Broken Install", async () =>
+            {
+                var result = await _packageOperations.RemoveBrokenInstallAsync(
+                    entry,
+                    _pluginRoot);
+                AddOperation(result.Success
+                    ? $"Removed broken install {entry.DisplayName}"
+                    : $"Remove broken install failed: {result.Issue?.ShortMessage ?? "Unknown error"}");
+                _selectedEntryKey = null;
+                RenderDetailsView(panel, workbench);
+            }));
+        }
+        else if (entry.PluginId is not null)
         {
             actions.Children(ActionButton("Uninstall", async () =>
             {

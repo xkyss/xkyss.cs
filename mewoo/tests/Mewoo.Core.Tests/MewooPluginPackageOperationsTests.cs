@@ -38,6 +38,39 @@ public sealed class MewooPluginPackageOperationsTests
     }
 
     [TestMethod]
+    public async Task RemoveBrokenInstallDeletesDirectoryInsidePluginRoot()
+    {
+        using var directory = TestPackageOperationsDirectory.Create();
+        var brokenDirectory = directory.CreateBrokenInstallDirectory("brokenInstall");
+        var entry = BrokenEntry(brokenDirectory, "Plugin manifest is missing.");
+
+        var result = await new MewooPluginPackageOperations().RemoveBrokenInstallAsync(
+            entry,
+            directory.PluginRoot);
+
+        Assert.IsTrue(result.Success, result.Issue?.ShortMessage);
+        Assert.IsFalse(Directory.Exists(brokenDirectory));
+    }
+
+    [TestMethod]
+    public async Task RemoveBrokenInstallRejectsDirectoryOutsidePluginRoot()
+    {
+        using var directory = TestPackageOperationsDirectory.Create();
+        var outsideDirectory = Path.Combine(directory.Root, "outside");
+        Directory.CreateDirectory(outsideDirectory);
+        var entry = BrokenEntry(outsideDirectory, "Plugin manifest is missing.");
+
+        var result = await new MewooPluginPackageOperations().RemoveBrokenInstallAsync(
+            entry,
+            directory.PluginRoot);
+
+        Assert.IsFalse(result.Success);
+        Assert.IsTrue(Directory.Exists(outsideDirectory));
+        Assert.IsNotNull(result.Issue);
+        StringAssert.Contains(result.Issue.ShortMessage, "outside");
+    }
+
+    [TestMethod]
     public async Task UpdateInstallsNewPackageVersion()
     {
         using var directory = TestPackageOperationsDirectory.Create();
@@ -124,6 +157,13 @@ public sealed class MewooPluginPackageOperationsTests
         {
             var root = Path.Combine(Path.GetTempPath(), "Mewoo.Core.Tests", Guid.NewGuid().ToString("N"));
             return new TestPackageOperationsDirectory(root);
+        }
+
+        public string CreateBrokenInstallDirectory(string name)
+        {
+            var directory = Path.Combine(PluginRoot, name);
+            Directory.CreateDirectory(directory);
+            return directory;
         }
 
         public string WriteRuntimePackage(
@@ -224,4 +264,19 @@ public sealed class MewooPluginPackageOperationsTests
         {
         }
     }
+
+    private static MewooPluginManagerCatalogEntry BrokenEntry(string pluginDirectory, string message) =>
+        new(
+            null,
+            Path.GetFileName(pluginDirectory),
+            null,
+            null,
+            null,
+            "Unknown local code",
+            "Permission declarations are unavailable because the plugin manifest could not be read.",
+            [],
+            MewooPluginManagerCatalogState.Broken,
+            "Broken",
+            message,
+            pluginDirectory);
 }
