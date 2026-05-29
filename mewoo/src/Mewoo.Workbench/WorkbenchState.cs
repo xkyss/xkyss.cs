@@ -2,6 +2,7 @@ namespace Mewoo.Workbench;
 
 public sealed class WorkbenchState
 {
+    public const string LogsPanelTabId = "workbench.logs";
     public const double ActivityBarWidth = 42;
     public const double MainAreaMinWidth = 560;
     public const double SidebarDefaultWidth = 220;
@@ -9,16 +10,18 @@ public sealed class WorkbenchState
     public const double SidebarMaxWidth = 420;
     public const double SidebarCollapseWidth = 96;
     public const double PanelMinHeight = 120;
+    public const double PanelDefaultHeight = 260;
 
     private double _sidebarWidth = SidebarDefaultWidth;
-    private double _panelHeight = 260;
     private readonly Dictionary<string, ActivityMainViewState> _mainViewsByActivity = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ActivityPanelState> _panelsByActivity = new(StringComparer.Ordinal);
+    private readonly ActivityPanelState _fallbackPanelState = new();
 
     public event Action? Changed;
 
     public bool SidebarCollapsed { get; private set; }
 
-    public bool PanelVisible { get; private set; }
+    public bool PanelVisible => CurrentPanelState.PanelVisible;
 
     public string? ActiveActivityId { get; private set; }
 
@@ -31,17 +34,19 @@ public sealed class WorkbenchState
 
     public IReadOnlyDictionary<string, ActivityMainViewState> ActivityMainViews => _mainViewsByActivity;
 
+    public string? ActivePanelTabId => CurrentPanelState.ActivePanelTabId;
+
+    public IReadOnlyList<string> OpenPanelTabIds => CurrentPanelState.OpenPanelTabIds;
+
+    public IReadOnlyDictionary<string, ActivityPanelState> ActivityPanels => _panelsByActivity;
+
     public double SidebarWidth
     {
         get => _sidebarWidth;
         private set => _sidebarWidth = Math.Clamp(value, SidebarMinWidth, SidebarMaxWidth);
     }
 
-    public double PanelHeight
-    {
-        get => _panelHeight;
-        private set => _panelHeight = Math.Max(PanelMinHeight, value);
-    }
+    public double PanelHeight => CurrentPanelState.PanelHeight;
 
     public void ToggleSidebar()
     {
@@ -51,7 +56,8 @@ public sealed class WorkbenchState
 
     public void TogglePanel()
     {
-        PanelVisible = !PanelVisible;
+        var state = GetActivePanelState();
+        state.PanelVisible = !state.PanelVisible;
         Changed?.Invoke();
     }
 
@@ -88,10 +94,64 @@ public sealed class WorkbenchState
 
     public void SetPanelHeight(double height, double windowHeight)
     {
-        var max = Math.Max(PanelMinHeight, windowHeight * 0.5);
-        var old = PanelHeight;
-        PanelHeight = Math.Clamp(height, PanelMinHeight, max);
-        if (Math.Abs(old - PanelHeight) > 0.1)
+        var state = GetActivePanelState();
+        var old = state.PanelHeight;
+        state.PanelHeight = ClampPanelHeight(height, windowHeight);
+        if (Math.Abs(old - state.PanelHeight) > 0.1)
+        {
+            Changed?.Invoke();
+        }
+    }
+
+    public void OpenPanelTab(string panelTabId)
+    {
+        if (string.IsNullOrWhiteSpace(panelTabId))
+        {
+            throw new ArgumentException("Panel tab id is required.", nameof(panelTabId));
+        }
+
+        var state = GetActivePanelState();
+        if (!state.OpenPanelTabIds.Any(id => string.Equals(id, panelTabId, StringComparison.Ordinal)))
+        {
+            state.MutableOpenPanelTabIds.Add(panelTabId);
+        }
+
+        state.ActivePanelTabId = panelTabId;
+        state.PanelVisible = true;
+        Changed?.Invoke();
+    }
+
+    public void RemovePanelTabsExcept(IReadOnlySet<string> availablePanelTabIds)
+    {
+        var changed = false;
+        foreach (var (activityId, state) in _panelsByActivity.ToArray())
+        {
+            for (var index = state.OpenPanelTabIds.Count - 1; index >= 0; index--)
+            {
+                if (availablePanelTabIds.Contains(state.OpenPanelTabIds[index]))
+                {
+                    continue;
+                }
+
+                state.MutableOpenPanelTabIds.RemoveAt(index);
+                changed = true;
+            }
+
+            if (state.ActivePanelTabId is not null && !availablePanelTabIds.Contains(state.ActivePanelTabId))
+            {
+                state.ActivePanelTabId = state.OpenPanelTabIds.LastOrDefault();
+                changed = true;
+            }
+
+            if (state.OpenPanelTabIds.Count == 0
+                && !state.PanelVisible
+                && Math.Abs(state.PanelHeight - PanelDefaultHeight) < 0.1)
+            {
+                _panelsByActivity.Remove(activityId);
+            }
+        }
+
+        if (changed)
         {
             Changed?.Invoke();
         }
@@ -222,6 +282,14 @@ public sealed class WorkbenchState
                     pair.Key,
                     pair.Value.ActiveMainViewId,
                     pair.Value.OpenMainViewIds.ToArray()))
+                .ToArray(),
+            _panelsByActivity
+                .Select(pair => new ActivityPanelStateSnapshot(
+                    pair.Key,
+                    pair.Value.PanelVisible,
+                    pair.Value.PanelHeight,
+                    pair.Value.ActivePanelTabId,
+                    pair.Value.OpenPanelTabIds.ToArray()))
                 .ToArray());
     }
 
@@ -229,10 +297,10 @@ public sealed class WorkbenchState
     {
         SidebarCollapsed = snapshot.SidebarCollapsed;
         SidebarWidth = snapshot.SidebarWidth;
-        PanelVisible = snapshot.PanelVisible;
-        PanelHeight = Math.Clamp(snapshot.PanelHeight, PanelMinHeight, Math.Max(PanelMinHeight, windowHeight * 0.5));
         ActiveActivityId = snapshot.ActiveActivityId;
         _mainViewsByActivity.Clear();
+        _panelsByActivity.Clear();
+
         if (snapshot.ActivityMainViews is { Count: > 0 })
         {
             foreach (var activityState in snapshot.ActivityMainViews)
@@ -261,7 +329,64 @@ public sealed class WorkbenchState
         ActiveMainViewId = ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var activeState)
             ? activeState.ActiveMainViewId
             : null;
+
+        if (snapshot.ActivityPanels is { Count: > 0 })
+        {
+            foreach (var activityPanelState in snapshot.ActivityPanels)
+            {
+                if (string.IsNullOrWhiteSpace(activityPanelState.ActivityId))
+                {
+                    continue;
+                }
+
+                var state = GetOrCreatePanelState(activityPanelState.ActivityId);
+                state.PanelVisible = activityPanelState.PanelVisible;
+                state.PanelHeight = ClampPanelHeight(activityPanelState.PanelHeight, windowHeight);
+                state.MutableOpenPanelTabIds.AddRange(activityPanelState.OpenPanelTabIds.Distinct(StringComparer.Ordinal));
+                state.ActivePanelTabId = state.OpenPanelTabIds.Contains(activityPanelState.ActivePanelTabId, StringComparer.Ordinal)
+                    ? activityPanelState.ActivePanelTabId
+                    : state.OpenPanelTabIds.LastOrDefault();
+            }
+        }
+        else if (snapshot.ActiveActivityId is not null)
+        {
+            var state = GetOrCreatePanelState(snapshot.ActiveActivityId);
+            state.PanelVisible = snapshot.PanelVisible;
+            state.PanelHeight = ClampPanelHeight(snapshot.PanelHeight, windowHeight);
+            if (state.PanelVisible)
+            {
+                state.MutableOpenPanelTabIds.Add(LogsPanelTabId);
+                state.ActivePanelTabId = LogsPanelTabId;
+            }
+        }
+
         Changed?.Invoke();
+    }
+
+    private ActivityPanelState CurrentPanelState =>
+        ActiveActivityId is not null && _panelsByActivity.TryGetValue(ActiveActivityId, out var state)
+            ? state
+            : _fallbackPanelState;
+
+    private ActivityPanelState GetActivePanelState()
+    {
+        if (ActiveActivityId is null)
+        {
+            return _fallbackPanelState;
+        }
+
+        return GetOrCreatePanelState(ActiveActivityId);
+    }
+
+    private ActivityPanelState GetOrCreatePanelState(string activityId)
+    {
+        if (!_panelsByActivity.TryGetValue(activityId, out var state))
+        {
+            state = new ActivityPanelState();
+            _panelsByActivity[activityId] = state;
+        }
+
+        return state;
     }
 
     private ActivityMainViewState GetOrCreateMainViewState(string activityId)
@@ -306,6 +431,11 @@ public sealed class WorkbenchState
         var maxByMainArea = windowWidth - ActivityBarWidth - MainAreaMinWidth;
         return Math.Clamp(maxByMainArea, SidebarMinWidth, SidebarMaxWidth);
     }
+
+    private static double ClampPanelHeight(double height, double windowHeight)
+    {
+        return Math.Clamp(height, PanelMinHeight, Math.Max(PanelMinHeight, windowHeight * 0.5));
+    }
 }
 
 public sealed class ActivityMainViewState
@@ -317,4 +447,19 @@ public sealed class ActivityMainViewState
     public IReadOnlyList<string> OpenMainViewIds => _openMainViewIds;
 
     internal List<string> MutableOpenMainViewIds => _openMainViewIds;
+}
+
+public sealed class ActivityPanelState
+{
+    private readonly List<string> _openPanelTabIds = [];
+
+    public bool PanelVisible { get; internal set; }
+
+    public double PanelHeight { get; internal set; } = WorkbenchState.PanelDefaultHeight;
+
+    public string? ActivePanelTabId { get; internal set; }
+
+    public IReadOnlyList<string> OpenPanelTabIds => _openPanelTabIds;
+
+    internal List<string> MutableOpenPanelTabIds => _openPanelTabIds;
 }

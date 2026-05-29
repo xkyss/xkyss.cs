@@ -5,6 +5,13 @@ public sealed record ActivityMainViewStateSnapshot(
     string? ActiveMainViewId,
     IReadOnlyList<string> OpenMainViewIds);
 
+public sealed record ActivityPanelStateSnapshot(
+    string ActivityId,
+    bool PanelVisible,
+    double PanelHeight,
+    string? ActivePanelTabId,
+    IReadOnlyList<string> OpenPanelTabIds);
+
 public sealed record WorkbenchStateSnapshot(
     bool SidebarCollapsed,
     double SidebarWidth,
@@ -15,4 +22,5 @@ public sealed record WorkbenchStateSnapshot(
     IReadOnlyList<string> OpenMainViewIds,
     string ThemeId,
     bool IsAlwaysOnTop,
-    IReadOnlyList<ActivityMainViewStateSnapshot>? ActivityMainViews = null);
+    IReadOnlyList<ActivityMainViewStateSnapshot>? ActivityMainViews = null,
+    IReadOnlyList<ActivityPanelStateSnapshot>? ActivityPanels = null);

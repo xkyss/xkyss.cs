@@ -187,26 +187,12 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
                 new Border().DockRight().Child(_statusRight),
                 _statusLeft));
 
-        var logsTab = new DockPanel().Children(
-            ResizeGrip.Create(ResizeGripOrientation.Horizontal, delta =>
-            {
-                _state.SetPanelHeight(_state.PanelHeight + delta, ClientSize.Height);
-            }).DockTop(),
-            _logsPanel);
-
-        var panelTabs = new TabControl
-        {
-            VerticalScroll = ScrollMode.Disabled,
-            HorizontalScroll = ScrollMode.Disabled,
-        };
-        panelTabs.AddTab(new TabItem { Header = new Label { Text = "Logs" }, Content = logsTab });
-
         _panelHost.MinHeight = WorkbenchState.PanelMinHeight;
         _panelHost.Height = _state.PanelHeight;
         _panelHost.IsVisible = _state.PanelVisible;
         _panelHost.WithTheme((t, b) => b.Background(t.Palette.ControlBackground));
-        _panelHost.Child = panelTabs;
         RenderLogs();
+        RenderPanelTabsForActiveActivity();
 
         var mainArea = _mainTabs.Inner;
         mainArea.MinWidth = WorkbenchState.MainAreaMinWidth;
@@ -267,6 +253,10 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         }
 
         _state.RemoveMainViewsExcept(_mainViews.Keys.ToHashSet(StringComparer.Ordinal));
+        _state.RemovePanelTabsExcept(new HashSet<string>(StringComparer.Ordinal)
+        {
+            WorkbenchState.LogsPanelTabId,
+        });
 
         foreach (var activity in _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id))
         {
@@ -373,6 +363,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         _sidebarHost.Child = views;
         _state.SetActiveActivity(activity.Id);
         RenderMainTabsForActiveActivity();
+        RenderPanelTabsForActiveActivity();
         RenderActivityBar();
     }
 
@@ -417,6 +408,44 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         {
             _mainTabs.Select(activeIndex);
         }
+    }
+
+    private void RenderPanelTabsForActiveActivity()
+    {
+        var panelTabs = new TabControl
+        {
+            VerticalScroll = ScrollMode.Disabled,
+            HorizontalScroll = ScrollMode.Disabled,
+        };
+
+        foreach (var panelTabId in _state.OpenPanelTabIds)
+        {
+            if (string.Equals(panelTabId, WorkbenchState.LogsPanelTabId, StringComparison.Ordinal))
+            {
+                panelTabs.AddTab(new TabItem { Header = new Label { Text = "Logs" }, Content = CreateLogsPanelTab() });
+            }
+        }
+
+        if (_state.OpenPanelTabIds.Count == 0)
+        {
+            panelTabs.AddTab(new TabItem
+            {
+                Header = new Label { Text = "Panel" },
+                Content = EmptyBlock("No panel tabs open."),
+            });
+        }
+
+        _panelHost.Child = panelTabs;
+    }
+
+    private FrameworkElement CreateLogsPanelTab()
+    {
+        return new DockPanel().Children(
+            ResizeGrip.Create(ResizeGripOrientation.Horizontal, delta =>
+            {
+                _state.SetPanelHeight(_state.PanelHeight + delta, ClientSize.Height);
+            }).DockTop(),
+            _logsPanel);
     }
 
     private void AddMainTab(MainViewDescriptor descriptor, string? activityId)
@@ -507,12 +536,9 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
     private void ShowLogs()
     {
-        if (!_state.PanelVisible)
-        {
-            _state.TogglePanel();
-        }
-
+        _state.OpenPanelTab(WorkbenchState.LogsPanelTabId);
         RenderLogs();
+        RenderPanelTabsForActiveActivity();
     }
 
     private void OnWorkbenchStateChanged()
