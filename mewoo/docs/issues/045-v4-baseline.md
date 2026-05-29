@@ -9,34 +9,35 @@ Prepare and tag the V4 local Plugin Manager baseline.
 - [x] Issues 037-044 are complete.
 - [x] Full solution build passes.
 - [x] Full test suite passes.
-- [ ] Manual V4 Plugin Manager checklist is complete.
-- [ ] `docs/development-plan.md` reflects V4 completion.
-- [ ] Repository is ready for a `v4-baseline` tag.
+- [x] Manual V4 Plugin Manager checklist is complete.
+- [x] `docs/development-plan.md` reflects V4 completion.
+- [x] Repository is ready for a `v4-baseline` tag.
 
 ## Status
 
-Blocked on final desktop smoke testing.
+Done.
 
-The code and automated road test are ready for the V4 baseline, but the final manual Plugin Manager checklist still needs to be run in the desktop app before tagging `v4-baseline`.
+V4 local Plugin Manager baseline is complete. The final desktop smoke test passed and the repository is ready for the `v4-baseline` tag.
 
 ## Verification
 
 - `dotnet build Mewoo.slnx --no-restore --verbosity minimal`
 - `dotnet test Mewoo.slnx --no-restore --verbosity minimal`
+- Final desktop Plugin Manager smoke test passed.
 
 ## Manual V4 Plugin Manager Checklist
 
-- [ ] Open the `Plugins` ActivityBar item.
-- [ ] Confirm installed plugin list and details render without layout issues.
-- [ ] Use `Install from File` with a valid `.mewoo-plugin` package.
-- [ ] Confirm install preview shows id, version, publisher, trust warning, and permissions.
-- [ ] Confirm details `Disable` and `Enable` work.
-- [ ] Use `Update from File` with a same-id newer package.
-- [ ] Confirm update preview shows current version versus package version.
-- [ ] Confirm an id-mismatched update package is blocked.
-- [ ] Confirm `Uninstall` removes a healthy installed plugin.
-- [ ] Create or use a broken install directory and confirm `Remove Broken Install` removes it.
-- [ ] Confirm recent operations show success or failure messages for install, update, uninstall, and broken cleanup.
+- [x] Open the `Plugins` ActivityBar item.
+- [x] Confirm installed plugin list and details render without layout issues.
+- [x] Use `Install from File` with a valid `.mewoo-plugin` package.
+- [x] Confirm install preview shows id, version, publisher, trust warning, and permissions.
+- [x] Confirm details `Disable` and `Enable` work.
+- [x] Use `Update from File` with a same-id newer package.
+- [x] Confirm update preview shows current version versus package version.
+- [x] Confirm an id-mismatched update package is blocked.
+- [x] Confirm `Uninstall` removes a healthy installed plugin.
+- [x] Create or use a broken install directory and confirm `Remove Broken Install` removes it.
+- [x] Confirm recent operations show success or failure messages for install, update, uninstall, and broken cleanup.
 
 ## Blocked by
 
