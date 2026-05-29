@@ -47,6 +47,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly IMewooLogger _logger;
     private readonly SemaphoreSlim _stateSaveLock = new(1, 1);
     private readonly WorkbenchState _state = new();
+    private readonly WorkbenchStatusBarModel _statusBar = new();
     private readonly StackPanel _activityBar = new() { Orientation = Orientation.Vertical };
     private readonly Border _sidebarShell = new();
     private readonly Border _sidebarHost = new();
@@ -128,6 +129,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
     public void UpdateStatusBarItem(string statusBarItemId, string text)
     {
+        _statusBar.UpdateText(statusBarItemId, text);
         if (_statusTextById.TryGetValue(statusBarItemId, out var status))
         {
             status.Text = text;
@@ -242,9 +244,6 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     {
         _activityBar.Clear();
         _mainTabs.Clear();
-        _statusLeft.Clear();
-        _statusRight.Clear();
-        _statusTextById.Clear();
         _mainViews.Clear();
 
         foreach (var mainView in _pluginHost.VisibleContributions.MainViews)
@@ -253,6 +252,9 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         }
 
         _state.RemoveMainViewsExcept(_mainViews.Keys.ToHashSet(StringComparer.Ordinal));
+        _statusBar.RemoveMissing(_pluginHost.VisibleContributions.StatusBarItems
+            .Select(item => item.Id)
+            .ToHashSet(StringComparer.Ordinal));
         _state.RemovePanelTabsExcept(new HashSet<string>(StringComparer.Ordinal)
         {
             WorkbenchState.LogsPanelTabId,
@@ -262,28 +264,6 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         {
             _activityBar.Children(ActivityButton(activity));
         }
-
-        foreach (var item in _pluginHost.VisibleContributions.StatusBarItems)
-        {
-            var status = new TextBlock()
-                .Text(item.Text)
-                .FontSize(12)
-                .CenterVertical()
-                .Margin(8, 0);
-
-            if (item.Alignment == StatusBarAlignment.Right)
-            {
-                _statusRight.Children(status);
-            }
-            else
-            {
-                _statusLeft.Children(status);
-            }
-
-            _statusTextById[item.Id] = status;
-        }
-
-        RenderThemeStatus();
 
         var activities = _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id).ToArray();
         var activeActivity = activities.FirstOrDefault(x => string.Equals(x.Id, _state.ActiveActivityId, StringComparison.Ordinal))
@@ -295,6 +275,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         else
         {
             _sidebarHost.Child = ErrorBlock("No active plugins.");
+            RenderStatusBar();
         }
 
         RenderPluginFailures();
@@ -365,6 +346,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         RenderMainTabsForActiveActivity();
         RenderPanelTabsForActiveActivity();
         RenderActivityBar();
+        RenderStatusBar();
     }
 
     private void SelectActivityById(string activityId)
@@ -436,6 +418,35 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         }
 
         _panelHost.Child = panelTabs;
+    }
+
+    private void RenderStatusBar()
+    {
+        _statusLeft.Clear();
+        _statusRight.Clear();
+        _statusTextById.Clear();
+
+        foreach (var item in _statusBar.GetVisibleItems(_pluginHost.VisibleContributions.StatusBarItems, _state.ActiveActivityId))
+        {
+            var status = new TextBlock()
+                .Text(item.Text)
+                .FontSize(12)
+                .CenterVertical()
+                .Margin(8, 0);
+
+            if (item.Descriptor.Alignment == StatusBarAlignment.Right)
+            {
+                _statusRight.Children(status);
+            }
+            else
+            {
+                _statusLeft.Children(status);
+            }
+
+            _statusTextById[item.Descriptor.Id] = status;
+        }
+
+        RenderThemeStatus();
     }
 
     private FrameworkElement CreateLogsPanelTab()
