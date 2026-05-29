@@ -79,6 +79,46 @@ V3 package files use the `.mewoo-plugin` extension and are ZIP archives. The arc
 
 Package validation must not extract files or modify `%LocalAppData%\Mewoo\Plugins`. Install staging, replacement, update, and uninstall behavior belongs to later V3 slices.
 
+## Plugin Experience
+
+**Plugin Manager**:
+A user-facing plugin management surface for installing, updating, disabling, uninstalling, and understanding local plugin packages.
+_Avoid_: Runtime Diagnostics, plugin catalog, marketplace
+
+The Plugin Manager is a first-class `Plugins` ActivityBar module rather than a view nested under Runtime Diagnostics.
+
+The Plugin Manager installs local plugin packages through an `Install from File` flow. Installation previews package identity, publisher, permissions, and trust warning before the user confirms.
+
+The Plugin Manager updates installed plugins through an `Update from File` flow. Updates must validate that the selected package id matches the installed plugin id and show the current version versus the package version before confirmation.
+
+The Plugin Manager does not expose runtime-only `Load`, `Unload`, or `Reload` actions. Those actions belong to Runtime Diagnostics. Plugin Manager may link to Runtime Diagnostics for advanced troubleshooting.
+
+Plugin Manager `Enable` and `Disable` actions are persistent user preferences. V4 continues using the manifest `disabled` field for this state; a future signed-package model may move it to host-owned state.
+
+V4 does not implement real package signatures or verified publisher trust. It focuses on local package management and clear trust/permission risk presentation.
+
+V4 does not include a remote plugin catalog or marketplace. Plugin Manager manages local `.mewoo-plugin` files and installed local plugins only.
+
+Plugin Manager does not show manifest paths, assembly paths, or install directories by default. Low-level file paths belong to Runtime Diagnostics; Plugin Manager may link to Runtime Diagnostics for technical details.
+
+Plugin Manager uses a plugin list plus a dedicated Plugin Details MainArea view. The list is for scanning and selection; the details view is for identity, status, permissions, trust warning, recent operations, errors, and user-facing actions.
+
+Plugin Manager warns about high-risk or undeclared permissions during install and update, but V4 does not block installation based on permissions. Without sandboxing, permission declarations are explanatory rather than enforcement.
+
+Plugin Manager shows broken installed plugin entries when a plugin directory exists but its manifest or assembly cannot be read. Broken entries can be removed from Plugin Manager without requiring Runtime Diagnostics.
+
+Plugin Manager shows recent install, update, enable, disable, and uninstall operation results for the current session only. V4 does not persist operation history as an audit log.
+
+Plugin Manager supports basic search by plugin name, id, or publisher, and status filters for all, enabled, disabled, failed, incompatible, and broken entries.
+
+V4 includes lightweight plugin author workflow updates so packages produced by the local packager are ready for Plugin Manager install, preview, update, and road-test flows.
+
+V4 ends with a `v4-baseline` milestone once the local Plugin Manager experience is complete and verified.
+
+**Runtime Diagnostics**:
+A developer-facing runtime inspection and troubleshooting surface for plugin load state, manifest paths, assembly paths, operation logs, and low-level failures.
+_Avoid_: Plugin Manager
+
 ## V2 Runtime Plugin Manifest Discovery
 
 V2 runtime plugins are discovered from `%LocalAppData%\Mewoo\Plugins`. Each plugin lives in its own directory and declares a `mewoo.plugin.json` manifest.

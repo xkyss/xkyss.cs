@@ -6,6 +6,8 @@ This document is the local issue index for Mewoo. Detailed per-slice issue docum
 
 - V1 baseline tag: `v1-baseline`
 - Planned V2 baseline tag: `v2-baseline`
+- Planned V3 baseline tag: `v3-baseline`
+- Planned V4 baseline tag: `v4-baseline`
 
 ## Milestones
 
@@ -94,3 +96,27 @@ Goal: make plugin trust explicit and decide whether V3 isolation should remain i
 
 - [x] [Issue 035: Plugin Trust and Permission Declarations](issues/035-v3-plugin-trust-and-permission-declarations.md)
 - [x] [Issue 036: Out-of-Process Plugin Host Spike](issues/036-v3-out-of-process-plugin-spike.md)
+
+### Milestone 11: V4 Plugin Manager Product Surface
+
+Goal: introduce a first-class local Plugin Manager experience separate from Runtime Diagnostics.
+
+- [x] [Issue 037: Define Plugin Manager Product Surface](issues/037-v4-plugin-manager-product-surface.md)
+- [ ] [Issue 038: Plugin Manager Catalog Model](issues/038-v4-plugin-manager-catalog-model.md)
+- [ ] [Issue 039: Plugin Manager Activity and List UI](issues/039-v4-plugin-manager-activity-and-list-ui.md)
+- [ ] [Issue 040: Plugin Details View](issues/040-v4-plugin-details-view.md)
+
+### Milestone 12: V4 Local Package Management Flows
+
+Goal: make install, update, broken install cleanup, and operation feedback usable through Plugin Manager.
+
+- [ ] [Issue 041: Install from File Flow](issues/041-v4-install-from-file-flow.md)
+- [ ] [Issue 042: Update from File Flow](issues/042-v4-update-from-file-flow.md)
+- [ ] [Issue 043: Broken Install Removal](issues/043-v4-broken-install-removal.md)
+
+### Milestone 13: V4 Author Workflow and Baseline
+
+Goal: align authoring tools with Plugin Manager and freeze a stable V4 baseline.
+
+- [ ] [Issue 044: Author Workflow and V4 Road Test](issues/044-v4-author-workflow-and-road-test.md)
+- [ ] [Issue 045: Tag V4 Baseline](issues/045-v4-baseline.md)
