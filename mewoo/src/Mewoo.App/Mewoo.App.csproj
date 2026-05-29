@@ -4,6 +4,7 @@
     <ProjectReference Include="..\Mewoo.Abstractions\Mewoo.Abstractions.csproj" />
     <ProjectReference Include="..\Mewoo.Core\Mewoo.Core.csproj" />
     <ProjectReference Include="..\Mewoo.Workbench\Mewoo.Workbench.csproj" />
+    <ProjectReference Include="..\Mewoo.Plugins.PluginManager\Mewoo.Plugins.PluginManager.csproj" />
     <ProjectReference Include="..\Mewoo.Plugins.QuickLauncher\Mewoo.Plugins.QuickLauncher.csproj" />
     <ProjectReference Include="..\Mewoo.Plugins.RuntimeDiagnostics\Mewoo.Plugins.RuntimeDiagnostics.csproj" />
   </ItemGroup>

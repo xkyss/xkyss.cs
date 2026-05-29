@@ -6,6 +6,7 @@
     <Project Path="src/Mewoo.Abstractions/Mewoo.Abstractions.csproj" />
     <Project Path="src/Mewoo.App/Mewoo.App.csproj" />
     <Project Path="src/Mewoo.Core/Mewoo.Core.csproj" />
+    <Project Path="src/Mewoo.Plugins.PluginManager/Mewoo.Plugins.PluginManager.csproj" />
     <Project Path="src/Mewoo.Plugins.QuickLauncher/Mewoo.Plugins.QuickLauncher.csproj" />
     <Project Path="src/Mewoo.Plugins.RuntimeDiagnostics/Mewoo.Plugins.RuntimeDiagnostics.csproj" />
     <Project Path="src/Mewoo.Workbench/Mewoo.Workbench.csproj" />

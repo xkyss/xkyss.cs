@@ -6,12 +6,20 @@ Add the first-class `Plugins` ActivityBar module and list UI for scanning instal
 
 ## Acceptance criteria
 
-- [ ] ActivityBar shows a `Plugins` entry separate from Runtime.
-- [ ] Sidebar or main view shows installed plugin entries from the Plugin Manager catalog model.
-- [ ] List supports search and status filters.
-- [ ] Empty state guides the user to install a local `.mewoo-plugin`.
-- [ ] List item fields include name, id, version, publisher, status, and permission summary.
-- [ ] Plugin Manager list does not show manifest path, assembly path, or install directory by default.
+- [x] ActivityBar shows a `Plugins` entry separate from Runtime.
+- [x] Sidebar or main view shows installed plugin entries from the Plugin Manager catalog model.
+- [x] List supports search and status filters.
+- [x] Empty state guides the user to install a local `.mewoo-plugin`.
+- [x] List item fields include name, id, version, publisher, status, and permission summary.
+- [x] Plugin Manager list does not show manifest path, assembly path, or install directory by default.
+
+## Status
+
+Done.
+
+## Verification
+
+- `dotnet build Mewoo.slnx --no-restore --verbosity minimal`
 
 ## Blocked by
 
