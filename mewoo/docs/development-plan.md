@@ -102,7 +102,7 @@ Goal: make plugin trust explicit and decide whether V3 isolation should remain i
 Goal: introduce a first-class local Plugin Manager experience separate from Runtime Diagnostics.
 
 - [x] [Issue 037: Define Plugin Manager Product Surface](issues/037-v4-plugin-manager-product-surface.md)
-- [ ] [Issue 038: Plugin Manager Catalog Model](issues/038-v4-plugin-manager-catalog-model.md)
+- [x] [Issue 038: Plugin Manager Catalog Model](issues/038-v4-plugin-manager-catalog-model.md)
 - [ ] [Issue 039: Plugin Manager Activity and List UI](issues/039-v4-plugin-manager-activity-and-list-ui.md)
 - [ ] [Issue 040: Plugin Details View](issues/040-v4-plugin-details-view.md)
 
