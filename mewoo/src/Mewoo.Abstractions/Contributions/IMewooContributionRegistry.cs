@@ -47,6 +47,10 @@ public interface IMainViewContributionBuilder
 {
     IMainViewContributionBuilder Title(string title);
 
+    IMainViewContributionBuilder ActivityScope(string activityId);
+
+    IMainViewContributionBuilder Global();
+
     IMainViewContributionBuilder CanOpenMultiple(bool canOpenMultiple);
 
     IMainViewContributionBuilder Create(Func<IMewooViewContext, IMewooView> createView);
@@ -69,6 +73,10 @@ public interface ICommandContributionBuilder
 
 public interface IStatusBarItemContributionBuilder
 {
+    IStatusBarItemContributionBuilder ActivityScope(string activityId);
+
+    IStatusBarItemContributionBuilder Global();
+
     IStatusBarItemContributionBuilder AlignLeft();
 
     IStatusBarItemContributionBuilder AlignRight();
@@ -82,4 +90,3 @@ public interface IThemeTokenOverrideContributionBuilder
 {
     IThemeTokenOverrideContributionBuilder Token(string key, object value);
 }
-

@@ -14,18 +14,22 @@ public sealed record ActivityDescriptor(
 public sealed record ViewContainerDescriptor(
     string Id,
     string OwnerPluginId,
+    string ActivityScopeId,
     string Title,
     IReadOnlyList<SidebarViewDescriptor> Views);
 
 public sealed record SidebarViewDescriptor(
     string Id,
     string OwnerPluginId,
+    string ActivityScopeId,
     string Title,
     Func<IMewooViewContext, IMewooView> CreateView);
 
 public sealed record MainViewDescriptor(
     string Id,
     string OwnerPluginId,
+    string? ActivityScopeId,
+    bool IsGlobal,
     string Title,
     bool CanOpenMultiple,
     Func<IMewooViewContext, IMewooView> CreateView);
@@ -39,6 +43,8 @@ public enum StatusBarAlignment
 public sealed record StatusBarItemDescriptor(
     string Id,
     string OwnerPluginId,
+    string? ActivityScopeId,
+    bool IsGlobal,
     StatusBarAlignment Alignment,
     string Text,
     string? CommandId);
@@ -55,4 +61,3 @@ public sealed record MewooContributionSnapshot(
     IReadOnlyList<MewooCommandDescriptor> Commands,
     IReadOnlyList<StatusBarItemDescriptor> StatusBarItems,
     IReadOnlyList<ThemeTokenOverrideDescriptor> ThemeTokenOverrides);
-

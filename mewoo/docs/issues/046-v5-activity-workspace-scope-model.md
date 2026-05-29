@@ -6,11 +6,21 @@ Define the descriptor and state model for Activity Workspace scoping before chan
 
 ## Acceptance criteria
 
-- [ ] Contribution descriptors can represent `OwnerPluginId` separately from `ActivityScopeId`.
-- [ ] Activity scope can be inferred for single-Activity plugins.
-- [ ] Multi-Activity plugins fail or report a contribution error when scope cannot be inferred.
-- [ ] Global contribution scope is explicit, not the default.
-- [ ] Tests cover scope inference and ambiguous multi-Activity failures.
+- [x] Contribution descriptors can represent `OwnerPluginId` separately from `ActivityScopeId`.
+- [x] Activity scope can be inferred for single-Activity plugins.
+- [x] Multi-Activity plugins fail or report a contribution error when scope cannot be inferred.
+- [x] Global contribution scope is explicit, not the default.
+- [x] Tests cover scope inference and ambiguous multi-Activity failures.
+
+## Status
+
+Done.
+
+## Verification
+
+- `dotnet test tests\Mewoo.Core.Tests\Mewoo.Core.Tests.csproj --no-restore --verbosity minimal --filter "FullyQualifiedName~MewooContributionRegistryScopeTests"`
+- `dotnet build Mewoo.slnx --no-restore --verbosity minimal`
+- `dotnet test Mewoo.slnx --no-restore --verbosity minimal`
 
 ## Blocked by
 

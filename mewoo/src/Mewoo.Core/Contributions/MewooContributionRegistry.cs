@@ -66,16 +66,90 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
 
     public MewooContributionSnapshot BuildSnapshot()
     {
+        var activities = _activities.Select(x => x.Build()).ToArray();
+        var activityIds = activities.Select(x => x.Id).ToArray();
+        var viewContainerScopes = InferViewContainerScopes(activities, _viewContainers.Select(x => x.Id).ToArray());
+
         var snapshot = new MewooContributionSnapshot(
-            _activities.Select(x => x.Build()).ToArray(),
-            _viewContainers.Select(x => x.Build()).ToArray(),
-            _mainViews.Select(x => x.Build()).ToArray(),
+            activities,
+            _viewContainers.Select(x => x.Build(viewContainerScopes[x.Id])).ToArray(),
+            _mainViews.Select(x => x.Build(InferActivityScope(x.Id, x.ActivityScopeId, x.IsGlobal, activityIds, "Main view"))).ToArray(),
             _commands.Select(x => x.Build()).ToArray(),
-            _statusBarItems.Select(x => x.Build()).ToArray(),
+            _statusBarItems.Select(x => x.Build(InferActivityScope(x.Id, x.ActivityScopeId, x.IsGlobal, activityIds, "StatusBar item"))).ToArray(),
             _themeTokenOverrides.Select(x => x.Build()).ToArray());
 
         ValidateUnique(snapshot);
         return snapshot;
+    }
+
+    private static IReadOnlyDictionary<string, string> InferViewContainerScopes(
+        IReadOnlyList<ActivityDescriptor> activities,
+        IReadOnlyList<string> viewContainerIds)
+    {
+        var scopes = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var group in activities.GroupBy(activity => activity.ViewContainerId, StringComparer.Ordinal))
+        {
+            var activityIds = group.Select(activity => activity.Id).ToArray();
+            if (activityIds.Length > 1)
+            {
+                throw new InvalidOperationException(
+                    $"View container '{group.Key}' is used by multiple activities and cannot infer a single Activity scope.");
+            }
+
+            scopes[group.Key] = activityIds[0];
+        }
+
+        foreach (var viewContainerId in viewContainerIds)
+        {
+            if (scopes.ContainsKey(viewContainerId))
+            {
+                continue;
+            }
+
+            scopes[viewContainerId] = activities.Count switch
+            {
+                1 => activities[0].Id,
+                0 => throw new InvalidOperationException(
+                    $"View container '{viewContainerId}' requires an Activity scope, but the plugin does not contribute an Activity."),
+                _ => throw new InvalidOperationException(
+                    $"View container '{viewContainerId}' requires an explicit Activity scope because the plugin contributes multiple Activities."),
+            };
+        }
+
+        return scopes;
+    }
+
+    private static InferredContributionScope InferActivityScope(
+        string contributionId,
+        string? activityScopeId,
+        bool isGlobal,
+        IReadOnlyList<string> activityIds,
+        string contributionKind)
+    {
+        if (isGlobal)
+        {
+            return new InferredContributionScope(null, true);
+        }
+
+        if (!string.IsNullOrWhiteSpace(activityScopeId))
+        {
+            if (!activityIds.Contains(activityScopeId, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"{contributionKind} '{contributionId}' declares Activity scope '{activityScopeId}', but that Activity is not contributed by this plugin.");
+            }
+
+            return new InferredContributionScope(activityScopeId, false);
+        }
+
+        return activityIds.Count switch
+        {
+            1 => new InferredContributionScope(activityIds[0], false),
+            0 => throw new InvalidOperationException(
+                $"{contributionKind} '{contributionId}' requires an Activity scope or explicit global scope."),
+            _ => throw new InvalidOperationException(
+                $"{contributionKind} '{contributionId}' requires an explicit Activity scope because the plugin contributes multiple Activities."),
+        };
     }
 
     private static void ValidateUnique(MewooContributionSnapshot snapshot)
@@ -126,6 +200,8 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
         private readonly List<SidebarViewBuilder> _views = [];
         private string _title = id;
 
+        public string Id => id;
+
         public IViewContainerContributionBuilder Title(string title) { _title = title; return this; }
 
         public IViewContainerContributionBuilder AddView(string viewId, Action<ISidebarViewContributionBuilder> configure)
@@ -137,7 +213,8 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
             return this;
         }
 
-        public ViewContainerDescriptor Build() => new(id, ownerPluginId, _title, _views.Select(x => x.Build()).ToArray());
+        public ViewContainerDescriptor Build(string activityScopeId) =>
+            new(id, ownerPluginId, activityScopeId, _title, _views.Select(x => x.Build(activityScopeId)).ToArray());
     }
 
     private sealed class SidebarViewBuilder(string ownerPluginId, string id) : ISidebarViewContributionBuilder
@@ -148,20 +225,32 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
         public ISidebarViewContributionBuilder Title(string title) { _title = title; return this; }
         public ISidebarViewContributionBuilder Create(Func<IMewooViewContext, IMewooView> createView) { _create = createView; return this; }
 
-        public SidebarViewDescriptor Build() => new(id, ownerPluginId, _title, _create ?? throw new InvalidOperationException($"Sidebar view '{id}' requires a factory."));
+        public SidebarViewDescriptor Build(string activityScopeId) =>
+            new(id, ownerPluginId, activityScopeId, _title, _create ?? throw new InvalidOperationException($"Sidebar view '{id}' requires a factory."));
     }
 
     private sealed class MainViewBuilder(string ownerPluginId, string id) : IMainViewContributionBuilder
     {
         private string _title = id;
+        private string? _activityScopeId;
+        private bool _isGlobal;
         private bool _canOpenMultiple;
         private Func<IMewooViewContext, IMewooView>? _create;
 
+        public string Id => id;
+
         public IMainViewContributionBuilder Title(string title) { _title = title; return this; }
+        public IMainViewContributionBuilder ActivityScope(string activityId) { ValidateId(activityId); _activityScopeId = activityId; _isGlobal = false; return this; }
+        public IMainViewContributionBuilder Global() { _activityScopeId = null; _isGlobal = true; return this; }
         public IMainViewContributionBuilder CanOpenMultiple(bool canOpenMultiple) { _canOpenMultiple = canOpenMultiple; return this; }
         public IMainViewContributionBuilder Create(Func<IMewooViewContext, IMewooView> createView) { _create = createView; return this; }
 
-        public MainViewDescriptor Build() => new(id, ownerPluginId, _title, _canOpenMultiple, _create ?? throw new InvalidOperationException($"Main view '{id}' requires a factory."));
+        public string? ActivityScopeId => _activityScopeId;
+
+        public bool IsGlobal => _isGlobal;
+
+        public MainViewDescriptor Build(InferredContributionScope scope) =>
+            new(id, ownerPluginId, scope.ActivityScopeId, scope.IsGlobal, _title, _canOpenMultiple, _create ?? throw new InvalidOperationException($"Main view '{id}' requires a factory."));
     }
 
     private sealed class CommandBuilder(string ownerPluginId, string id) : ICommandContributionBuilder
@@ -188,13 +277,24 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
         private StatusBarAlignment _alignment = StatusBarAlignment.Left;
         private string _text = id;
         private string? _commandId;
+        private string? _activityScopeId;
+        private bool _isGlobal;
 
+        public string Id => id;
+
+        public IStatusBarItemContributionBuilder ActivityScope(string activityId) { ValidateId(activityId); _activityScopeId = activityId; _isGlobal = false; return this; }
+        public IStatusBarItemContributionBuilder Global() { _activityScopeId = null; _isGlobal = true; return this; }
         public IStatusBarItemContributionBuilder AlignLeft() { _alignment = StatusBarAlignment.Left; return this; }
         public IStatusBarItemContributionBuilder AlignRight() { _alignment = StatusBarAlignment.Right; return this; }
         public IStatusBarItemContributionBuilder Text(string text) { _text = text; return this; }
         public IStatusBarItemContributionBuilder Command(string commandId) { ValidateId(commandId); _commandId = commandId; return this; }
 
-        public StatusBarItemDescriptor Build() => new(id, ownerPluginId, _alignment, _text, _commandId);
+        public string? ActivityScopeId => _activityScopeId;
+
+        public bool IsGlobal => _isGlobal;
+
+        public StatusBarItemDescriptor Build(InferredContributionScope scope) =>
+            new(id, ownerPluginId, scope.ActivityScopeId, scope.IsGlobal, _alignment, _text, _commandId);
     }
 
     private sealed class ThemeTokenOverrideBuilder(string ownerPluginId, string id) : IThemeTokenOverrideContributionBuilder
@@ -205,6 +305,8 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
 
         public ThemeTokenOverrideDescriptor Build() => new(id, ownerPluginId, _tokens);
     }
+
+    private sealed record InferredContributionScope(string? ActivityScopeId, bool IsGlobal);
 }
 
 #pragma warning restore CS9124
