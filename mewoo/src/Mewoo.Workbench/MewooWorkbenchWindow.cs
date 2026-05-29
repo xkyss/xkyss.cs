@@ -240,12 +240,16 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
                 }).DockRight(),
                 _sidebarHost));
 
-        var mainColumn = new DockPanel
+        var workContent = new DockPanel().Children(
+            _sidebarShell,
+            mainArea);
+
+        var workArea = new DockPanel
         {
             MinWidth = WorkbenchState.MainAreaMinWidth,
         }.Children(
             _panelHost.DockBottom(),
-            mainArea);
+            workContent);
 
         var body = new DockPanel().Children(
             new Border()
@@ -254,8 +258,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
                 .Width(WorkbenchState.ActivityBarWidth)
                 .WithTheme((t, b) => b.Background(t.Palette.WindowBackground))
                 .Child(_activityBar),
-            _sidebarShell,
-            mainColumn);
+            workArea);
 
         return new DockPanel().Children(statusBar.DockBottom(), body);
     }
