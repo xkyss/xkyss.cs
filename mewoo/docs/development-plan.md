@@ -130,4 +130,4 @@ Goal: make Activity switching change the full Activity Workspace instead of only
 - [x] [Issue 047: MainArea Per-Activity Tabs](issues/047-v5-mainarea-per-activity-tabs.md)
 - [x] [Issue 048: Panel and Logs Activity Scope](issues/048-v5-panel-and-logs-activity-scope.md)
 - [x] [Issue 049: StatusBar Activity and Global Scope](issues/049-v5-statusbar-activity-and-global-scope.md)
-- [ ] [Issue 050: Activity Workspace Road Test](issues/050-v5-activity-workspace-road-test.md)
+- [x] [Issue 050: Activity Workspace Road Test](issues/050-v5-activity-workspace-road-test.md)
