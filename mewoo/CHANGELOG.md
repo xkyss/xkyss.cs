@@ -2,6 +2,12 @@
 
 All notable changes to Mewoo are recorded here.
 
+## Unreleased
+
+### Development
+
+- Started V6 development on `0.6.0-dev`.
+
 ## 0.5.0 - 2026-05-29
 
 ### Features

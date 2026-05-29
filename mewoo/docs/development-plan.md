@@ -9,6 +9,7 @@ This document is the local issue index for Mewoo. Detailed per-slice issue docum
 - Planned V3 baseline tag: `v3-baseline`
 - V4 baseline tag: `v4-baseline`
 - V5 baseline tag: `v5-baseline` (version `0.5.0`, release tag `v0.5.0`)
+- Current development version: `0.6.0-dev`
 
 ## Milestones
 
