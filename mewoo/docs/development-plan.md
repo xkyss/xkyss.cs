@@ -110,7 +110,7 @@ Goal: introduce a first-class local Plugin Manager experience separate from Runt
 
 Goal: make install, update, broken install cleanup, and operation feedback usable through Plugin Manager.
 
-- [ ] [Issue 041: Install from File Flow](issues/041-v4-install-from-file-flow.md)
+- [x] [Issue 041: Install from File Flow](issues/041-v4-install-from-file-flow.md)
 - [ ] [Issue 042: Update from File Flow](issues/042-v4-update-from-file-flow.md)
 - [ ] [Issue 043: Broken Install Removal](issues/043-v4-broken-install-removal.md)
 

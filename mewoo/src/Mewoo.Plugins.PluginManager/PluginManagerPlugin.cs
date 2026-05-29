@@ -16,11 +16,14 @@ public sealed class PluginManagerPlugin : IMewooPlugin
     private readonly string _pluginRoot;
     private readonly MewooPluginManagerCatalog _catalog = new();
     private readonly MewooPluginPackageOperations _packageOperations = new();
+    private readonly MewooPluginInstaller _installer = new();
+    private readonly MewooPluginInstallPreviewer _installPreviewer = new();
     private readonly List<string> _operationResults = [];
 
     private string _searchText = string.Empty;
     private MewooPluginManagerCatalogFilter _filter = MewooPluginManagerCatalogFilter.All;
     private string? _selectedEntryKey;
+    private MewooPluginInstallPreview? _installPreview;
 
     public PluginManagerPlugin(
         MewooRuntimePluginManager runtimePlugins,
@@ -61,6 +64,11 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .Title("Plugin Details")
             .CanOpenMultiple(false)
             .Create(ctx => new MewooView("pluginManager.details", CreateDetailsView(ctx.Workbench)));
+
+        registry.MainView("pluginManager.installPreview")
+            .Title("Install Plugin")
+            .CanOpenMultiple(false)
+            .Create(ctx => new MewooView("pluginManager.installPreview", CreateInstallPreviewView(ctx.Workbench)));
 
         registry.Command("pluginManager.open")
             .Title("Open Plugin Manager")
@@ -112,6 +120,10 @@ public sealed class PluginManagerPlugin : IMewooPlugin
                     .DockRight()
                     .Content("Refresh")
                     .OnClick(() => RenderMainView(panel, workbench)),
+                new Button()
+                    .DockRight()
+                    .Content("Install from File")
+                    .OnClick(async () => await ChooseInstallPackageAsync(workbench)),
                 new TextBlock().Text("Plugins").FontSize(22).SemiBold()),
             new DockPanel().Children(
                 new Button()
@@ -229,7 +241,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
                 .Children(
                     new TextBlock().Text("No local plugins match the current view.").SemiBold(),
                     new TextBlock()
-                        .Text($"Use Install from File to add a local {MewooPluginPackageFormat.Extension} package when the install flow is available.")
+                        .Text($"Use Install from File to add a local {MewooPluginPackageFormat.Extension} package.")
                         .FontSize(12)));
     }
 
@@ -239,6 +251,64 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             _runtimePlugins.PluginStatuses,
             _runtimePlugins.DiscoveryIssues,
             new MewooPluginManagerCatalogQuery(_searchText, _filter));
+
+    private StackPanel CreateInstallPreviewView(IWorkbenchService workbench)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Vertical }
+            .Spacing(10)
+            .Margin(18);
+
+        RenderInstallPreview(panel, workbench);
+        return panel;
+    }
+
+    private void RenderInstallPreview(StackPanel panel, IWorkbenchService workbench)
+    {
+        panel.Clear();
+        panel.Children(new DockPanel().Children(
+            new Button()
+                .DockRight()
+                .Content("Back")
+                .OnClick(async () => await workbench.OpenMainViewAsync("pluginManager.home")),
+            new TextBlock().Text("Install Plugin").FontSize(22).SemiBold()));
+
+        if (_installPreview is null)
+        {
+            panel.Children(new TextBlock().Text("Choose a local plugin package to preview installation.").FontSize(12));
+            panel.Children(new Button()
+                .Content("Choose Plugin Package")
+                .OnClick(async () => await ChooseInstallPackageAsync(workbench)));
+            return;
+        }
+
+        panel.Children(
+            new TextBlock().Text(_installPreview.DisplayName ?? "Plugin package").SemiBold(),
+            new TextBlock().Text($"Id: {_installPreview.PluginId ?? "Unknown"}").FontSize(12),
+            new TextBlock().Text($"Version: {_installPreview.Version ?? "Unknown"}").FontSize(12),
+            new TextBlock().Text($"Publisher: {FormatPublisher(_installPreview)}").FontSize(12),
+            new TextBlock().Text($"Trust: {_installPreview.TrustLabel}").FontSize(12),
+            new TextBlock().Text($"Permissions: {_installPreview.PermissionSummary}").FontSize(12),
+            new TextBlock().Text(_installPreview.TrustWarning).FontSize(12));
+
+        if (!_installPreview.Success)
+        {
+            panel.Children(new TextBlock()
+                .Text($"Package cannot be installed: {_installPreview.Issue?.ShortMessage ?? "Unknown error"}")
+                .FontSize(12));
+            panel.Children(new Button()
+                .Content("Choose Another Package")
+                .OnClick(async () => await ChooseInstallPackageAsync(workbench)));
+            return;
+        }
+
+        panel.Children(new StackPanel { Orientation = Orientation.Horizontal }
+            .Spacing(6)
+            .Children(
+                ActionButton("Confirm Install", async () => await InstallPreviewedPackageAsync(panel, workbench)),
+                new Button()
+                    .Content("Choose Another Package")
+                    .OnClick(async () => await ChooseInstallPackageAsync(workbench))));
+    }
 
     private StackPanel CreateDetailsView(IWorkbenchService workbench)
     {
@@ -380,6 +450,50 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .FirstOrDefault(entry => string.Equals(EntryKey(entry), _selectedEntryKey, StringComparison.Ordinal));
     }
 
+    private async Task ChooseInstallPackageAsync(IWorkbenchService workbench)
+    {
+        var packagePath = FileDialog.OpenFile(new OpenFileDialogOptions
+        {
+            Title = "Install Mewoo Plugin",
+            Filter = $"Mewoo Plugin (*{MewooPluginPackageFormat.Extension})|*{MewooPluginPackageFormat.Extension}",
+        });
+        if (string.IsNullOrWhiteSpace(packagePath))
+        {
+            return;
+        }
+
+        _installPreview = _installPreviewer.Preview(packagePath);
+        await workbench.OpenMainViewAsync("pluginManager.installPreview");
+    }
+
+    private async Task InstallPreviewedPackageAsync(StackPanel panel, IWorkbenchService workbench)
+    {
+        if (_installPreview is not { Success: true })
+        {
+            AddOperation("Install failed: no valid package preview.");
+            RenderInstallPreview(panel, workbench);
+            return;
+        }
+
+        var result = _installer.Install(_installPreview.PackagePath, _pluginRoot);
+        var summary = MewooPluginInstallFlowDisplay.CreateResultSummary(result);
+        AddOperation(summary.Success ? summary.Message : $"Install failed: {summary.Message}");
+        if (summary.Success && summary.PluginId is not null)
+        {
+            await _runtimePlugins.ReloadPluginAsync(
+                summary.PluginId,
+                _pluginRoot,
+                _pluginHost,
+                plugin => new PluginManagerPluginContext(plugin.Id, _services, workbench));
+            _selectedEntryKey = summary.PluginId;
+            _installPreview = null;
+            await workbench.OpenMainViewAsync("pluginManager.details");
+            return;
+        }
+
+        RenderInstallPreview(panel, workbench);
+    }
+
     private void AddOperation(string message)
     {
         _operationResults.Insert(0, $"[{DateTimeOffset.Now:HH:mm:ss}] {message}");
@@ -419,6 +533,16 @@ public sealed class PluginManagerPlugin : IMewooPlugin
         }
 
         return entry.PublisherDisplayName ?? entry.Publisher ?? "Not declared";
+    }
+
+    private static string FormatPublisher(MewooPluginInstallPreview preview)
+    {
+        if (!string.IsNullOrWhiteSpace(preview.PublisherDisplayName) && !string.IsNullOrWhiteSpace(preview.Publisher))
+        {
+            return $"{preview.PublisherDisplayName} ({preview.Publisher})";
+        }
+
+        return preview.PublisherDisplayName ?? preview.Publisher ?? "Not declared";
     }
 
     private sealed record PluginManagerPluginContext(
