@@ -27,6 +27,8 @@ public interface IActivityContributionBuilder
     IActivityContributionBuilder ViewContainer(string viewContainerId);
 
     IActivityContributionBuilder Order(int order);
+
+    IActivityContributionBuilder ActivityBarSection(ActivityBarSection section);
 }
 
 public interface IViewContainerContributionBuilder

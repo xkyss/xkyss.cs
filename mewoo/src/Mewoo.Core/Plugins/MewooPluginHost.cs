@@ -27,14 +27,18 @@ public sealed class MewooPluginHost
         _logger = logger;
     }
 
-    public PluginEntry RegisterPlugin(IMewooPlugin plugin)
+    public PluginEntry RegisterPlugin(
+        IMewooPlugin plugin,
+        MewooPluginRegistrationSource source = MewooPluginRegistrationSource.BuiltIn)
     {
         var entry = new PluginEntry(plugin, MewooPluginState.Created, null);
         _plugins.Add(entry);
 
         try
         {
-            var registry = new MewooContributionRegistry(plugin.Id);
+            var registry = new MewooContributionRegistry(
+                plugin.Id,
+                allowSystemActivitySection: source == MewooPluginRegistrationSource.BuiltIn);
             plugin.Register(registry);
             var snapshot = registry.BuildSnapshot();
 
@@ -294,3 +298,9 @@ public sealed class MewooPluginHost
 }
 
 public sealed record PluginEntry(IMewooPlugin Plugin, MewooPluginState State, Exception? Error);
+
+public enum MewooPluginRegistrationSource
+{
+    BuiltIn,
+    Runtime,
+}

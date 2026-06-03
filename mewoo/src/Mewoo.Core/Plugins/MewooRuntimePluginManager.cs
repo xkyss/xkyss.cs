@@ -234,7 +234,7 @@ public sealed class MewooRuntimePluginManager
         }
 
         SetStatus(descriptor, MewooRuntimePluginState.Loaded);
-        var entry = pluginHost.RegisterPlugin(loaded.Plugin);
+        var entry = pluginHost.RegisterPlugin(loaded.Plugin, MewooPluginRegistrationSource.Runtime);
         if (entry.State == MewooPluginState.Failed)
         {
             loaded.LoadContext.Unload();

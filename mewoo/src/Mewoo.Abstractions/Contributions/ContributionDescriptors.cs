@@ -9,7 +9,14 @@ public sealed record ActivityDescriptor(
     string Title,
     string? Icon,
     string ViewContainerId,
-    int Order);
+    int Order,
+    ActivityBarSection Section);
+
+public enum ActivityBarSection
+{
+    Primary,
+    System,
+}
 
 public sealed record ViewContainerDescriptor(
     string Id,

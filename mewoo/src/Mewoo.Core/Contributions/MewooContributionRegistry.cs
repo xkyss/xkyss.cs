@@ -7,7 +7,9 @@ namespace Mewoo.Core.Contributions;
 
 #pragma warning disable CS9124
 
-public sealed partial class MewooContributionRegistry(string pluginId) : IMewooContributionRegistry
+public sealed partial class MewooContributionRegistry(
+    string pluginId,
+    bool allowSystemActivitySection = true) : IMewooContributionRegistry
 {
     private readonly List<ActivityBuilder> _activities = [];
     private readonly List<ViewContainerBuilder> _viewContainers = [];
@@ -66,7 +68,7 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
 
     public MewooContributionSnapshot BuildSnapshot()
     {
-        var activities = _activities.Select(x => x.Build()).ToArray();
+        var activities = _activities.Select(x => x.Build(allowSystemActivitySection)).ToArray();
         var activityIds = activities.Select(x => x.Id).ToArray();
         var viewContainerScopes = InferViewContainerScopes(activities, _viewContainers.Select(x => x.Id).ToArray());
 
@@ -186,13 +188,31 @@ public sealed partial class MewooContributionRegistry(string pluginId) : IMewooC
         private string? _icon;
         private string? _viewContainerId;
         private int _order;
+        private ActivityBarSection _section = global::Mewoo.Abstractions.Contributions.ActivityBarSection.Primary;
 
         public IActivityContributionBuilder Title(string title) { _title = title; return this; }
         public IActivityContributionBuilder Icon(string icon) { _icon = icon; return this; }
         public IActivityContributionBuilder ViewContainer(string viewContainerId) { ValidateId(viewContainerId); _viewContainerId = viewContainerId; return this; }
         public IActivityContributionBuilder Order(int order) { _order = order; return this; }
+        public IActivityContributionBuilder ActivityBarSection(ActivityBarSection section) { _section = section; return this; }
 
-        public ActivityDescriptor Build() => new(id, ownerPluginId, _title, _icon, _viewContainerId ?? throw new InvalidOperationException($"Activity '{id}' requires a view container."), _order);
+        public ActivityDescriptor Build(bool allowSystemActivitySection)
+        {
+            if (_section == global::Mewoo.Abstractions.Contributions.ActivityBarSection.System && !allowSystemActivitySection)
+            {
+                throw new InvalidOperationException(
+                    $"Activity '{id}' declares ActivityBar section 'System', but only built-in plugins can use the System section.");
+            }
+
+            return new(
+                id,
+                ownerPluginId,
+                _title,
+                _icon,
+                _viewContainerId ?? throw new InvalidOperationException($"Activity '{id}' requires a view container."),
+                _order,
+                _section);
+        }
     }
 
     private sealed class ViewContainerBuilder(string ownerPluginId, string id) : IViewContainerContributionBuilder
