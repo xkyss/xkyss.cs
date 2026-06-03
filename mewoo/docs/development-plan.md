@@ -132,3 +132,13 @@ Goal: make Activity switching change the full Activity Workspace instead of only
 - [x] [Issue 048: Panel and Logs Activity Scope](issues/048-v5-panel-and-logs-activity-scope.md)
 - [x] [Issue 049: StatusBar Activity and Global Scope](issues/049-v5-statusbar-activity-and-global-scope.md)
 - [x] [Issue 050: Activity Workspace Road Test](issues/050-v5-activity-workspace-road-test.md)
+
+### Milestone 15: V6 ActivityBar System Section
+
+Goal: add a bottom ActivityBar system section for built-in management Activities without weakening Activity Workspace scoping.
+
+- [ ] [Issue 051: ActivityBar Section Model and System Permission](issues/051-v6-activitybar-section-model.md)
+- [ ] [Issue 052: Render Primary and System ActivityBar Sections](issues/052-v6-activitybar-section-rendering.md)
+- [ ] [Issue 053: Move Plugin Manager to System Section](issues/053-v6-plugin-manager-system-section.md)
+- [ ] [Issue 054: Settings System Activity Skeleton](issues/054-v6-settings-system-activity.md)
+- [ ] [Issue 055: ActivityBar System Section Road Test](issues/055-v6-activitybar-system-section-road-test.md)

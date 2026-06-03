@@ -51,6 +51,14 @@ An `Activity Workspace` is the workbench scope owned by the active Activity. It 
 
 The ActivityBar, TitleBar, theme, window state, global commands, and plugin lifecycle remain global shell concerns outside an Activity Workspace.
 
+ActivityBar can render Activities in sections. `Primary` is the default top section for ordinary product Activities. `System` is a bottom section for built-in system Activities such as Plugin Manager and Settings.
+
+ActivityBar section is a presentation and authorization concern, not a different Activity kind. System Activities still switch the full Activity Workspace.
+
+The `System` ActivityBar section is reserved for compiled built-in plugins. Runtime or locally installed plugins must not declare system-section Activities; doing so is a registration failure rather than a silent fallback to `Primary`.
+
+System-section Activities are not user-sortable or user-hideable in V6. Their order is fixed by contribution order, with Plugin Manager above Settings and Settings at the bottom.
+
 MainArea tabs are scoped to an Activity Workspace. Switching Activity restores that Activity's own open MainArea tabs and active MainArea tab instead of sharing one global tab stack.
 
 Panel visibility, height, active panel tab, and activity-scoped panel tabs belong to the current Activity Workspace. Global panel content such as Logs may be opened from any Activity Workspace, but the global content does not make Panel visibility global.
