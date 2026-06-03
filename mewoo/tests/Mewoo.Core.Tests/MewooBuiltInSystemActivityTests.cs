@@ -1,6 +1,8 @@
 using Mewoo.Abstractions.Contributions;
 using Mewoo.Core.Plugins;
 using Mewoo.Plugins.PluginManager;
+using Mewoo.Plugins.Settings;
+using Mewoo.Workbench;
 
 namespace Mewoo.Core.Tests;
 
@@ -25,6 +27,44 @@ public sealed class MewooBuiltInSystemActivityTests
             item.Id == "pluginManager.activity");
         Assert.AreEqual(ActivityBarSection.System, activity.Section);
         Assert.AreEqual(80, activity.Order);
+    }
+
+    [TestMethod]
+    public void SettingsContributesBottomSystemActivity()
+    {
+        var host = new MewooPluginHost();
+
+        var entry = host.RegisterPlugin(new SettingsPlugin(), MewooPluginRegistrationSource.BuiltIn);
+
+        Assert.AreEqual(Mewoo.Abstractions.Plugins.MewooPluginState.Registered, entry.State);
+        var activity = host.GetRegisteredContributions("settings").Activities.Single(item =>
+            item.Id == "settings.activity");
+        Assert.AreEqual(ActivityBarSection.System, activity.Section);
+        Assert.AreEqual(90, activity.Order);
+        Assert.IsTrue(host.GetRegisteredContributions("settings").MainViews.Any(item =>
+            item.Id == "settings.home"));
+        Assert.IsTrue(host.GetRegisteredContributions("settings").Commands.Any(item =>
+            item.Id == "settings.open"));
+    }
+
+    [TestMethod]
+    public void PluginManagerRendersAboveSettingsInSystemSection()
+    {
+        var host = new MewooPluginHost();
+        using var pluginRoot = new TestPluginRoot();
+        host.RegisterPlugin(
+            new PluginManagerPlugin(new MewooRuntimePluginManager(), host, EmptyServiceProvider.Instance, pluginRoot.Path),
+            MewooPluginRegistrationSource.BuiltIn);
+        host.RegisterPlugin(new SettingsPlugin(), MewooPluginRegistrationSource.BuiltIn);
+        var pluginManagerSnapshot = host.GetRegisteredContributions("pluginManager");
+        var settingsSnapshot = host.GetRegisteredContributions("settings");
+
+        var sections = WorkbenchActivityBarModel.CreateSections(
+            pluginManagerSnapshot.Activities.Concat(settingsSnapshot.Activities));
+
+        CollectionAssert.AreEqual(
+            new[] { "pluginManager.activity", "settings.activity" },
+            sections.System.Select(activity => activity.Id).ToArray());
     }
 
     private sealed class EmptyServiceProvider : IServiceProvider

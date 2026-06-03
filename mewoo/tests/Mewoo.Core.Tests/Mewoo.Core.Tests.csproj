@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mewoo.Core\Mewoo.Core.csproj" />
     <ProjectReference Include="..\..\src\Mewoo.Plugins.PluginManager\Mewoo.Plugins.PluginManager.csproj" />
+    <ProjectReference Include="..\..\src\Mewoo.Plugins.Settings\Mewoo.Plugins.Settings.csproj" />
     <ProjectReference Include="..\..\src\Mewoo.Workbench\Mewoo.Workbench.csproj" />
     <ProjectReference Include="..\Mewoo.TestPlugins.OutOfProcessProbeHost\Mewoo.TestPlugins.OutOfProcessProbeHost.csproj" />
     <ProjectReference Include="..\Mewoo.TestPlugins.ValidRuntimePlugin\Mewoo.TestPlugins.ValidRuntimePlugin.csproj" />
