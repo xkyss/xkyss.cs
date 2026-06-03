@@ -141,4 +141,4 @@ Goal: add a bottom ActivityBar system section for built-in management Activities
 - [x] [Issue 052: Render Primary and System ActivityBar Sections](issues/052-v6-activitybar-section-rendering.md)
 - [x] [Issue 053: Move Plugin Manager to System Section](issues/053-v6-plugin-manager-system-section.md)
 - [x] [Issue 054: Settings System Activity Skeleton](issues/054-v6-settings-system-activity.md)
-- [ ] [Issue 055: ActivityBar System Section Road Test](issues/055-v6-activitybar-system-section-road-test.md)
+- [x] [Issue 055: ActivityBar System Section Road Test](issues/055-v6-activitybar-system-section-road-test.md)
