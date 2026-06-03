@@ -48,7 +48,9 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     private readonly SemaphoreSlim _stateSaveLock = new(1, 1);
     private readonly WorkbenchState _state = new();
     private readonly WorkbenchStatusBarModel _statusBar = new();
-    private readonly StackPanel _activityBar = new() { Orientation = Orientation.Vertical };
+    private readonly DockPanel _activityBar = new();
+    private readonly StackPanel _primaryActivityBar = new() { Orientation = Orientation.Vertical };
+    private readonly StackPanel _systemActivityBar = new() { Orientation = Orientation.Vertical };
     private readonly Border _sidebarShell = new();
     private readonly Border _sidebarHost = new();
     private readonly ClosableTabControl _mainTabs = new();
@@ -228,6 +230,10 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             _panelHost.DockBottom(),
             workContent);
 
+        _activityBar.Children(
+            _systemActivityBar.DockBottom(),
+            _primaryActivityBar);
+
         var body = new DockPanel().Children(
             new Border()
                 .DockLeft()
@@ -242,7 +248,8 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
     private void RenderContributions()
     {
-        _activityBar.Clear();
+        _primaryActivityBar.Clear();
+        _systemActivityBar.Clear();
         _mainTabs.Clear();
         _mainViews.Clear();
 
@@ -260,9 +267,15 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             WorkbenchState.LogsPanelTabId,
         });
 
-        foreach (var activity in _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id))
+        var activitySections = WorkbenchActivityBarModel.CreateSections(_pluginHost.VisibleContributions.Activities);
+        foreach (var activity in activitySections.Primary)
         {
-            _activityBar.Children(ActivityButton(activity));
+            _primaryActivityBar.Children(ActivityButton(activity));
+        }
+
+        foreach (var activity in activitySections.System)
+        {
+            _systemActivityBar.Children(ActivityButton(activity));
         }
 
         var activities = _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id).ToArray();
@@ -315,10 +328,17 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
 
     private void RenderActivityBar()
     {
-        _activityBar.Clear();
-        foreach (var activity in _pluginHost.VisibleContributions.Activities.OrderBy(x => x.Order).ThenBy(x => x.Id))
+        _primaryActivityBar.Clear();
+        _systemActivityBar.Clear();
+        var activitySections = WorkbenchActivityBarModel.CreateSections(_pluginHost.VisibleContributions.Activities);
+        foreach (var activity in activitySections.Primary)
         {
-            _activityBar.Children(ActivityButton(activity));
+            _primaryActivityBar.Children(ActivityButton(activity));
+        }
+
+        foreach (var activity in activitySections.System)
+        {
+            _systemActivityBar.Children(ActivityButton(activity));
         }
     }
 
