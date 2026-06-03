@@ -49,6 +49,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .Title("Plugins")
             .Icon("P")
             .ViewContainer("pluginManager.views")
+            .ActivityBarSection(ActivityBarSection.System)
             .Order(80);
 
         registry.ViewContainer("pluginManager.views")
