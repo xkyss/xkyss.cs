@@ -33,4 +33,7 @@ Run a V6 road test for ActivityBar system-section behavior across Primary Activi
 
 - Automated road test: `dotnet test tests\Mewoo.Core.Tests\Mewoo.Core.Tests.csproj --no-restore --verbosity minimal --filter "FullyQualifiedName~MewooV6ActivityBarSystemSectionRoadTestTests"`
 - Result: passed, 1 test.
+- Full solution build: `dotnet build Mewoo.slnx --no-restore --verbosity minimal`
+- Full solution test: `dotnet test Mewoo.slnx --no-restore --verbosity minimal`
+- Result: passed, 89 tests.
 - Manual desktop checks: covered by the road-test assertions for section placement, ordering, Activity Workspace switching, per-Activity MainArea and Panel state, and runtime-plugin rejection. No extra manual-only check is required for this slice.

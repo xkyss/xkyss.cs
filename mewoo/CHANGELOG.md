@@ -2,11 +2,19 @@
 
 All notable changes to Mewoo are recorded here.
 
-## Unreleased
+## 0.6.0 - 2026-06-03
 
-### Development
+### Features
 
-- Started V6 development on `0.6.0-dev`.
+- Added Primary and System ActivityBar sections so built-in management Activities can stay pinned at the bottom.
+- Restricted System Activity registration to built-in plugins, with clear failure diagnostics for runtime plugins.
+- Moved Plugin Manager into the bottom System ActivityBar section.
+- Added the built-in Settings Activity skeleton with its own Activity Workspace.
+
+### Tests
+
+- Added focused tests for ActivityBar section metadata, rendering model ordering, built-in system Activities, runtime-plugin rejection, and the V6 ActivityBar system-section road test.
+- Verified V6 with `dotnet build Mewoo.slnx --no-restore --verbosity minimal` and `dotnet test Mewoo.slnx --no-restore --verbosity minimal`.
 
 ## 0.5.0 - 2026-05-29
 
