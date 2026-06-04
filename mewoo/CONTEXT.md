@@ -51,6 +51,10 @@ An `Activity Workspace` is the workbench scope owned by the active Activity. It 
 
 The ActivityBar, TitleBar, theme, window state, global commands, and plugin lifecycle remain global shell concerns outside an Activity Workspace.
 
+Sidebar and MainArea interiors are plugin-owned. The Workbench may provide optional recommended Sidebar helpers through `Mewoo.Controls` for visual consistency, but plugins choose whether to use them or provide fully custom Sidebar content. Recommended Sidebar helpers are UI helpers, not a required contribution schema. MainArea has no default or recommended layout; each plugin owns its MainArea view composition.
+
+`SidebarNavigation` is an optional Sidebar helper for multi-level, collapsible plugin navigation. Its expanded/collapsed state belongs to the plugin or the helper view instance, not to Workbench persistence.
+
 ActivityBar can render Activities in sections. `Primary` is the default top section for ordinary product Activities. `System` is a bottom section for built-in system Activities such as Plugin Manager and Settings.
 
 ActivityBar section is a presentation and authorization concern, not a different Activity kind. System Activities still switch the full Activity Workspace.

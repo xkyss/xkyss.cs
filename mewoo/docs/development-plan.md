@@ -10,6 +10,7 @@ This document is the local issue index for Mewoo. Detailed per-slice issue docum
 - V4 baseline tag: `v4-baseline`
 - V5 baseline tag: `v5-baseline` (version `0.5.0`, release tag `v0.5.0`)
 - V6 baseline tag: `v6-baseline` (version `0.6.0`, release tag `v0.6.0`)
+- Planned V7 baseline tag: `v7-baseline` (version `0.7.0`, release tag `v0.7.0`)
 
 ## Milestones
 
@@ -142,3 +143,15 @@ Goal: add a bottom ActivityBar system section for built-in management Activities
 - [x] [Issue 053: Move Plugin Manager to System Section](issues/053-v6-plugin-manager-system-section.md)
 - [x] [Issue 054: Settings System Activity Skeleton](issues/054-v6-settings-system-activity.md)
 - [x] [Issue 055: ActivityBar System Section Road Test](issues/055-v6-activitybar-system-section-road-test.md)
+
+### Milestone 16: V7 Sidebar Controls and Plugin-Owned Layout
+
+Goal: remove repeated Sidebar chrome by keeping Sidebar interiors plugin-owned while offering optional reusable controls for consistent built-in plugin Sidebars.
+
+- [ ] [Issue 056: Mewoo.Controls Project and Sidebar Helper Foundation](issues/056-v7-mewoo-controls-foundation.md)
+- [ ] [Issue 057: Workbench Read-Only View State](issues/057-v7-workbench-read-only-view-state.md)
+- [ ] [Issue 058: Sidebar Header and Search Controls](issues/058-v7-sidebar-header-and-search-controls.md)
+- [ ] [Issue 059: SidebarNavigation Multi-Level Collapsible Control](issues/059-v7-sidebar-navigation-control.md)
+- [ ] [Issue 060: Plugin-Owned Sidebar Rendering Boundary](issues/060-v7-plugin-owned-sidebar-rendering.md)
+- [ ] [Issue 061: Migrate Built-In Sidebars to Mewoo.Controls](issues/061-v7-migrate-built-in-sidebars.md)
+- [ ] [Issue 062: Sidebar Controls Road Test](issues/062-v7-sidebar-controls-road-test.md)
