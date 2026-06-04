@@ -6,6 +6,7 @@ using Mewoo.Abstractions.Logging;
 using Mewoo.Abstractions.Plugins;
 using Mewoo.Abstractions.Views;
 using Mewoo.Core.Plugins;
+using Mewoo.Controls.Sidebar;
 
 namespace Mewoo.Plugins.RuntimeDiagnostics;
 
@@ -65,17 +66,25 @@ public sealed class RuntimeDiagnosticsPlugin : IMewooPlugin
 
     private StackPanel CreateSidebar(IWorkbenchService workbench)
     {
-        var panel = new StackPanel { Orientation = Orientation.Vertical }
-            .Spacing(8)
-            .Margin(12)
-            .Children(
-                new TextBlock().Text("Runtime Plugins").SemiBold(),
-                new TextBlock().Text($"{_runtimePlugins.LoadedPlugins.Count} loaded").FontSize(12),
-                new Button()
-                    .Content("Open Diagnostics")
-                    .OnClick(async () => await workbench.OpenMainViewAsync("runtimeDiagnostics.home")));
+        var navigation = SidebarNavigation.Create(workbench)
+            .MainView("runtime.home", "Diagnostics", "runtimeDiagnostics.home")
+            .Build()
+            .Margin(4, 0, 4, 0);
 
-        return panel;
+        var body = new StackPanel { Orientation = Orientation.Vertical }
+            .Spacing(8)
+            .Margin(12, 0, 12, 0)
+            .Children(
+                new TextBlock().Text($"{_runtimePlugins.LoadedPlugins.Count} loaded").FontSize(12),
+                navigation);
+
+        return SidebarLayout.Create()
+            .Header(SidebarHeader.Create("Runtime")
+                .Action("L", "Open logs", workbench.OpenLogsPanel)
+                .More(menu => menu.Item("Open Diagnostics", async () =>
+                    await workbench.OpenMainViewAsync("runtimeDiagnostics.home"))))
+            .Body(body)
+            .Build();
     }
 
     private StackPanel CreateMainView(IWorkbenchService workbench)

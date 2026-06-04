@@ -253,6 +253,10 @@ public sealed class MewooPluginPackageOperationsTests
     {
         public static readonly EmptyWorkbenchService Instance = new();
 
+        public WorkbenchViewState Current { get; } = new(null, null);
+
+        public event EventHandler<WorkbenchViewStateChangedEventArgs>? StateChanged { add { } remove { } }
+
         public ValueTask OpenMainViewAsync(string mainViewId, CancellationToken cancellationToken = default) =>
             ValueTask.CompletedTask;
 

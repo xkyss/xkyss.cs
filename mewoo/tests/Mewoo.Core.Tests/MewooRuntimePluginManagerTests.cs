@@ -341,6 +341,10 @@ public sealed class MewooRuntimePluginManagerTests
     {
         public static readonly EmptyWorkbenchService Instance = new();
 
+        public WorkbenchViewState Current { get; } = new(null, null);
+
+        public event EventHandler<WorkbenchViewStateChangedEventArgs>? StateChanged { add { } remove { } }
+
         public ValueTask OpenMainViewAsync(string mainViewId, CancellationToken cancellationToken = default)
         {
             return ValueTask.CompletedTask;
@@ -365,6 +369,10 @@ public sealed class MewooRuntimePluginManagerTests
         public Dictionary<string, string> StatusUpdates { get; } = new(StringComparer.Ordinal);
 
         public bool LogsOpened { get; private set; }
+
+        public WorkbenchViewState Current { get; } = new(null, null);
+
+        public event EventHandler<WorkbenchViewStateChangedEventArgs>? StateChanged { add { } remove { } }
 
         public ValueTask OpenMainViewAsync(string mainViewId, CancellationToken cancellationToken = default)
         {

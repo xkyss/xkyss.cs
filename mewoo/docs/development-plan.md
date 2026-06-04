@@ -148,10 +148,10 @@ Goal: add a bottom ActivityBar system section for built-in management Activities
 
 Goal: remove repeated Sidebar chrome by keeping Sidebar interiors plugin-owned while offering optional reusable controls for consistent built-in plugin Sidebars.
 
-- [ ] [Issue 056: Mewoo.Controls Project and Sidebar Helper Foundation](issues/056-v7-mewoo-controls-foundation.md)
-- [ ] [Issue 057: Workbench Read-Only View State](issues/057-v7-workbench-read-only-view-state.md)
-- [ ] [Issue 058: Sidebar Header and Search Controls](issues/058-v7-sidebar-header-and-search-controls.md)
-- [ ] [Issue 059: SidebarNavigation Multi-Level Collapsible Control](issues/059-v7-sidebar-navigation-control.md)
-- [ ] [Issue 060: Plugin-Owned Sidebar Rendering Boundary](issues/060-v7-plugin-owned-sidebar-rendering.md)
-- [ ] [Issue 061: Migrate Built-In Sidebars to Mewoo.Controls](issues/061-v7-migrate-built-in-sidebars.md)
-- [ ] [Issue 062: Sidebar Controls Road Test](issues/062-v7-sidebar-controls-road-test.md)
+- [x] [Issue 056: Mewoo.Controls Project and Sidebar Helper Foundation](issues/056-v7-mewoo-controls-foundation.md)
+- [x] [Issue 057: Workbench Read-Only View State](issues/057-v7-workbench-read-only-view-state.md)
+- [x] [Issue 058: Sidebar Header and Search Controls](issues/058-v7-sidebar-header-and-search-controls.md)
+- [x] [Issue 059: SidebarNavigation Multi-Level Collapsible Control](issues/059-v7-sidebar-navigation-control.md)
+- [x] [Issue 060: Plugin-Owned Sidebar Rendering Boundary](issues/060-v7-plugin-owned-sidebar-rendering.md)
+- [x] [Issue 061: Migrate Built-In Sidebars to Mewoo.Controls](issues/061-v7-migrate-built-in-sidebars.md)
+- [x] [Issue 062: Sidebar Controls Road Test](issues/062-v7-sidebar-controls-road-test.md)

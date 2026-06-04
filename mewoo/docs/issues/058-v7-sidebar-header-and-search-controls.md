@@ -1,6 +1,6 @@
 # Issue 058: Sidebar Header and Search Controls
 
-Status: Planned
+Status: Done
 
 ## What to build
 
@@ -8,14 +8,21 @@ Add optional `SidebarLayout`, `SidebarHeader`, icon action, More menu, and searc
 
 ## Acceptance criteria
 
-- [ ] `SidebarHeader` renders a left title, an absolutely centered action group, and an optional right More menu.
-- [ ] Header actions support multiple icon-style buttons.
-- [ ] Header actions support text icons, `PathGeometry` icons, and custom MewUI elements.
-- [ ] Header actions require tooltip or accessible label text.
-- [ ] Title truncates before pushing center actions or More menu out of position.
-- [ ] More menu uses `...` semantics and does not act as an expandable content panel.
-- [ ] Actions support async execution, local busy/disabled state, duplicate-click protection, and an `OnActionError` hook.
-- [ ] `SidebarSearchRow` provides consistent search/filter input visuals and change/binding hooks without owning filtering logic.
+- [x] `SidebarHeader` renders a left title, an absolutely centered action group, and an optional right More menu.
+- [x] Header actions support multiple icon-style buttons.
+- [x] Header actions support text icons, `PathGeometry` icons, and custom MewUI elements.
+- [x] Header actions require tooltip or accessible label text.
+- [x] Title truncates before pushing center actions or More menu out of position.
+- [x] More menu uses `...` semantics and does not act as an expandable content panel.
+- [x] Actions support async execution, local busy/disabled state, duplicate-click protection, and an `OnActionError` hook.
+- [x] `SidebarSearchRow` provides consistent search/filter input visuals and change/binding hooks without owning filtering logic.
+
+## Verification
+
+- `dotnet test tests\Mewoo.Core.Tests\Mewoo.Core.Tests.csproj --no-restore --verbosity minimal --filter FullyQualifiedName~SidebarHeaderAndSearchControlsTests`
+- Result: passed, 2 tests.
+- `dotnet build Mewoo.slnx --no-restore --verbosity minimal`
+- Result: passed. Existing NU1900 warnings remain in this restricted network environment.
 
 ## Notes
 
@@ -25,4 +32,3 @@ Add optional `SidebarLayout`, `SidebarHeader`, icon action, More menu, and searc
 ## Blocked by
 
 - Issue 056
-

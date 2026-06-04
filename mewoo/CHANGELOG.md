@@ -2,6 +2,21 @@
 
 All notable changes to Mewoo are recorded here.
 
+## 0.7.0 - 2026-06-04
+
+### Features
+
+- Added the optional `Mewoo.Controls` plugin UI helper library.
+- Added reusable Sidebar layout, header, search row, More menu, and multi-level collapsible `SidebarNavigation` helpers.
+- Exposed minimal read-only Workbench view state through `IWorkbenchService` for plugin UI selected-state behavior.
+- Changed Workbench Sidebar hosting so `ViewContainer.Title` and `SidebarView.Title` remain metadata instead of being rendered as duplicate visible chrome.
+- Migrated built-in Sidebars to the new optional Sidebar controls while leaving MainArea layouts plugin-owned.
+
+### Tests
+
+- Added focused tests for Workbench view state, Sidebar header/search controls, SidebarNavigation behavior, plugin-owned Sidebar rendering, and the V7 Sidebar controls road test.
+- Verified V7 with `dotnet build Mewoo.slnx --no-restore --verbosity minimal` and `dotnet test Mewoo.slnx --no-restore --verbosity minimal`.
+
 ## 0.6.0 - 2026-06-03
 
 ### Features

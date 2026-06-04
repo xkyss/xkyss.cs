@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mewoo.Abstractions\Mewoo.Abstractions.csproj" />
+    <ProjectReference Include="..\Mewoo.Controls\Mewoo.Controls.csproj" />
   </ItemGroup>
 
   <ItemGroup>

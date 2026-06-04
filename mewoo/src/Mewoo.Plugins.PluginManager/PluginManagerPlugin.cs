@@ -5,6 +5,7 @@ using Mewoo.Abstractions.Contributions;
 using Mewoo.Abstractions.Plugins;
 using Mewoo.Abstractions.Views;
 using Mewoo.Core.Plugins;
+using Mewoo.Controls.Sidebar;
 
 namespace Mewoo.Plugins.PluginManager;
 
@@ -87,24 +88,36 @@ public sealed class PluginManagerPlugin : IMewooPlugin
 
     private StackPanel CreateSidebar(IWorkbenchService workbench)
     {
-        var panel = new StackPanel { Orientation = Orientation.Vertical }
-            .Spacing(8)
-            .Margin(12);
-
         var entries = Entries();
-        panel.Children(
-            new TextBlock().Text("Plugins").SemiBold(),
-            new TextBlock().Text($"{entries.Count} installed").FontSize(12),
-            new Button()
-                .Content("Open Plugin Manager")
-                .OnClick(async () => await workbench.OpenMainViewAsync("pluginManager.home")));
+        var navigation = SidebarNavigation.Create(
+                workbench,
+                new SidebarNavigationOptions
+                {
+                    InitialExpandedNodeIds = new HashSet<string>(["installed"], StringComparer.Ordinal),
+                })
+            .MainView("plugins.home", "All Plugins", "pluginManager.home")
+            .MainView("plugins.details", "Plugin Details", "pluginManager.details")
+            .Node("installed", $"{entries.Count} installed", installed =>
+            {
+                foreach (var entry in entries.Take(8))
+                {
+                    installed.Action(EntryKey(entry), entry.DisplayName, async () =>
+                    {
+                        _selectedEntryKey = EntryKey(entry);
+                        await workbench.OpenMainViewAsync("pluginManager.home");
+                    });
+                }
+            })
+            .Build()
+            .Margin(4, 0, 4, 0);
 
-        foreach (var entry in entries.Take(8))
-        {
-            panel.Children(SidebarEntry(entry, workbench));
-        }
-
-        return panel;
+        return SidebarLayout.Create()
+            .Header(SidebarHeader.Create("Plugins")
+                .Action("+", "Install from file", async () => await ChooseInstallPackageAsync(workbench))
+                .More(menu => menu.Item("Open Plugin Manager", async () =>
+                    await workbench.OpenMainViewAsync("pluginManager.home"))))
+            .Body(navigation)
+            .Build();
     }
 
     private StackPanel CreateMainView(IWorkbenchService workbench)

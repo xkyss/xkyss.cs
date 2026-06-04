@@ -77,6 +77,7 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         _logger = logger ?? new NullMewooLogger();
         _mainViews = pluginHost.VisibleContributions.MainViews.ToDictionary(x => x.Id, StringComparer.Ordinal);
         _state.Changed += OnWorkbenchStateChanged;
+        _state.ViewStateChanged += OnWorkbenchViewStateChanged;
         _pluginHost.ContributionsChanged += RenderContributions;
         _themeController.Changed += OnThemeChanged;
         _logger.Changed += RenderLogs;
@@ -128,6 +129,10 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
         _state.OpenMainView(mainViewId, activityId);
         await ValueTask.CompletedTask;
     }
+
+    public WorkbenchViewState Current => _state.CurrentViewState;
+
+    public event EventHandler<WorkbenchViewStateChangedEventArgs>? StateChanged;
 
     public void UpdateStatusBarItem(string statusBarItemId, string text)
     {
@@ -352,16 +357,9 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
             return;
         }
 
-        var views = new StackPanel { Orientation = Orientation.Vertical };
-        views.Children(new TextBlock().Text(container.Title).SemiBold().Margin(12, 12, 12, 8));
-
-        foreach (var view in container.Views)
-        {
-            views.Children(new TextBlock().Text(view.Title).Margin(12, 4));
-            views.Children(HostView(view.CreateView(new WorkbenchViewContext(view.OwnerPluginId, _services, this))));
-        }
-
-        _sidebarHost.Child = views;
+        _sidebarHost.Child = WorkbenchSidebarContentRenderer.Render(
+            container,
+            view => HostView(view.CreateView(new WorkbenchViewContext(view.OwnerPluginId, _services, this))));
         _state.SetActiveActivity(activity.Id);
         RenderMainTabsForActiveActivity();
         RenderPanelTabsForActiveActivity();
@@ -576,6 +574,11 @@ public sealed class MewooWorkbenchWindow : MewooNativeWindow, IWorkbenchService
     {
         ApplyState();
         QueueSaveState();
+    }
+
+    private void OnWorkbenchViewStateChanged(object? sender, WorkbenchViewStateChangedEventArgs e)
+    {
+        StateChanged?.Invoke(this, e);
     }
 
     private void OnThemeChanged()

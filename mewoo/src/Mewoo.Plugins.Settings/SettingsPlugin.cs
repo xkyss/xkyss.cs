@@ -5,6 +5,7 @@ using Mewoo.Abstractions;
 using Mewoo.Abstractions.Contributions;
 using Mewoo.Abstractions.Plugins;
 using Mewoo.Abstractions.Views;
+using Mewoo.Controls.Sidebar;
 
 namespace Mewoo.Plugins.Settings;
 
@@ -43,17 +44,20 @@ public sealed class SettingsPlugin : IMewooPlugin
 
     private static StackPanel CreateSidebar(IWorkbenchService workbench)
     {
-        return new StackPanel { Orientation = Orientation.Vertical }
-            .Spacing(8)
-            .Margin(12)
-            .Children(
-                new TextBlock().Text("Settings").SemiBold(),
-                new Button()
-                    .Content("Open Settings")
-                    .OnClick(async () => await workbench.OpenMainViewAsync("settings.home")),
-                new TextBlock().Text("General").FontSize(12),
-                new TextBlock().Text("Appearance").FontSize(12),
-                new TextBlock().Text("Plugins").FontSize(12));
+        var navigation = SidebarNavigation.Create(workbench)
+            .MainView("settings.general", "General", "settings.home")
+            .Action("settings.appearance", "Appearance", () =>
+                workbench.UpdateStatusBarItem("settings.status", "Settings: appearance opened"))
+            .MainView("settings.plugins", "Plugins", "pluginManager.home")
+            .Build()
+            .Margin(4, 0, 4, 0);
+
+        return SidebarLayout.Create()
+            .Header(SidebarHeader.Create("Settings")
+                .More(menu => menu.Item("Open Settings", async () =>
+                    await workbench.OpenMainViewAsync("settings.home"))))
+            .Body(navigation)
+            .Build();
     }
 
     private static StackPanel CreateMainView(IWorkbenchService workbench)

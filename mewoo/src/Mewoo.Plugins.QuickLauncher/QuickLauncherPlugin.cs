@@ -4,6 +4,7 @@ using Mewoo.Abstractions;
 using Mewoo.Abstractions.Contributions;
 using Mewoo.Abstractions.Plugins;
 using Mewoo.Abstractions.Views;
+using Mewoo.Controls.Sidebar;
 
 namespace Mewoo.Plugins.QuickLauncher;
 
@@ -112,13 +113,12 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
             .Take(5)
             .ToArray();
 
-        _sidebarSearchBox = new TextBox().Placeholder("Search shortcuts");
+        _sidebarSearchBox = SidebarSearchRow.Create("Search shortcuts");
 
-        return new StackPanel { Orientation = Orientation.Vertical }
+        var body = new StackPanel { Orientation = Orientation.Vertical }
             .Spacing(8)
             .Margin(12)
             .Children(
-                _sidebarSearchBox,
                 new TextBlock().Text("Groups").SemiBold(),
                 new StackPanel { Orientation = Orientation.Vertical }
                     .Spacing(4)
@@ -131,6 +131,31 @@ public sealed class QuickLauncherPlugin : IMewooPlugin
                     .Children(recentItems
                         .Select(item => SidebarRecentItem(item, workbench) as Element)
                         .ToArray()));
+
+        return SidebarLayout.Create()
+            .Header(SidebarHeader.Create("Launcher")
+                .Action("R", "Reload launcher config", async () =>
+                {
+                    _config = QuickLauncherConfig.LoadOrCreateDefault();
+                    _selectedItem = null;
+                    SetStatus(workbench, $"Reloaded: {_config.Groups.Sum(group => group.Items.Count)} items");
+                    await workbench.OpenMainViewAsync("quickLauncher.home");
+                })
+                .More(menu => menu.Item("Open config", () =>
+                {
+                    try
+                    {
+                        QuickLauncherLaunchService.OpenConfig();
+                        SetStatus(workbench, "Opened launcher config");
+                    }
+                    catch (Exception ex)
+                    {
+                        SetStatus(workbench, $"Open config failed: {ex.Message}");
+                    }
+                })))
+            .Search(_sidebarSearchBox)
+            .Body(body)
+            .Build();
     }
 
     private StackPanel CreateMainView(IWorkbenchService workbench)

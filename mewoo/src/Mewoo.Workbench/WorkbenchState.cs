@@ -1,3 +1,5 @@
+using Mewoo.Abstractions;
+
 namespace Mewoo.Workbench;
 
 public sealed class WorkbenchState
@@ -19,6 +21,8 @@ public sealed class WorkbenchState
 
     public event Action? Changed;
 
+    public event EventHandler<WorkbenchViewStateChangedEventArgs>? ViewStateChanged;
+
     public bool SidebarCollapsed { get; private set; }
 
     public bool PanelVisible => CurrentPanelState.PanelVisible;
@@ -26,6 +30,8 @@ public sealed class WorkbenchState
     public string? ActiveActivityId { get; private set; }
 
     public string? ActiveMainViewId { get; private set; }
+
+    public WorkbenchViewState CurrentViewState => new(ActiveActivityId, ActiveMainViewId);
 
     public IReadOnlyList<string> OpenMainViewIds =>
         ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var state)
@@ -164,10 +170,12 @@ public sealed class WorkbenchState
             return;
         }
 
+        var previous = CurrentViewState;
         ActiveActivityId = activityId;
         ActiveMainViewId = activityId is not null && _mainViewsByActivity.TryGetValue(activityId, out var state)
             ? state.ActiveMainViewId
             : null;
+        RaiseViewStateChanged(previous);
         Changed?.Invoke();
     }
 
@@ -178,6 +186,7 @@ public sealed class WorkbenchState
             throw new ArgumentException("Activity id is required.", nameof(activityId));
         }
 
+        var previous = CurrentViewState;
         var state = GetOrCreateMainViewState(activityId);
         if (!state.OpenMainViewIds.Any(id => string.Equals(id, mainViewId, StringComparison.Ordinal)))
         {
@@ -191,6 +200,7 @@ public sealed class WorkbenchState
 
         ActiveActivityId = activityId;
         ActiveMainViewId = state.ActiveMainViewId;
+        RaiseViewStateChanged(previous);
         Changed?.Invoke();
     }
 
@@ -216,11 +226,15 @@ public sealed class WorkbenchState
 
         if (ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var activeState))
         {
+            var previous = CurrentViewState;
             ActiveMainViewId = activeState.ActiveMainViewId;
+            RaiseViewStateChanged(previous);
         }
         else
         {
+            var previous = CurrentViewState;
             ActiveMainViewId = null;
+            RaiseViewStateChanged(previous);
         }
 
         Changed?.Invoke();
@@ -259,9 +273,11 @@ public sealed class WorkbenchState
             return;
         }
 
+        var previousViewState = CurrentViewState;
         ActiveMainViewId = ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var activeState)
             ? activeState.ActiveMainViewId
             : null;
+        RaiseViewStateChanged(previousViewState);
         Changed?.Invoke();
     }
 
@@ -326,9 +342,11 @@ public sealed class WorkbenchState
                 : state.OpenMainViewIds.LastOrDefault();
         }
 
+        var previous = CurrentViewState;
         ActiveMainViewId = ActiveActivityId is not null && _mainViewsByActivity.TryGetValue(ActiveActivityId, out var activeState)
             ? activeState.ActiveMainViewId
             : null;
+        RaiseViewStateChanged(previous);
 
         if (snapshot.ActivityPanels is { Count: > 0 })
         {
@@ -361,6 +379,17 @@ public sealed class WorkbenchState
         }
 
         Changed?.Invoke();
+    }
+
+    private void RaiseViewStateChanged(WorkbenchViewState previous)
+    {
+        var current = CurrentViewState;
+        if (current == previous)
+        {
+            return;
+        }
+
+        ViewStateChanged?.Invoke(this, new WorkbenchViewStateChangedEventArgs(previous, current));
     }
 
     private ActivityPanelState CurrentPanelState =>
