@@ -6,7 +6,7 @@ internal sealed class PluginManagerSession
 {
     public string SearchText { get; set; } = string.Empty;
 
-    public MewooPluginManagerCatalogFilter Filter { get; set; } = MewooPluginManagerCatalogFilter.All;
+    public PluginManagerCategory Category { get; set; } = PluginManagerCategory.All;
 
     public string? SelectedEntryKey { get; set; }
 

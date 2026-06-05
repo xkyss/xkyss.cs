@@ -19,11 +19,11 @@ internal sealed class PluginManagerController
     }
 
     public IReadOnlyList<MewooPluginManagerCatalogEntry> Entries() =>
-        _dependencies.Catalog.CreateEntries(
+        FilterAttentionEntries(_dependencies.Catalog.CreateEntries(
             _dependencies.PluginRoot,
             _dependencies.RuntimePlugins.PluginStatuses,
             _dependencies.RuntimePlugins.DiscoveryIssues,
-            new MewooPluginManagerCatalogQuery(_session.SearchText, _session.Filter));
+            new MewooPluginManagerCatalogQuery(_session.SearchText, CatalogFilter())));
 
     public MewooPluginManagerCatalogEntry? SelectedEntry()
     {
@@ -203,6 +203,30 @@ internal sealed class PluginManagerController
 
     public async Task OpenDiagnosticsAsync(IWorkbenchService workbench) =>
         await workbench.OpenMainViewAsync("runtimeDiagnostics.home");
+
+    private MewooPluginManagerCatalogFilter CatalogFilter() =>
+        _session.Category switch
+        {
+            PluginManagerCategory.Enabled => MewooPluginManagerCatalogFilter.Enabled,
+            PluginManagerCategory.Disabled => MewooPluginManagerCatalogFilter.Disabled,
+            _ => MewooPluginManagerCatalogFilter.All,
+        };
+
+    private IReadOnlyList<MewooPluginManagerCatalogEntry> FilterAttentionEntries(
+        IReadOnlyList<MewooPluginManagerCatalogEntry> entries)
+    {
+        if (_session.Category != PluginManagerCategory.NeedsAttention)
+        {
+            return entries;
+        }
+
+        return entries
+            .Where(entry => entry.State is
+                MewooPluginManagerCatalogState.Failed or
+                MewooPluginManagerCatalogState.Incompatible or
+                MewooPluginManagerCatalogState.Broken)
+            .ToArray();
+    }
 
     private sealed record PluginManagerPluginContext(
         string PluginId,

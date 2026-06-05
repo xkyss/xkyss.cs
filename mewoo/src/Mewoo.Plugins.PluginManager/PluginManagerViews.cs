@@ -21,25 +21,18 @@ internal sealed class PluginManagerViews
 
     public StackPanel CreateSidebar(IWorkbenchService workbench)
     {
-        var entries = _controller.Entries();
         var navigation = SidebarNavigation.Create(
                 workbench,
                 new SidebarNavigationOptions
                 {
-                    InitialExpandedNodeIds = new HashSet<string>(["installed"], StringComparer.Ordinal),
+                    InitialExpandedNodeIds = new HashSet<string>(["manage"], StringComparer.Ordinal),
                 })
-            .MainView("plugins.home", "All Plugins", "pluginManager.home")
-            .MainView("plugins.details", "Plugin Details", "pluginManager.details")
-            .Node("installed", $"{entries.Count} installed", installed =>
+            .Node("manage", "Manage", manage =>
             {
-                foreach (var entry in entries.Take(8))
-                {
-                    installed.Action(PluginManagerFormatting.EntryKey(entry), entry.DisplayName, async () =>
-                    {
-                        _session.SelectedEntryKey = PluginManagerFormatting.EntryKey(entry);
-                        await workbench.OpenMainViewAsync("pluginManager.home");
-                    });
-                }
+                AddCategoryAction(manage, PluginManagerCategory.All, workbench);
+                AddCategoryAction(manage, PluginManagerCategory.Enabled, workbench);
+                AddCategoryAction(manage, PluginManagerCategory.Disabled, workbench);
+                AddCategoryAction(manage, PluginManagerCategory.NeedsAttention, workbench);
             })
             .Build()
             .Margin(4, 0, 4, 0);
@@ -108,7 +101,7 @@ internal sealed class PluginManagerViews
                     .DockRight()
                     .Content("Install from File")
                     .OnClick(async () => await _controller.ChooseInstallPackageAsync(workbench)),
-                new TextBlock().Text("Plugins").FontSize(22).SemiBold()),
+                new TextBlock().Text($"Plugins: {PluginManagerFormatting.CategoryLabel(_session.Category)}").FontSize(22).SemiBold()),
             new DockPanel().Children(
                 new Button()
                     .DockRight()
@@ -118,8 +111,7 @@ internal sealed class PluginManagerViews
                         _session.SearchText = searchBox.Text ?? string.Empty;
                         RenderMainView(panel, workbench);
                     }),
-                searchBox),
-            FilterButtons(panel, workbench));
+                searchBox));
 
         var entries = _controller.Entries();
         if (entries.Count == 0)
@@ -132,35 +124,6 @@ internal sealed class PluginManagerViews
         {
             panel.Children(PluginRow(entry, workbench));
         }
-    }
-
-    private StackPanel FilterButtons(StackPanel panel, IWorkbenchService workbench)
-    {
-        var filters = new[]
-        {
-            MewooPluginManagerCatalogFilter.All,
-            MewooPluginManagerCatalogFilter.Enabled,
-            MewooPluginManagerCatalogFilter.Disabled,
-            MewooPluginManagerCatalogFilter.Failed,
-            MewooPluginManagerCatalogFilter.Incompatible,
-            MewooPluginManagerCatalogFilter.Broken,
-        };
-
-        var filterPanel = new StackPanel { Orientation = Orientation.Horizontal }.Spacing(6);
-        foreach (var filter in filters)
-        {
-            filterPanel.Children(new Button()
-                .Content(filter == _session.Filter
-                    ? $"[{PluginManagerFormatting.FilterLabel(filter)}]"
-                    : PluginManagerFormatting.FilterLabel(filter))
-                .OnClick(() =>
-                {
-                    _session.Filter = filter;
-                    RenderMainView(panel, workbench);
-                }));
-        }
-
-        return filterPanel;
     }
 
     private Border PluginRow(MewooPluginManagerCatalogEntry entry, IWorkbenchService workbench)
@@ -443,5 +406,18 @@ internal sealed class PluginManagerViews
         return new Button()
             .Content(text)
             .OnClick(async () => await action());
+    }
+
+    private void AddCategoryAction(
+        SidebarNavigationNodeBuilder manage,
+        PluginManagerCategory category,
+        IWorkbenchService workbench)
+    {
+        var label = PluginManagerFormatting.CategoryLabel(category);
+        manage.Action(PluginManagerFormatting.CategoryId(category), category == _session.Category ? $"[{label}]" : label, async () =>
+        {
+            _session.Category = category;
+            await workbench.OpenMainViewAsync("pluginManager.home");
+        });
     }
 }

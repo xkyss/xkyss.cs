@@ -7,16 +7,24 @@ internal static class PluginManagerFormatting
     public static string EntryKey(MewooPluginManagerCatalogEntry entry) =>
         entry.PluginId ?? entry.PluginDirectory;
 
-    public static string FilterLabel(MewooPluginManagerCatalogFilter filter) =>
-        filter switch
+    public static string CategoryLabel(PluginManagerCategory category) =>
+        category switch
         {
-            MewooPluginManagerCatalogFilter.All => "All",
-            MewooPluginManagerCatalogFilter.Enabled => "Enabled",
-            MewooPluginManagerCatalogFilter.Disabled => "Disabled",
-            MewooPluginManagerCatalogFilter.Failed => "Failed",
-            MewooPluginManagerCatalogFilter.Incompatible => "Incompatible",
-            MewooPluginManagerCatalogFilter.Broken => "Broken",
-            _ => filter.ToString(),
+            PluginManagerCategory.All => "All",
+            PluginManagerCategory.Enabled => "Enabled",
+            PluginManagerCategory.Disabled => "Disabled",
+            PluginManagerCategory.NeedsAttention => "Needs Attention",
+            _ => category.ToString(),
+        };
+
+    public static string CategoryId(PluginManagerCategory category) =>
+        category switch
+        {
+            PluginManagerCategory.All => "category.all",
+            PluginManagerCategory.Enabled => "category.enabled",
+            PluginManagerCategory.Disabled => "category.disabled",
+            PluginManagerCategory.NeedsAttention => "category.needsAttention",
+            _ => $"category.{category}",
         };
 
     public static string FormatPublisher(MewooPluginManagerCatalogEntry entry)
