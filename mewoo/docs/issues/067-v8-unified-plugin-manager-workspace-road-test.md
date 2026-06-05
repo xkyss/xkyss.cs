@@ -1,6 +1,6 @@
 # Issue 067: Unified Plugin Manager Workspace Road Test
 
-Status: Planned
+Status: Done
 
 ## What to build
 
@@ -8,21 +8,25 @@ Run an end-to-end V8 road test for the unified Plugin Manager workspace after Ru
 
 ## Acceptance criteria
 
-- [ ] Plugin Manager appears in the ActivityBar System section above Settings.
-- [ ] Runtime Diagnostics no longer appears as an ActivityBar entry.
-- [ ] Plugin Manager Sidebar management categories drive the home plugin list.
-- [ ] Plugin Manager home does not include an internal category TabControl.
-- [ ] Plugin Details opens as a dedicated MainArea view.
-- [ ] Install and update previews open as dedicated MainArea views.
-- [ ] Advanced diagnostics are available from Plugin Manager Sidebar and Plugin Details.
-- [ ] Advanced diagnostics default collapsed behavior and issue counts are covered.
-- [ ] Runtime status, discovery issues, operation log, install, update, enable, disable, uninstall, and remove broken install flows remain usable.
+- [x] Plugin Manager appears in the ActivityBar System section above Settings.
+- [x] Runtime Diagnostics no longer appears as an ActivityBar entry.
+- [x] Plugin Manager Sidebar management categories drive the home plugin list.
+- [x] Plugin Manager home does not include an internal category TabControl.
+- [x] Plugin Details opens as a dedicated MainArea view.
+- [x] Install and update previews open as dedicated MainArea views.
+- [x] Advanced diagnostics are available from Plugin Manager Sidebar and Plugin Details.
+- [x] Advanced diagnostics default collapsed behavior and issue counts are covered.
+- [x] Runtime status, discovery issues, operation log, install, update, enable, disable, uninstall, and remove broken install flows remain usable.
 
 ## Verification
 
-- Add a V8 road-test suite covering the unified Plugin Manager workspace.
-- Run the relevant Plugin Manager, Runtime Plugin, Activity Workspace, ActivityBar System section, and Sidebar control tests.
-- Build the solution.
+- Added `MewooV8UnifiedPluginManagerWorkspaceRoadTestTests`.
+- `dotnet test tests\Mewoo.Core.Tests\Mewoo.Core.Tests.csproj --no-restore --verbosity minimal --filter FullyQualifiedName~MewooV8UnifiedPluginManagerWorkspaceRoadTestTests`
+- Result: passed, 1 test.
+- `dotnet test tests\Mewoo.Core.Tests\Mewoo.Core.Tests.csproj --no-restore --verbosity minimal --filter "FullyQualifiedName~MewooV8UnifiedPluginManagerWorkspaceRoadTestTests|FullyQualifiedName~PluginManager|FullyQualifiedName~RuntimePlugin|FullyQualifiedName~ActivityWorkspace|FullyQualifiedName~ActivityBarSystem|FullyQualifiedName~Sidebar"`
+- Result: passed, 38 tests.
+- `dotnet build Mewoo.slnx --no-restore --verbosity minimal`
+- Result: passed. Existing NU1900 warnings remain in this restricted network environment.
 
 ## Notes
 
