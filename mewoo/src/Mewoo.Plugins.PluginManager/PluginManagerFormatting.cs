@@ -27,15 +27,11 @@ internal static class PluginManagerFormatting
             _ => $"category.{category}",
         };
 
-    public static string FormatPublisher(MewooPluginManagerCatalogEntry entry)
-    {
-        if (!string.IsNullOrWhiteSpace(entry.PublisherDisplayName) && !string.IsNullOrWhiteSpace(entry.Publisher))
-        {
-            return $"{entry.PublisherDisplayName} ({entry.Publisher})";
-        }
+    public static string FormatPublisher(MewooPluginManagerCatalogEntry entry) =>
+        FormatPublisher(entry.PublisherDisplayName, entry.Publisher);
 
-        return entry.PublisherDisplayName ?? entry.Publisher ?? "Not declared";
-    }
+    public static string FormatCatalogPublisher(MewooPluginCatalogEntry entry) =>
+        FormatPublisher(entry.PublisherDisplayName, entry.Publisher);
 
     public static string FormatPublisher(MewooPluginInstallPreview preview)
     {
@@ -55,5 +51,15 @@ internal static class PluginManagerFormatting
         }
 
         return preview.PublisherDisplayName ?? preview.Publisher ?? "Not declared";
+    }
+
+    private static string FormatPublisher(string? publisherDisplayName, string? publisher)
+    {
+        if (!string.IsNullOrWhiteSpace(publisherDisplayName) && !string.IsNullOrWhiteSpace(publisher))
+        {
+            return $"{publisherDisplayName} ({publisher})";
+        }
+
+        return publisherDisplayName ?? publisher ?? "Not declared";
     }
 }

@@ -25,6 +25,31 @@ internal sealed class PluginManagerController
             _dependencies.RuntimePlugins.DiscoveryIssues,
             new MewooPluginManagerCatalogQuery(_session.SearchText, CatalogFilter())));
 
+    public IReadOnlyList<MewooRuntimePluginStatus> RuntimeStatuses =>
+        _dependencies.RuntimePlugins.PluginStatuses;
+
+    public IReadOnlyList<MewooRuntimePluginIssue> DiscoveryIssues =>
+        _dependencies.RuntimePlugins.DiscoveryIssues;
+
+    public int RuntimeStatusCount => _dependencies.RuntimePlugins.PluginStatuses.Count;
+
+    public int DiscoveryIssueCount => _dependencies.RuntimePlugins.DiscoveryIssues.Count;
+
+    public int RuntimeProblemCount => _dependencies.RuntimePlugins.PluginStatuses.Count(status =>
+        status.State is MewooRuntimePluginState.Incompatible or MewooRuntimePluginState.Failed);
+
+    public IReadOnlyList<MewooPluginCatalogEntry> DiagnosticCatalogEntries() =>
+        MewooPluginCatalogDisplay.CreateEntries(
+            _dependencies.RuntimePlugins.PluginStatuses,
+            _dependencies.RuntimePlugins.DiscoveryIssues);
+
+    public IReadOnlyList<Mewoo.Abstractions.Logging.MewooLogEntry> RuntimeLogs() =>
+        _dependencies.Logger?.Entries
+            .Where(entry => entry.Source.StartsWith("RuntimePlugin", StringComparison.Ordinal))
+            .TakeLast(25)
+            .ToArray()
+        ?? [];
+
     public MewooPluginManagerCatalogEntry? SelectedEntry()
     {
         if (string.IsNullOrWhiteSpace(_session.SelectedEntryKey))
@@ -202,7 +227,29 @@ internal sealed class PluginManagerController
     }
 
     public async Task OpenDiagnosticsAsync(IWorkbenchService workbench) =>
-        await workbench.OpenMainViewAsync("pluginManager.home");
+        await workbench.OpenMainViewAsync("pluginManager.runtimeStatus");
+
+    public async Task ReloadRuntimePluginAsync(
+        MewooRuntimePluginStatus status,
+        IWorkbenchService workbench)
+    {
+        var pluginId = status.Descriptor.Manifest.Id;
+        await _dependencies.RuntimePlugins.ReloadPluginAsync(
+            pluginId,
+            _dependencies.PluginRoot,
+            _dependencies.PluginHost,
+            plugin => new PluginManagerPluginContext(plugin.Id, _dependencies.Services, workbench));
+        _session.AddOperation($"Reloaded {status.Descriptor.Manifest.DisplayName}");
+        _dependencies.Logger?.Info("RuntimePlugin.PackageOperation", $"Reloaded plugin '{pluginId}'.");
+    }
+
+    public async Task UnloadRuntimePluginAsync(MewooRuntimePluginStatus status)
+    {
+        var pluginId = status.Descriptor.Manifest.Id;
+        await _dependencies.RuntimePlugins.UnloadPluginAsync(pluginId, _dependencies.PluginHost);
+        _session.AddOperation($"Unloaded {status.Descriptor.Manifest.DisplayName}");
+        _dependencies.Logger?.Info("RuntimePlugin.PackageOperation", $"Unloaded plugin '{pluginId}'.");
+    }
 
     private MewooPluginManagerCatalogFilter CatalogFilter() =>
         _session.Category switch

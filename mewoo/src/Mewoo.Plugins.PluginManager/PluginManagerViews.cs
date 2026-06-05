@@ -17,7 +17,10 @@ internal sealed class PluginManagerViews
     {
         _session = session;
         _controller = controller;
+        Diagnostics = new PluginManagerDiagnosticViews(session, controller);
     }
+
+    public PluginManagerDiagnosticViews Diagnostics { get; }
 
     public StackPanel CreateSidebar(IWorkbenchService workbench)
     {
@@ -33,6 +36,12 @@ internal sealed class PluginManagerViews
                 AddCategoryAction(manage, PluginManagerCategory.Enabled, workbench);
                 AddCategoryAction(manage, PluginManagerCategory.Disabled, workbench);
                 AddCategoryAction(manage, PluginManagerCategory.NeedsAttention, workbench);
+            })
+            .Node("advanced", AdvancedLabel(), advanced =>
+            {
+                advanced.MainView("advanced.runtimeStatus", RuntimeStatusLabel(), "pluginManager.runtimeStatus");
+                advanced.MainView("advanced.discoveryIssues", DiscoveryIssuesLabel(), "pluginManager.discoveryIssues");
+                advanced.MainView("advanced.operationLog", "Operation Log", "pluginManager.operationLog");
             })
             .Build()
             .Margin(4, 0, 4, 0);
@@ -419,5 +428,29 @@ internal sealed class PluginManagerViews
             _session.Category = category;
             await workbench.OpenMainViewAsync("pluginManager.home");
         });
+    }
+
+    private string AdvancedLabel()
+    {
+        var issueCount = _controller.DiscoveryIssueCount + _controller.RuntimeProblemCount;
+        return issueCount == 0 ? "Advanced" : $"Advanced ({issueCount})";
+    }
+
+    private string RuntimeStatusLabel()
+    {
+        var statusCount = _controller.RuntimeStatusCount;
+        var problemCount = _controller.RuntimeProblemCount;
+        if (problemCount > 0)
+        {
+            return $"Runtime Status ({problemCount})";
+        }
+
+        return statusCount == 0 ? "Runtime Status" : $"Runtime Status ({statusCount})";
+    }
+
+    private string DiscoveryIssuesLabel()
+    {
+        var issueCount = _controller.DiscoveryIssueCount;
+        return issueCount == 0 ? "Discovery Issues" : $"Discovery Issues ({issueCount})";
     }
 }

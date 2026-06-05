@@ -1,3 +1,4 @@
+using Mewoo.Abstractions.Logging;
 using Mewoo.Core.Plugins;
 
 namespace Mewoo.Plugins.PluginManager;
@@ -8,12 +9,14 @@ internal sealed class PluginManagerDependencies
         MewooRuntimePluginManager runtimePlugins,
         MewooPluginHost pluginHost,
         IServiceProvider services,
-        string pluginRoot)
+        string pluginRoot,
+        IMewooLogger? logger)
     {
         RuntimePlugins = runtimePlugins;
         PluginHost = pluginHost;
         Services = services;
         PluginRoot = pluginRoot;
+        Logger = logger;
     }
 
     public MewooRuntimePluginManager RuntimePlugins { get; }
@@ -23,6 +26,8 @@ internal sealed class PluginManagerDependencies
     public IServiceProvider Services { get; }
 
     public string PluginRoot { get; }
+
+    public IMewooLogger? Logger { get; }
 
     public MewooPluginManagerCatalog Catalog { get; } = new();
 

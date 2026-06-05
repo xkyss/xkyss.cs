@@ -1,6 +1,6 @@
 # Issue 066: Plugin Manager Advanced Diagnostic Views
 
-Status: Planned
+Status: Done
 
 ## What to build
 
@@ -8,20 +8,23 @@ Move runtime diagnostic UI capability into Plugin Manager advanced Sidebar entri
 
 ## Acceptance criteria
 
-- [ ] Plugin Manager Sidebar includes an `Advanced` diagnostics group.
-- [ ] The `Advanced` group is collapsed by default.
-- [ ] Runtime or discovery issues can surface counts or warning state on the advanced group or related entries.
-- [ ] Plugin Manager contributes a `pluginManager.runtimeStatus` MainView for runtime plugin status.
-- [ ] Plugin Manager contributes a `pluginManager.discoveryIssues` MainView for discovery issues.
-- [ ] Plugin Manager contributes a `pluginManager.operationLog` MainView for package operations and relevant runtime logs.
-- [ ] `Open Diagnostics` from Plugin Details opens or focuses the relevant Plugin Manager advanced view.
-- [ ] Advanced views may show developer-facing paths, runtime states, low-level messages, and diagnostic actions.
-- [ ] Management views keep product-facing language and do not expose raw diagnostic density by default.
+- [x] Plugin Manager Sidebar includes an `Advanced` diagnostics group.
+- [x] The `Advanced` group is collapsed by default.
+- [x] Runtime or discovery issues can surface counts or warning state on the advanced group or related entries.
+- [x] Plugin Manager contributes a `pluginManager.runtimeStatus` MainView for runtime plugin status.
+- [x] Plugin Manager contributes a `pluginManager.discoveryIssues` MainView for discovery issues.
+- [x] Plugin Manager contributes a `pluginManager.operationLog` MainView for package operations and relevant runtime logs.
+- [x] `Open Diagnostics` from Plugin Details opens or focuses the relevant Plugin Manager advanced view.
+- [x] Advanced views may show developer-facing paths, runtime states, low-level messages, and diagnostic actions.
+- [x] Management views keep product-facing language and do not expose raw diagnostic density by default.
 
 ## Verification
 
-- Add tests for advanced view contribution, diagnostics navigation, and issue-count presentation where practical.
-- Build the solution.
+- Added `PluginManagerContributesAdvancedDiagnosticViews` and extended Sidebar category coverage for the collapsed `Advanced` group.
+- `dotnet test tests\Mewoo.Core.Tests\Mewoo.Core.Tests.csproj --no-restore --verbosity minimal --filter "FullyQualifiedName~MewooBuiltInSystemActivityTests|FullyQualifiedName~PluginManager|FullyQualifiedName~PluginPackageOperations|FullyQualifiedName~SidebarNavigationControlsTests"`
+- Result: passed, 26 tests.
+- `dotnet build Mewoo.slnx --no-restore --verbosity minimal`
+- Result: passed. Existing NU1900 warnings remain in this restricted network environment.
 
 ## Notes
 

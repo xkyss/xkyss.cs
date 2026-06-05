@@ -1,5 +1,6 @@
 using Mewoo.Abstractions;
 using Mewoo.Abstractions.Contributions;
+using Mewoo.Abstractions.Logging;
 using Mewoo.Abstractions.Plugins;
 using Mewoo.Abstractions.Views;
 using Mewoo.Core.Plugins;
@@ -16,13 +17,15 @@ public sealed class PluginManagerPlugin : IMewooPlugin
         MewooRuntimePluginManager runtimePlugins,
         MewooPluginHost pluginHost,
         IServiceProvider services,
-        string pluginRoot)
+        string pluginRoot,
+        IMewooLogger? logger = null)
     {
         _dependencies = new PluginManagerDependencies(
             runtimePlugins,
             pluginHost,
             services,
-            pluginRoot);
+            pluginRoot,
+            logger);
         _controller = new PluginManagerController(_dependencies, _session);
     }
 
@@ -83,6 +86,33 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             {
                 var views = CreateViews();
                 return new MewooView("pluginManager.updatePreview", views.CreateUpdatePreviewView(ctx.Workbench));
+            });
+
+        registry.MainView("pluginManager.runtimeStatus")
+            .Title("Runtime Status")
+            .CanOpenMultiple(false)
+            .Create(ctx =>
+            {
+                var views = CreateViews();
+                return new MewooView("pluginManager.runtimeStatus", views.Diagnostics.CreateRuntimeStatusView(ctx.Workbench));
+            });
+
+        registry.MainView("pluginManager.discoveryIssues")
+            .Title("Discovery Issues")
+            .CanOpenMultiple(false)
+            .Create(ctx =>
+            {
+                var views = CreateViews();
+                return new MewooView("pluginManager.discoveryIssues", views.Diagnostics.CreateDiscoveryIssuesView(ctx.Workbench));
+            });
+
+        registry.MainView("pluginManager.operationLog")
+            .Title("Operation Log")
+            .CanOpenMultiple(false)
+            .Create(ctx =>
+            {
+                var views = CreateViews();
+                return new MewooView("pluginManager.operationLog", views.Diagnostics.CreateOperationLogView(ctx.Workbench));
             });
 
         registry.Command("pluginManager.open")

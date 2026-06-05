@@ -164,5 +164,5 @@ Goal: fold runtime diagnostics into the Plugin Manager System Activity, simplify
 - [x] [Issue 063: Plugin Manager Session and View Structure](issues/063-v8-plugin-manager-session-and-view-structure.md)
 - [x] [Issue 064: Plugin Manager Sidebar Category Navigation](issues/064-v8-plugin-manager-sidebar-category-navigation.md)
 - [x] [Issue 065: Retire Runtime Diagnostics Activity](issues/065-v8-retire-runtime-diagnostics-activity.md)
-- [ ] [Issue 066: Plugin Manager Advanced Diagnostic Views](issues/066-v8-plugin-manager-advanced-diagnostic-views.md)
+- [x] [Issue 066: Plugin Manager Advanced Diagnostic Views](issues/066-v8-plugin-manager-advanced-diagnostic-views.md)
 - [ ] [Issue 067: Unified Plugin Manager Workspace Road Test](issues/067-v8-unified-plugin-manager-workspace-road-test.md)

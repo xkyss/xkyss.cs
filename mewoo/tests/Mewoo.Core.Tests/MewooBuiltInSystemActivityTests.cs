@@ -93,16 +93,45 @@ public sealed class MewooBuiltInSystemActivityTests
         var sidebar = sidebarDescriptor.CreateView(new TestViewContext("pluginManager", workbench));
         var tree = FindTreeView(sidebar.NativeView);
         var manage = Nodes(tree).Single(node => NodeId(node) == "manage");
+        var advanced = Nodes(tree).Single(node => NodeId(node) == "advanced");
 
         CollectionAssert.AreEqual(
             new[] { "category.all", "category.enabled", "category.disabled", "category.needsAttention" },
             manage.Children.Select(NodeId).ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "advanced.runtimeStatus", "advanced.discoveryIssues", "advanced.operationLog" },
+            advanced.Children.Select(NodeId).ToArray());
+        Assert.IsFalse(RowState(advanced).IsExpanded);
 
         tree.SelectedNode = manage.Children.Single(node => NodeId(node) == "category.disabled");
 
         CollectionAssert.AreEqual(new[] { "pluginManager.home" }, workbench.OpenedMainViewIds.ToArray());
         var home = homeDescriptor.CreateView(new TestViewContext("pluginManager", workbench));
         CollectionAssert.Contains(Texts(home.NativeView).ToArray(), "Plugins: Disabled");
+    }
+
+    [TestMethod]
+    public void PluginManagerContributesAdvancedDiagnosticViews()
+    {
+        var host = new MewooPluginHost();
+        using var pluginRoot = new TestPluginRoot();
+        var plugin = new PluginManagerPlugin(
+            new MewooRuntimePluginManager(),
+            host,
+            EmptyServiceProvider.Instance,
+            pluginRoot.Path);
+        host.RegisterPlugin(plugin, MewooPluginRegistrationSource.BuiltIn);
+        var snapshot = host.GetRegisteredContributions("pluginManager");
+
+        CollectionAssert.Contains(snapshot.MainViews.Select(view => view.Id).ToArray(), "pluginManager.runtimeStatus");
+        CollectionAssert.Contains(snapshot.MainViews.Select(view => view.Id).ToArray(), "pluginManager.discoveryIssues");
+        CollectionAssert.Contains(snapshot.MainViews.Select(view => view.Id).ToArray(), "pluginManager.operationLog");
+
+        var runtimeStatus = snapshot.MainViews
+            .Single(view => view.Id == "pluginManager.runtimeStatus")
+            .CreateView(new TestViewContext("pluginManager", new TrackingWorkbenchService()));
+
+        CollectionAssert.Contains(Texts(runtimeStatus.NativeView).ToArray(), "Runtime Status");
     }
 
     private static IReadOnlyList<TreeViewNode> Nodes(TreeView treeView)
@@ -114,8 +143,13 @@ public sealed class MewooBuiltInSystemActivityTests
 
     private static string NodeId(TreeViewNode node)
     {
+        return RowState(node).NodeId;
+    }
+
+    private static SidebarNavigationRowState RowState(TreeViewNode node)
+    {
         Assert.IsInstanceOfType<SidebarNavigationRowState>(node.Tag);
-        return ((SidebarNavigationRowState)node.Tag!).NodeId;
+        return (SidebarNavigationRowState)node.Tag!;
     }
 
     private static TreeView FindTreeView(object nativeView)

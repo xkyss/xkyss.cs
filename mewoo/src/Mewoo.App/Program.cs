@@ -16,7 +16,7 @@ var pluginHost = new MewooPluginHost(logger);
 var runtimePlugins = new MewooRuntimePluginManager(logger);
 runtimePlugins.LoadDiscoveredPlugins(runtimePluginDirectory, pluginHost);
 pluginHost.RegisterPlugin(new QuickLauncherPlugin());
-pluginHost.RegisterPlugin(new PluginManagerPlugin(runtimePlugins, pluginHost, services, runtimePluginDirectory));
+pluginHost.RegisterPlugin(new PluginManagerPlugin(runtimePlugins, pluginHost, services, runtimePluginDirectory, logger));
 pluginHost.RegisterPlugin(new SettingsPlugin());
 var themeController = new MewooThemeController();
 var stateStorage = new JsonFileStateStorage(GetStateDirectory());
