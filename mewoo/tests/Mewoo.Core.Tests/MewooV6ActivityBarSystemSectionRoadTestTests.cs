@@ -10,7 +10,6 @@ namespace Mewoo.Core.Tests;
 public sealed class MewooV6ActivityBarSystemSectionRoadTestTests
 {
     private const string QuickLauncherActivity = "quickLauncher.activity";
-    private const string RuntimeDiagnosticsActivity = "runtimeDiagnostics.activity";
     private const string PluginManagerActivity = "pluginManager.activity";
     private const string SettingsActivity = "settings.activity";
 
@@ -22,11 +21,10 @@ public sealed class MewooV6ActivityBarSystemSectionRoadTestTests
                 Activity(PluginManagerActivity, ActivityBarSection.System, 80),
                 Activity(SettingsActivity, ActivityBarSection.System, 90),
                 Activity(QuickLauncherActivity, ActivityBarSection.Primary, 0),
-                Activity(RuntimeDiagnosticsActivity, ActivityBarSection.Primary, 90),
             ]);
 
         CollectionAssert.AreEqual(
-            new[] { QuickLauncherActivity, RuntimeDiagnosticsActivity },
+            new[] { QuickLauncherActivity },
             sections.Primary.Select(activity => activity.Id).ToArray());
         CollectionAssert.AreEqual(
             new[] { PluginManagerActivity, SettingsActivity },
@@ -41,15 +39,6 @@ public sealed class MewooV6ActivityBarSystemSectionRoadTestTests
         state.OpenMainView("settings.home", SettingsActivity);
         state.OpenPanelTab(WorkbenchState.LogsPanelTabId);
         state.SetPanelHeight(240, 1000);
-        state.OpenMainView("runtimeDiagnostics.home", RuntimeDiagnosticsActivity);
-
-        AssertWorkspace(
-            state,
-            RuntimeDiagnosticsActivity,
-            expectedMainViews: ["runtimeDiagnostics.home"],
-            expectedPanelVisible: false,
-            expectedPanelHeight: WorkbenchState.PanelDefaultHeight,
-            expectedPanelTabs: []);
 
         state.SetActiveActivity(PluginManagerActivity);
         AssertWorkspace(

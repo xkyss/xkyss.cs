@@ -8,7 +8,7 @@ public sealed class MewooV5ActivityWorkspaceRoadTestTests
 {
     private const string QuickLauncherActivity = "quickLauncher.activity";
     private const string PluginManagerActivity = "pluginManager.activity";
-    private const string RuntimeDiagnosticsActivity = "runtimeDiagnostics.activity";
+    private const string SettingsActivity = "settings.activity";
 
     [TestMethod]
     public void ActivityWorkspaceRoadTestCoversBuiltInPluginScopes()
@@ -53,12 +53,12 @@ public sealed class MewooV5ActivityWorkspaceRoadTestTests
 
         state.OpenPanelTab(WorkbenchState.LogsPanelTabId);
         state.SetPanelHeight(220, 1000);
-        state.OpenMainView("runtimeDiagnostics.home", RuntimeDiagnosticsActivity);
+        state.OpenMainView("settings.home", SettingsActivity);
 
         AssertWorkspace(
             state,
-            RuntimeDiagnosticsActivity,
-            expectedMainViews: ["runtimeDiagnostics.home"],
+            SettingsActivity,
+            expectedMainViews: ["settings.home"],
             expectedPanelVisible: false,
             expectedPanelHeight: WorkbenchState.PanelDefaultHeight,
             expectedPanelTabs: []);

@@ -202,7 +202,7 @@ internal sealed class PluginManagerController
     }
 
     public async Task OpenDiagnosticsAsync(IWorkbenchService workbench) =>
-        await workbench.OpenMainViewAsync("runtimeDiagnostics.home");
+        await workbench.OpenMainViewAsync("pluginManager.home");
 
     private MewooPluginManagerCatalogFilter CatalogFilter() =>
         _session.Category switch

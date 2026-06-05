@@ -14,11 +14,11 @@ public sealed class WorkbenchActivityBarModelTests
                 Activity("pluginManager.activity", ActivityBarSection.System, 80),
                 Activity("quickLauncher.activity", ActivityBarSection.Primary, 0),
                 Activity("settings.activity", ActivityBarSection.System, 90),
-                Activity("runtimeDiagnostics.activity", ActivityBarSection.Primary, 90),
+                Activity("notes.activity", ActivityBarSection.Primary, 90),
             ]);
 
         CollectionAssert.AreEqual(
-            new[] { "quickLauncher.activity", "runtimeDiagnostics.activity" },
+            new[] { "quickLauncher.activity", "notes.activity" },
             sections.Primary.Select(activity => activity.Id).ToArray());
         CollectionAssert.AreEqual(
             new[] { "pluginManager.activity", "settings.activity" },
@@ -32,13 +32,13 @@ public sealed class WorkbenchActivityBarModelTests
             [
                 Activity("settings.activity", ActivityBarSection.System, 90),
                 Activity("pluginManager.activity", ActivityBarSection.System, 80),
-                Activity("runtimeDiagnostics.activity", ActivityBarSection.Primary, 90),
+                Activity("notes.activity", ActivityBarSection.Primary, 90),
                 Activity("quickLauncher.activity", ActivityBarSection.Primary, 0),
                 Activity("alpha.activity", ActivityBarSection.Primary, 0),
             ]);
 
         CollectionAssert.AreEqual(
-            new[] { "alpha.activity", "quickLauncher.activity", "runtimeDiagnostics.activity" },
+            new[] { "alpha.activity", "quickLauncher.activity", "notes.activity" },
             sections.Primary.Select(activity => activity.Id).ToArray());
         CollectionAssert.AreEqual(
             new[] { "pluginManager.activity", "settings.activity" },
