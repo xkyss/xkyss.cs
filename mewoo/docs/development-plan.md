@@ -11,6 +11,7 @@ This document is the local issue index for Mewoo. Detailed per-slice issue docum
 - V5 baseline tag: `v5-baseline` (version `0.5.0`, release tag `v0.5.0`)
 - V6 baseline tag: `v6-baseline` (version `0.6.0`, release tag `v0.6.0`)
 - Planned V7 baseline tag: `v7-baseline` (version `0.7.0`, release tag `v0.7.0`)
+- Planned V8 baseline tag: `v8-baseline` (version `0.8.0`, release tag `v0.8.0`)
 
 ## Milestones
 
@@ -155,3 +156,13 @@ Goal: remove repeated Sidebar chrome by keeping Sidebar interiors plugin-owned w
 - [x] [Issue 060: Plugin-Owned Sidebar Rendering Boundary](issues/060-v7-plugin-owned-sidebar-rendering.md)
 - [x] [Issue 061: Migrate Built-In Sidebars to Mewoo.Controls](issues/061-v7-migrate-built-in-sidebars.md)
 - [x] [Issue 062: Sidebar Controls Road Test](issues/062-v7-sidebar-controls-road-test.md)
+
+### Milestone 17: V8 Unified Plugin Manager Workspace
+
+Goal: fold runtime diagnostics into the Plugin Manager System Activity, simplify Plugin Manager navigation around V7 Sidebar ownership, and split Plugin Manager logic before adding advanced diagnostic views.
+
+- [ ] [Issue 063: Plugin Manager Session and View Structure](issues/063-v8-plugin-manager-session-and-view-structure.md)
+- [ ] [Issue 064: Plugin Manager Sidebar Category Navigation](issues/064-v8-plugin-manager-sidebar-category-navigation.md)
+- [ ] [Issue 065: Retire Runtime Diagnostics Activity](issues/065-v8-retire-runtime-diagnostics-activity.md)
+- [ ] [Issue 066: Plugin Manager Advanced Diagnostic Views](issues/066-v8-plugin-manager-advanced-diagnostic-views.md)
+- [ ] [Issue 067: Unified Plugin Manager Workspace Road Test](issues/067-v8-unified-plugin-manager-workspace-road-test.md)

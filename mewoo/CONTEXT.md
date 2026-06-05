@@ -63,6 +63,8 @@ The `System` ActivityBar section is reserved for compiled built-in plugins. Runt
 
 System-section Activities are not user-sortable or user-hideable in V6. Their order is fixed by contribution order, with Plugin Manager above Settings and Settings at the bottom.
 
+In V8, runtime plugin diagnostics are part of the Plugin Manager Activity Workspace rather than a separate ActivityBar entry. The `Plugins` System Activity owns both management views and advanced diagnostic views.
+
 MainArea tabs are scoped to an Activity Workspace. Switching Activity restores that Activity's own open MainArea tabs and active MainArea tab instead of sharing one global tab stack.
 
 Panel visibility, height, active panel tab, and activity-scoped panel tabs belong to the current Activity Workspace. Global panel content such as Logs may be opened from any Activity Workspace, but the global content does not make Panel visibility global.
@@ -131,6 +133,16 @@ Plugin Manager does not show manifest paths, assembly paths, or install director
 
 Plugin Manager uses a plugin list plus a dedicated Plugin Details MainArea view. The list is for scanning and selection; the details view is for identity, status, permissions, trust warning, recent operations, errors, and user-facing actions.
 
+Plugin Manager status categories belong to its Sidebar navigation. The Plugin Manager home MainArea renders the selected category's plugin list without adding a second category TabControl inside the view.
+
+Plugin Manager's default management Sidebar categories are `All`, `Enabled`, `Disabled`, and `Needs Attention`. `Needs Attention` includes failed, incompatible, broken, or otherwise action-worthy plugin entries. More technical status distinctions belong in Plugin Details and advanced diagnostics views.
+
+Plugin Details remains a dedicated MainArea view. Selecting a plugin from the Plugin Manager home list opens or focuses the Plugin Details view for that selected plugin instead of rendering details as an embedded side panel inside the list view.
+
+Plugin Manager install and update previews remain dedicated MainArea views rather than modal dialogs. They carry package identity, version comparison, trust, permission, warning, and failure information before confirmation.
+
+Plugin Manager keeps category selection, search text, selected plugin key, install/update previews, and recent operation results as Plugin Manager session state. Workbench persistence owns only the surrounding Activity Workspace shell state, such as open MainArea tabs and the active MainArea tab.
+
 Plugin Manager warns about high-risk or undeclared permissions during install and update, but V4 does not block installation based on permissions. Without sandboxing, permission declarations are explanatory rather than enforcement.
 
 Plugin Manager shows broken installed plugin entries when a plugin directory exists but its manifest or assembly cannot be read. Broken entries can be removed from Plugin Manager without requiring Runtime Diagnostics.
@@ -146,6 +158,10 @@ V4 ends with a `v4-baseline` milestone once the local Plugin Manager experience 
 **Runtime Diagnostics**:
 A developer-facing runtime inspection and troubleshooting surface for plugin load state, manifest paths, assembly paths, operation logs, and low-level failures.
 _Avoid_: Plugin Manager
+
+In V8, Runtime Diagnostics becomes an advanced view group inside the Plugin Manager Activity Workspace instead of a standalone Activity. It keeps developer-facing fields and actions, but its ActivityBar presence is removed.
+
+The Plugin Manager advanced diagnostics Sidebar group is collapsed by default. When runtime or discovery issues exist, Plugin Manager may show counts or warning state on the advanced group and related entries. Opening diagnostics from a Plugin Details view may expand or focus the relevant advanced diagnostic view.
 
 ## V2 Runtime Plugin Manifest Discovery
 
