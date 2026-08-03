@@ -1,12 +1,12 @@
 # Issue tracker: Local Markdown
 
-Issues and specs (you may know a spec as a PRD) for this repo live as markdown files in `.scratch/`.
+Issues and specs (you may know a spec as a PRD) for this repo live as markdown files in `.scratch/`. The spec in the tracker is the versioned PRD — `docs/prd/` is not used.
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The spec is `.scratch/<feature-slug>/spec.md`
-- Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
+- One feature per directory: `.scratch/<version>-<feature-slug>/`, e.g. `.scratch/v0.1.1-workbench-launcher/`
+- The spec is `.scratch/<version>-<feature-slug>/spec.md`
+- Implementation issues are one file per ticket at `.scratch/<version>-<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 

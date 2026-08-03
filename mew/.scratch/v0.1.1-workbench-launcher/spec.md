@@ -2,7 +2,7 @@
 
 Status: ready-for-agent
 
-> 对应 PRD:`docs/prd/v0.1.1/`(README、workbench、launcher、non-functional)
+> 版本:v0.1.1(本 spec 即该版本的 PRD,存于 issue tracker)
 > 对应 ADR:`docs/adr/000101-*`(锁版本、MewDock、编译期组合、NativeAOT)
 
 ## Problem Statement
@@ -52,11 +52,11 @@ Status: ready-for-agent
 
 - **模块划分**:两个项目——`Mew.Workbench`(框架库)与 `Mew.Launcher`(示例 App,引用框架库);解决方案 `Mew.slnx`。
 - **依赖锁定**:所有 MewUI 相关包固定 0.19.1(`Aprillz.MewUI`、`Aprillz.MewUI.MewDock`),升级需先评审(ADR `000101-01`)。
-- **停靠引擎**:五区布局由 Workbench 在 MewDock 之上封装类型化 API,使用者不接触 MewDock 原始模型;布局序列化为 JSON 保存/恢复(ADR `000101-02`)。
+- **停靠引擎**:五区布局由 Workbench 在 MewDock 之上封装类型化 API,使用者不接触 MewDock 原始模型;布局序列化为 JSON 保存/恢复(`%APPDATA%\Mew\layout.json`,ADR `000101-02`)。
 - **组合方式**:编译期组合,类型安全 Fluent API;无 IoC 容器、无运行时插件加载(ADR `000101-03`)。
 - **主题**:默认跟随系统,可手动亮/暗切换;五区色板收敛在 Workbench,通过主题上下文提供给工具;强调色默认 `Accent.Blue`。
 - **Launcher 双形态**:窗口内管理(活动栏切分类、侧边栏列表+搜索、编辑器区详情编辑、底部面板日志、状态栏运行状态)与呼出浮层(默认 `Ctrl+Alt+Space`),共用同一启动项数据源。
-- **启动项数据源**:单一 JSON 配置文件(`%APPDATA%\Mew\launcher.json`),可手写;模型含名称、命令(程序/脚本/URL)、可选参数与工作目录、分类、可选图标(缺省取 exe 图标)、可选每项热键。
+- **启动项数据源**:单一 JSON 配置文件(`%APPDATA%\Mew\launcher.json`),可手写、变更后自动保存;模型含名称、命令(程序/脚本/URL)、可选参数与工作目录、分类、可选图标(缺省取 exe 图标)、可选每项热键。
 - **常驻**:托盘常驻,关闭主窗口不退出;v1 不做开机自启。
 - **发布形态**:NativeAOT 单文件(`win-x64` + Direct2D + 完整裁剪);框架保持 AOT/Trim 兼容——JSON 用 System.Text.Json 源生成、避免运行时反射(ADR `000101-04`)。
 
@@ -76,7 +76,7 @@ Status: ready-for-agent
 ## Out of Scope
 
 - 命令面板、设置页(v1.1)
-- 开机自启开关(v1.1)
+- 开机自启开关(v1.1;可用启动文件夹快捷方式替代)
 - 多平台后端(Linux/macOS)
 - 运行时插件加载与 DI
 - 自研停靠引擎
@@ -86,4 +86,4 @@ Status: ready-for-agent
 
 - 术语与 Avoid 词见 `CONTEXT.md`(Workbench、Launcher、启动项、呼出浮层、五区色板等)。
 - 停靠能力边界受 MewDock 约束(ADR `000101-02`);扩展以编译期注册接入(ADR `000101-03`)。
-- 本规格对应 PRD `v0.1.1`,下一版本的需求(命令面板、设置页、开机自启)将进入新的 PRD 目录与新的 ADR 前缀。
+- 本 spec 即 v0.1.1 的 PRD;下一版本的需求(命令面板、设置页、开机自启)将进入新的 `.scratch/vX.Y.Z-<feature>/` 目录与新的 ADR 前缀。
