@@ -10,7 +10,7 @@ Triage uses the default label vocabulary (`needs-triage`, `needs-info`, `ready-f
 
 ### Domain docs
 
-Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: one `CONTEXT.md` + `docs/adr/` + `docs/prd/` at the repo root. ADR 前缀与 PRD 目录按版本一一对应(如 `000101` ↔ `v0.1.1`)。See `docs/agents/domain.md`.
 
 ### Git conventions
 
