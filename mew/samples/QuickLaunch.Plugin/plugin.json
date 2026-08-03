@@ -1,7 +1,0 @@
-{
-  "id": "quicklaunch.plugin",
-  "name": "QuickLaunch",
-  "version": "0.1.0",
-  "minHostVersion": "0.1.0",
-  "entryAssembly": "QuickLaunch.Plugin.dll"
-}
