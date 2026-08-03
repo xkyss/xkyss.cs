@@ -2,6 +2,22 @@
 
 All notable changes to Mewoo are recorded here.
 
+## 0.8.0 - 2026-06-05
+
+### Features
+
+- Unified runtime diagnostics into the Plugin Manager System Activity Workspace.
+- Split Plugin Manager registration, session state, controller actions, formatting, and view rendering into dedicated classes.
+- Reworked Plugin Manager Sidebar navigation around management categories and a collapsed Advanced diagnostics group.
+- Removed the standalone Runtime Diagnostics ActivityBar entry.
+- Added Plugin Manager advanced views for runtime status, discovery issues, and operation logs.
+- Kept Plugin Details, install preview, and update preview as dedicated MainArea views.
+
+### Tests
+
+- Added focused Plugin Manager tests for session/view structure, Sidebar category navigation, Runtime Diagnostics retirement, advanced diagnostic views, and the V8 unified workspace road test.
+- Verified V8 with focused Plugin Manager, RuntimePlugin, ActivityWorkspace, ActivityBarSystem, and Sidebar test filters plus `dotnet build Mewoo.slnx --no-restore --verbosity minimal`.
+
 ## 0.7.0 - 2026-06-04
 
 ### Features

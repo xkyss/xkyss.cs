@@ -10,8 +10,8 @@ This document is the local issue index for Mewoo. Detailed per-slice issue docum
 - V4 baseline tag: `v4-baseline`
 - V5 baseline tag: `v5-baseline` (version `0.5.0`, release tag `v0.5.0`)
 - V6 baseline tag: `v6-baseline` (version `0.6.0`, release tag `v0.6.0`)
-- Planned V7 baseline tag: `v7-baseline` (version `0.7.0`, release tag `v0.7.0`)
-- Planned V8 baseline tag: `v8-baseline` (version `0.8.0`, release tag `v0.8.0`)
+- V7 release tag: `v0.7.0` (version `0.7.0`)
+- V8 release tag: `v0.8.0` (version `0.8.0`)
 
 ## Milestones
 

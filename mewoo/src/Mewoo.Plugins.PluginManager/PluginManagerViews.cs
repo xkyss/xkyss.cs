@@ -10,6 +10,7 @@ internal sealed class PluginManagerViews
 {
     private readonly PluginManagerSession _session;
     private readonly PluginManagerController _controller;
+    private readonly List<HomeViewRegistration> _homeViews = [];
 
     public PluginManagerViews(
         PluginManagerSession session,
@@ -62,6 +63,7 @@ internal sealed class PluginManagerViews
             .Margin(18);
 
         RenderMainView(panel, workbench);
+        TrackHomeView(panel, workbench);
         return panel;
     }
 
@@ -99,6 +101,7 @@ internal sealed class PluginManagerViews
     {
         panel.Clear();
         var searchBox = new TextBox().Placeholder("Search by name, id, or publisher");
+        searchBox.Text = _session.SearchText;
 
         panel.Children(
             new DockPanel().Children(
@@ -426,8 +429,44 @@ internal sealed class PluginManagerViews
         manage.Action(PluginManagerFormatting.CategoryId(category), category == _session.Category ? $"[{label}]" : label, async () =>
         {
             _session.Category = category;
+            RefreshHomeViews();
             await workbench.OpenMainViewAsync("pluginManager.home");
+            RefreshHomeViews();
         });
+    }
+
+    private void TrackHomeView(StackPanel panel, IWorkbenchService workbench)
+    {
+        RemoveDeadHomeViews();
+        _homeViews.Add(new HomeViewRegistration(new WeakReference<StackPanel>(panel), new WeakReference<IWorkbenchService>(workbench)));
+    }
+
+    private void RefreshHomeViews()
+    {
+        for (var index = _homeViews.Count - 1; index >= 0; index--)
+        {
+            var registration = _homeViews[index];
+            if (!registration.Panel.TryGetTarget(out var panel)
+                || !registration.Workbench.TryGetTarget(out var workbench))
+            {
+                _homeViews.RemoveAt(index);
+                continue;
+            }
+
+            RenderMainView(panel, workbench);
+        }
+    }
+
+    private void RemoveDeadHomeViews()
+    {
+        for (var index = _homeViews.Count - 1; index >= 0; index--)
+        {
+            if (!_homeViews[index].Panel.TryGetTarget(out _)
+                || !_homeViews[index].Workbench.TryGetTarget(out _))
+            {
+                _homeViews.RemoveAt(index);
+            }
+        }
     }
 
     private string AdvancedLabel()
@@ -453,4 +492,8 @@ internal sealed class PluginManagerViews
         var issueCount = _controller.DiscoveryIssueCount;
         return issueCount == 0 ? "Discovery Issues" : $"Discovery Issues ({issueCount})";
     }
+
+    private sealed record HomeViewRegistration(
+        WeakReference<StackPanel> Panel,
+        WeakReference<IWorkbenchService> Workbench);
 }

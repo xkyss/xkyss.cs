@@ -12,6 +12,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
     private readonly PluginManagerDependencies _dependencies;
     private readonly PluginManagerSession _session = new();
     private readonly PluginManagerController _controller;
+    private readonly PluginManagerViews _views;
 
     public PluginManagerPlugin(
         MewooRuntimePluginManager runtimePlugins,
@@ -27,6 +28,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             pluginRoot,
             logger);
         _controller = new PluginManagerController(_dependencies, _session);
+        _views = new PluginManagerViews(_session, _controller);
     }
 
     public string Id => "pluginManager";
@@ -48,8 +50,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
                 .Title("Installed")
                 .Create(ctx =>
                 {
-                    var views = CreateViews();
-                    return new MewooView("pluginManager.installed", views.CreateSidebar(ctx.Workbench));
+                    return new MewooView("pluginManager.installed", _views.CreateSidebar(ctx.Workbench));
                 }));
 
         registry.MainView("pluginManager.home")
@@ -57,8 +58,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .CanOpenMultiple(false)
             .Create(ctx =>
             {
-                var views = CreateViews();
-                return new MewooView("pluginManager.home", views.CreateMainView(ctx.Workbench));
+                return new MewooView("pluginManager.home", _views.CreateMainView(ctx.Workbench));
             });
 
         registry.MainView("pluginManager.details")
@@ -66,8 +66,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .CanOpenMultiple(false)
             .Create(ctx =>
             {
-                var views = CreateViews();
-                return new MewooView("pluginManager.details", views.CreateDetailsView(ctx.Workbench));
+                return new MewooView("pluginManager.details", _views.CreateDetailsView(ctx.Workbench));
             });
 
         registry.MainView("pluginManager.installPreview")
@@ -75,8 +74,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .CanOpenMultiple(false)
             .Create(ctx =>
             {
-                var views = CreateViews();
-                return new MewooView("pluginManager.installPreview", views.CreateInstallPreviewView(ctx.Workbench));
+                return new MewooView("pluginManager.installPreview", _views.CreateInstallPreviewView(ctx.Workbench));
             });
 
         registry.MainView("pluginManager.updatePreview")
@@ -84,8 +82,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .CanOpenMultiple(false)
             .Create(ctx =>
             {
-                var views = CreateViews();
-                return new MewooView("pluginManager.updatePreview", views.CreateUpdatePreviewView(ctx.Workbench));
+                return new MewooView("pluginManager.updatePreview", _views.CreateUpdatePreviewView(ctx.Workbench));
             });
 
         registry.MainView("pluginManager.runtimeStatus")
@@ -93,8 +90,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .CanOpenMultiple(false)
             .Create(ctx =>
             {
-                var views = CreateViews();
-                return new MewooView("pluginManager.runtimeStatus", views.Diagnostics.CreateRuntimeStatusView(ctx.Workbench));
+                return new MewooView("pluginManager.runtimeStatus", _views.Diagnostics.CreateRuntimeStatusView(ctx.Workbench));
             });
 
         registry.MainView("pluginManager.discoveryIssues")
@@ -102,8 +98,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .CanOpenMultiple(false)
             .Create(ctx =>
             {
-                var views = CreateViews();
-                return new MewooView("pluginManager.discoveryIssues", views.Diagnostics.CreateDiscoveryIssuesView(ctx.Workbench));
+                return new MewooView("pluginManager.discoveryIssues", _views.Diagnostics.CreateDiscoveryIssuesView(ctx.Workbench));
             });
 
         registry.MainView("pluginManager.operationLog")
@@ -111,8 +106,7 @@ public sealed class PluginManagerPlugin : IMewooPlugin
             .CanOpenMultiple(false)
             .Create(ctx =>
             {
-                var views = CreateViews();
-                return new MewooView("pluginManager.operationLog", views.Diagnostics.CreateOperationLogView(ctx.Workbench));
+                return new MewooView("pluginManager.operationLog", _views.Diagnostics.CreateOperationLogView(ctx.Workbench));
             });
 
         registry.Command("pluginManager.open")
@@ -122,6 +116,4 @@ public sealed class PluginManagerPlugin : IMewooPlugin
                 await ctx.Workbench.OpenMainViewAsync("pluginManager.home", cancellationToken));
     }
 
-    private PluginManagerViews CreateViews() =>
-        new(_session, _controller);
 }

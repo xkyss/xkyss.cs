@@ -106,6 +106,6 @@ public sealed class SettingsPlugin : IMewooPlugin
     {
         return typeof(SettingsPlugin).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion ?? "0.6.0-dev";
+            ?.InformationalVersion ?? "0.8.0-dev";
     }
 }

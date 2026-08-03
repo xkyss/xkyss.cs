@@ -103,11 +103,13 @@ public sealed class MewooBuiltInSystemActivityTests
             advanced.Children.Select(NodeId).ToArray());
         Assert.IsFalse(RowState(advanced).IsExpanded);
 
+        var home = homeDescriptor.CreateView(new TestViewContext("pluginManager", workbench));
+        CollectionAssert.Contains(Texts(home.NativeView).ToArray(), "Plugins: All");
+
         tree.SelectedNode = manage.Children.Single(node => NodeId(node) == "category.disabled");
 
-        CollectionAssert.AreEqual(new[] { "pluginManager.home" }, workbench.OpenedMainViewIds.ToArray());
-        var home = homeDescriptor.CreateView(new TestViewContext("pluginManager", workbench));
         CollectionAssert.Contains(Texts(home.NativeView).ToArray(), "Plugins: Disabled");
+        CollectionAssert.AreEqual(new[] { "pluginManager.home" }, workbench.OpenedMainViewIds.ToArray());
     }
 
     [TestMethod]
