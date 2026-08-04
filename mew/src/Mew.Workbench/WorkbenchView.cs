@@ -1,6 +1,7 @@
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.MewDock;
+using System.Text.Json;
 
 namespace Mew.Workbench;
 
@@ -14,7 +15,42 @@ internal sealed class WorkbenchView
     {
         var docking = new DockingManager();
         var theme = _workbench.ThemeContext;
+        var layoutStore = new WorkbenchLayoutStore();
 
+        docking.WithContentFactory(pane => ResolvePaneContent(pane, theme));
+
+        if (layoutStore.TryLoad() is { } savedLayout)
+        {
+            try
+            {
+                docking.LoadLayout(savedLayout);
+            }
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException)
+            {
+                AddDefaultPanes(docking, theme);
+            }
+        }
+        else
+        {
+            AddDefaultPanes(docking, theme);
+        }
+
+        docking.Changed += (_, _) => layoutStore.Save(docking.SaveLayout());
+
+        return BuildShell(docking);
+    }
+
+    private UIElement BuildShell(DockingManager docking) => new Grid()
+        .Rows("*,Auto")
+        .Columns("Auto,*")
+        .Children(
+            BuildActivityBar().Row(0).Column(0),
+            docking.Row(0).Column(1),
+            BuildStatusBar().Row(1).Column(0).ColumnSpan(2)
+        );
+
+    private void AddDefaultPanes(DockingManager docking, WorkbenchThemeContext theme)
+    {
         foreach (var view in _workbench.SideBarModel.Views)
         {
             docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.SideBar), DockEdge.Left, view.Id);
@@ -29,15 +65,40 @@ internal sealed class WorkbenchView
         {
             docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.Panel), DockEdge.Bottom, view.Id);
         }
+    }
 
-        return new Grid()
-            .Rows("*,Auto")
-            .Columns("Auto,*")
-            .Children(
-                BuildActivityBar().Row(0).Column(0),
-                docking.Row(0).Column(1),
-                BuildStatusBar().Row(1).Column(0).ColumnSpan(2)
-            );
+    private UIElement? ResolvePaneContent(DockPane pane, WorkbenchThemeContext theme)
+    {
+        if (pane.Component is not { } id)
+        {
+            return null;
+        }
+
+        foreach (var view in _workbench.SideBarModel.Views)
+        {
+            if (view.Id == id)
+            {
+                return ThemedPane(view.Content, theme, WorkbenchZone.SideBar);
+            }
+        }
+
+        foreach (var document in _workbench.EditorAreaModel.Documents)
+        {
+            if (document.Id == id)
+            {
+                return ThemedPane(document.Content, theme, WorkbenchZone.EditorArea);
+            }
+        }
+
+        foreach (var view in _workbench.PanelModel.Views)
+        {
+            if (view.Id == id)
+            {
+                return ThemedPane(view.Content, theme, WorkbenchZone.Panel);
+            }
+        }
+
+        return null;
     }
 
     private static UIElement ThemedPane(UIElement content, WorkbenchThemeContext theme, WorkbenchZone zone)
