@@ -11,12 +11,14 @@ namespace Mew.Launcher;
 internal sealed class LauncherApp
 {
     private const string AllCategory = "全部";
+    private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
     private readonly LauncherRunner _runner = new();
     private readonly IconResolver _icons = new();
     private readonly ObservableValue<string> _launchStatus = new("就绪");
     private readonly List<LauncherItem> _items;
+    private readonly ItemHotkeys _itemHotkeys;
     private readonly WorkbenchType _workbench = new();
     private readonly WorkbenchThemeContext _theme;
     private readonly StackPanel _listPanel = new();
@@ -31,6 +33,7 @@ internal sealed class LauncherApp
     {
         _items = _store.Load();
         _theme = _workbench.ThemeContext;
+        _itemHotkeys = new ItemHotkeys(_items, LaunchItem, Feedback);
     }
 
     internal void Run()
@@ -66,14 +69,29 @@ internal sealed class LauncherApp
         window.Content = _workbench.Build();
 
         var overlay = new OverlayWindow(window, _items, _runner, _icons, _theme);
-        window.Loaded += () => GlobalHotkey.Register(window.Handle);
+        window.Loaded += () =>
+        {
+            GlobalHotkey.Register(window.Handle);
+            _itemHotkeys.Attach(window.Handle);
+            _itemHotkeys.RegisterAll();
+        };
         window.NativeMessage += args =>
         {
-            if (args is Win32NativeMessageEventArgs e && e.Msg == GlobalHotkey.WmHotkey)
+            if (args is not Win32NativeMessageEventArgs e || e.Msg != GlobalHotkey.WmHotkey)
+            {
+                return;
+            }
+
+            var id = (int)e.WParam;
+            if (id == GlobalHotkey.OverlayHotkeyId)
             {
                 overlay.ShowOverlay();
-                args.Handled = true;
             }
+            else
+            {
+                _itemHotkeys.TryLaunch(id);
+            }
+            args.Handled = true;
         };
 
         Application.Run(window);
@@ -127,6 +145,12 @@ internal sealed class LauncherApp
         var result = _runner.Launch(item);
         AppendLog(result.Success ? "✓ " + result.Message : "✗ " + result.Message);
         _launchStatus.Value = result.Message;
+    }
+
+    private void Feedback(string message)
+    {
+        AppendLog("⚠ " + message);
+        _launchStatus.Value = message;
     }
 
     private void ShowCategory(string category)
@@ -235,6 +259,10 @@ internal sealed class LauncherApp
         var category = TextField(item.Category, "分类");
         var icon = TextField(item.Icon ?? "", "可选图标路径");
         var hotkey = TextField(item.Hotkey ?? "", "可选每项热键,如 Ctrl+Shift+1");
+        var hotkeyHint = new Label()
+            .Text("")
+            .FontSize(11)
+            .WithTheme((_, label) => label.Foreground(HotkeyWarning));
 
         _loading = false;
 
@@ -244,7 +272,13 @@ internal sealed class LauncherApp
         workingDirectory.TextChanged += text => UpdateCurrent(i => i with { WorkingDirectory = string.IsNullOrWhiteSpace(text) ? null : text });
         category.TextChanged += text => UpdateCurrent(i => i with { Category = string.IsNullOrWhiteSpace(text) ? AllCategory : text });
         icon.TextChanged += text => UpdateCurrent(i => i with { Icon = string.IsNullOrWhiteSpace(text) ? null : text });
-        hotkey.TextChanged += text => UpdateCurrent(i => i with { Hotkey = string.IsNullOrWhiteSpace(text) ? null : text });
+        hotkey.TextChanged += text =>
+        {
+            UpdateCurrent(i => i with { Hotkey = string.IsNullOrWhiteSpace(text) ? null : text });
+            hotkeyHint.Text = text.Length > 0 && !HotkeyParser.TryParse(text, out _, out _)
+                ? "热键格式无效,如 Ctrl+Shift+1(需至少一个修饰键)"
+                : "";
+        };
 
         return new StackPanel()
             .Padding(24)
@@ -261,6 +295,7 @@ internal sealed class LauncherApp
                 FieldRow("分类", category),
                 FieldRow("图标", icon),
                 FieldRow("每项热键", hotkey),
+                hotkeyHint,
                 new Button()
                     .Content(new Label().Text("启动"))
                     .OnClick(() => LaunchItem(item))
@@ -303,6 +338,7 @@ internal sealed class LauncherApp
         _current = edit(_items[index]);
         _items[index] = _current;
         _store.Save(_items);
+        _itemHotkeys.RegisterAll();
         ShowCategory(_category);
     }
 
@@ -317,14 +353,16 @@ internal sealed class LauncherApp
 
         _items.Add(item);
         _store.Save(_items);
+        _itemHotkeys.RegisterAll();
         EditItem(item);
         ShowCategory(_category);
     }
 
     private void DeleteItem(LauncherItem item)
     {
-        _items.RemoveAll(candidate => candidate.Id == item.Id);
+                _items.RemoveAll(candidate => candidate.Id == item.Id);
         _store.Save(_items);
+        _itemHotkeys.RegisterAll();
         ShowEmptyDetail();
         ShowCategory(_category);
     }

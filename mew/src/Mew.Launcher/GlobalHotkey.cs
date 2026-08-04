@@ -11,7 +11,10 @@ internal static class GlobalHotkey
     private const int ModControl = 0x2;
     private const int ModNoRepeat = 0x4000;
     private const int VkSpace = 0x20;
-    private const int Id = 0x4D57; // "MW"
+    private const int OverlayHotkeyIdConst = 0x4D57; // "MW"
+
+    /// <summary>浮层热键注册 id</summary>
+    internal const int OverlayHotkeyId = OverlayHotkeyIdConst;
 
     /// <summary>WM_HOTKEY</summary>
     internal const uint WmHotkey = 0x0312;
@@ -23,7 +26,7 @@ internal static class GlobalHotkey
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     internal static bool Register(IntPtr hWnd) =>
-        RegisterHotKey(hWnd, Id, ModControl | ModAlt | ModNoRepeat, VkSpace);
+        RegisterHotKey(hWnd, OverlayHotkeyId, ModControl | ModAlt | ModNoRepeat, VkSpace);
 
-    internal static void Unregister(IntPtr hWnd) => UnregisterHotKey(hWnd, Id);
+    internal static void Unregister(IntPtr hWnd) => UnregisterHotKey(hWnd, OverlayHotkeyId);
 }
