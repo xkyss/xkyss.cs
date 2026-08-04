@@ -14,6 +14,7 @@ internal sealed class LauncherApp
 
     private readonly LauncherStore _store = new();
     private readonly LauncherRunner _runner = new();
+    private readonly IconResolver _icons = new();
     private readonly ObservableValue<string> _launchStatus = new("就绪");
     private readonly List<LauncherItem> _items;
     private readonly WorkbenchType _workbench = new();
@@ -140,30 +141,51 @@ internal sealed class LauncherApp
         }
     }
 
-    private UIElement SideBarRow(LauncherItem item) => new Grid()
-        .Columns("*,Auto")
-        .Children(
-            new Button()
-                .Content(
-                    new StackPanel()
-                        .Spacing(2)
-                        .Children(
-                            new Label().Text(item.Name)
-                                .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)),
-                            new Label().Text(item.Command).FontSize(11)
-                                .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground))
-                        ))
-                .OnClick(() => LaunchItem(item))
-                .CanDrag(false)
-                .Column(0),
-            new Button()
-                .Content(new Label()
-                    .Text("编辑")
-                    .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)))
-                .OnClick(() => EditItem(item))
-                .CanDrag(false)
-                .Column(1)
-        );
+    private UIElement SideBarRow(LauncherItem item)
+    {
+        var icon = _icons.Resolve(item);
+
+        return new Grid()
+            .Columns("*,Auto")
+            .Children(
+                new Button()
+                    .Content(
+                        new StackPanel()
+                            .Orientation(Orientation.Horizontal)
+                            .Spacing(6)
+                            .Children(
+                                IconElement(icon),
+                                new StackPanel()
+                                    .Spacing(2)
+                                    .Children(
+                                        new Label().Text(item.Name)
+                                            .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)),
+                                        new Label().Text(item.Command).FontSize(11)
+                                            .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground))
+                                    )
+                            ))
+                    .OnClick(() => LaunchItem(item))
+                    .CanDrag(false)
+                    .Column(0),
+                new Button()
+                    .Content(new Label()
+                        .Text("编辑")
+                        .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)))
+                    .OnClick(() => EditItem(item))
+                    .CanDrag(false)
+                    .Column(1)
+            );
+    }
+
+    private static UIElement IconElement(ImageSource? icon)
+    {
+        if (icon is null)
+        {
+            return new Border().Size(16, 16);
+        }
+
+        return new Image().Source(icon).Size(16, 16);
+    }
 
     private UIElement EmptyListLabel() => new Label()
         .Text(string.IsNullOrWhiteSpace(_query) ? "暂无启动项" : "无匹配启动项")
