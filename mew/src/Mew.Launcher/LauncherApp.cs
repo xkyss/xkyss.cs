@@ -69,32 +69,63 @@ internal sealed class LauncherApp
         window.Content = _workbench.Build();
 
         var overlay = new OverlayWindow(window, _items, _runner, _icons, _theme);
+        TrayIcon? tray = null;
+
+        window.Closing += e =>
+        {
+            e.Cancel = true;
+            window.Hide();
+        };
+
         window.Loaded += () =>
         {
             GlobalHotkey.Register(window.Handle);
             _itemHotkeys.Attach(window.Handle);
             _itemHotkeys.RegisterAll();
+            tray = new TrayIcon(window.Handle, ShowMain, Quit);
+            tray.Add();
         };
+
         window.NativeMessage += args =>
         {
-            if (args is not Win32NativeMessageEventArgs e || e.Msg != GlobalHotkey.WmHotkey)
+            if (args is not Win32NativeMessageEventArgs e)
             {
                 return;
             }
 
-            var id = (int)e.WParam;
-            if (id == GlobalHotkey.OverlayHotkeyId)
+            if (e.Msg == GlobalHotkey.WmHotkey)
             {
-                overlay.ShowOverlay();
+                var id = (int)e.WParam;
+                if (id == GlobalHotkey.OverlayHotkeyId)
+                {
+                    overlay.ShowOverlay();
+                }
+                else
+                {
+                    _itemHotkeys.TryLaunch(id);
+                }
+                args.Handled = true;
             }
-            else
+            else if (e.Msg == TrayIcon.WmCallback && tray is not null)
             {
-                _itemHotkeys.TryLaunch(id);
+                tray.HandleCallback((uint)e.WParam, (uint)e.LParam);
+                args.Handled = true;
             }
-            args.Handled = true;
         };
 
         Application.Run(window);
+
+        void ShowMain()
+        {
+            window.Show(null!);
+            window.Activate();
+        }
+
+        void Quit()
+        {
+            tray?.Dispose();
+            Application.Quit();
+        }
     }
 
     private UIElement BuildSideBar()
