@@ -119,13 +119,20 @@ internal sealed class WorkbenchView
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            children[i] = new Button()
+            var button = new Button()
                 .Size(36, 36)
                 .Content(new GlyphElement()
                     .Kind(item.Glyph)
                     .GlyphSize(18)
                     .WithTheme((_, glyph) => glyph.Foreground(theme.ActivityBar.Foreground)))
                 .ToolTip(item.Title);
+
+            if (item.OnClick is { } onClick)
+            {
+                button.OnClick(onClick);
+            }
+
+            children[i] = button;
         }
 
         return new Border()

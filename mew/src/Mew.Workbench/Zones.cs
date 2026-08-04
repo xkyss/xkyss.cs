@@ -11,14 +11,14 @@ public sealed class ActivityBar
 
     public IReadOnlyList<ActivityBarItem> Items => _items;
 
-    public ActivityBar Item(string id, string title, GlyphKind glyph)
+    public ActivityBar Item(string id, string title, GlyphKind glyph, Action? onClick = null)
     {
-        _items.Add(new ActivityBarItem(id, title, glyph));
+        _items.Add(new ActivityBarItem(id, title, glyph, onClick));
         return this;
     }
 }
 
-public sealed record ActivityBarItem(string Id, string Title, GlyphKind Glyph);
+public sealed record ActivityBarItem(string Id, string Title, GlyphKind Glyph, Action? OnClick = null);
 
 /// <summary>
 /// Declares the tool views shown in the side bar.
