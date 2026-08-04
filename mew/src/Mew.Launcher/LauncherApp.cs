@@ -65,6 +65,17 @@ internal sealed class LauncherApp
 
         window.Content = _workbench.Build();
 
+        var overlay = new OverlayWindow(window, _items, _runner, _icons, _theme);
+        window.Loaded += () => GlobalHotkey.Register(window.Handle);
+        window.NativeMessage += args =>
+        {
+            if (args is Win32NativeMessageEventArgs e && e.Msg == GlobalHotkey.WmHotkey)
+            {
+                overlay.ShowOverlay();
+                args.Handled = true;
+            }
+        };
+
         Application.Run(window);
     }
 
