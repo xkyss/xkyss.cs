@@ -37,7 +37,8 @@ internal sealed class LauncherStore
         try
         {
             var json = File.ReadAllText(FilePath);
-            return JsonSerializer.Deserialize(json, LauncherJsonContext.Default.ListLauncherItem) ?? [];
+            var list = JsonSerializer.Deserialize(json, LauncherJsonContext.Default.ListLauncherItem) ?? [];
+            return Normalize(list);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -68,6 +69,17 @@ internal sealed class LauncherStore
         {
         }
     }
+
+    /// <summary>
+    /// 手写 JSON 可能省略可选字段(STJ 置 null),在此归一并消除下游空引用风险。
+    /// </summary>
+    private static List<LauncherItem> Normalize(List<LauncherItem> items) =>
+        items.Select(item => item with
+        {
+            Name = item.Name ?? "",
+            Command = item.Command ?? "",
+            Category = item.Category ?? "默认",
+        }).ToList();
 
     private static List<LauncherItem> DefaultItems() =>
     [

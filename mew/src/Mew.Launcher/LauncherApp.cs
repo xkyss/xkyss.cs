@@ -19,6 +19,7 @@ internal sealed class LauncherApp
     private readonly StackPanel _listPanel = new();
     private readonly StackPanel _detailPanel = new();
     private string _category = AllCategory;
+    private string _query = "";
     private LauncherItem? _current;
     private bool _loading;
 
@@ -63,19 +64,34 @@ internal sealed class LauncherApp
         Application.Run(window);
     }
 
-    private UIElement BuildSideBar() => new StackPanel()
-        .Padding(12)
-        .Spacing(6)
-        .Children(
-            new Button()
-                .Content(new Label()
-                    .Text("＋ 新增启动项")
-                    .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)))
-                .OnClick(CreateItem)
-                .CanDrag(false)
-                .WithTheme((_, button) => button.Background(_theme.SideBar.Background)),
-            _listPanel
-        );
+    private UIElement BuildSideBar()
+    {
+        var searchBox = new TextBox
+        {
+            Placeholder = "搜索启动项",
+            CanDrag = false,
+        };
+        searchBox.TextChanged += text =>
+        {
+            _query = text;
+            ShowCategory(_category);
+        };
+
+        return new StackPanel()
+            .Padding(12)
+            .Spacing(6)
+            .Children(
+                new Button()
+                    .Content(new Label()
+                        .Text("＋ 新增启动项")
+                        .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)))
+                    .OnClick(CreateItem)
+                    .CanDrag(false)
+                    .WithTheme((_, button) => button.Background(_theme.SideBar.Background)),
+                searchBox,
+                _listPanel
+            );
+    }
 
     private UIElement BuildOutputPanel() => new StackPanel()
         .Padding(12)
@@ -89,9 +105,11 @@ internal sealed class LauncherApp
         _category = category;
         _listPanel.Clear();
 
-        var shown = category == AllCategory
-            ? _items
-            : _items.Where(item => item.Category == category).ToList();
+        var shown = (category == AllCategory
+                ? _items
+                : _items.Where(item => item.Category == category))
+            .Where(item => LauncherSearch.Matches(item, _query))
+            .ToList();
 
         if (shown.Count == 0)
         {
@@ -119,7 +137,7 @@ internal sealed class LauncherApp
         .CanDrag(false);
 
     private UIElement EmptyListLabel() => new Label()
-        .Text("暂无启动项")
+        .Text(string.IsNullOrWhiteSpace(_query) ? "暂无启动项" : "无匹配启动项")
         .FontSize(12)
         .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground));
 
