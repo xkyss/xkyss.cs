@@ -156,7 +156,7 @@ internal sealed class WorkbenchView
         {
             var item = items[i];
             children[i] = new Label()
-                .Text(item.Text)
+                .BindText(item.Text)
                 .FontSize(12)
                 .WithTheme((_, label) => label.Foreground(theme.StatusBar.Foreground));
         }

@@ -1,3 +1,4 @@
+using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 
 namespace Mew.Workbench;
@@ -85,9 +86,18 @@ public sealed class StatusBar
 
     public StatusBar Item(string id, string text)
     {
+        _items.Add(new StatusBarItem(id, new ObservableValue<string>(text)));
+        return this;
+    }
+
+    /// <summary>
+    /// 注册可实时更新的状态项:持有 ObservableValue 引用即可在运行时改文本。
+    /// </summary>
+    public StatusBar Item(string id, ObservableValue<string> text)
+    {
         _items.Add(new StatusBarItem(id, text));
         return this;
     }
 }
 
-public sealed record StatusBarItem(string Id, string Text);
+public sealed record StatusBarItem(string Id, ObservableValue<string> Text);

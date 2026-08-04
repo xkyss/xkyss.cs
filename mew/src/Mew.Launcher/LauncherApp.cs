@@ -13,11 +13,14 @@ internal sealed class LauncherApp
     private const string AllCategory = "全部";
 
     private readonly LauncherStore _store = new();
+    private readonly LauncherRunner _runner = new();
+    private readonly ObservableValue<string> _launchStatus = new("就绪");
     private readonly List<LauncherItem> _items;
     private readonly WorkbenchType _workbench = new();
     private readonly WorkbenchThemeContext _theme;
     private readonly StackPanel _listPanel = new();
     private readonly StackPanel _detailPanel = new();
+    private readonly StackPanel _logPanel = new();
     private string _category = AllCategory;
     private string _query = "";
     private LauncherItem? _current;
@@ -53,7 +56,7 @@ internal sealed class LauncherApp
             .EditorArea(editor => editor.Document("detail", "启动项详情", _detailPanel))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
-                .Item("ready", "就绪")
+                .Item("launch", _launchStatus)
                 .Item("shortcut", "Ctrl+Alt+Space"));
 
         ShowCategory(AllCategory);
@@ -93,12 +96,26 @@ internal sealed class LauncherApp
             );
     }
 
-    private UIElement BuildOutputPanel() => new StackPanel()
-        .Padding(12)
-        .Children(
-            new Label().Text("就绪")
-                .WithTheme((_, label) => label.Foreground(_theme.Panel.Foreground))
-        );
+    private UIElement BuildOutputPanel()
+    {
+        AppendLog("就绪");
+        return _logPanel;
+    }
+
+    private void AppendLog(string message)
+    {
+        _logPanel.Add(new Label()
+            .Text($"{DateTime.Now:HH:mm:ss}  {message}")
+            .FontSize(12)
+            .WithTheme((_, label) => label.Foreground(_theme.Panel.Foreground)));
+    }
+
+    private void LaunchItem(LauncherItem item)
+    {
+        var result = _runner.Launch(item);
+        AppendLog(result.Success ? "✓ " + result.Message : "✗ " + result.Message);
+        _launchStatus.Value = result.Message;
+    }
 
     private void ShowCategory(string category)
     {
@@ -123,18 +140,30 @@ internal sealed class LauncherApp
         }
     }
 
-    private UIElement SideBarRow(LauncherItem item) => new Button()
-        .Content(
-            new StackPanel()
-                .Spacing(2)
-                .Children(
-                    new Label().Text(item.Name)
-                        .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)),
-                    new Label().Text(item.Command).FontSize(11)
-                        .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground))
-                ))
-        .OnClick(() => EditItem(item))
-        .CanDrag(false);
+    private UIElement SideBarRow(LauncherItem item) => new Grid()
+        .Columns("*,Auto")
+        .Children(
+            new Button()
+                .Content(
+                    new StackPanel()
+                        .Spacing(2)
+                        .Children(
+                            new Label().Text(item.Name)
+                                .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)),
+                            new Label().Text(item.Command).FontSize(11)
+                                .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground))
+                        ))
+                .OnClick(() => LaunchItem(item))
+                .CanDrag(false)
+                .Column(0),
+            new Button()
+                .Content(new Label()
+                    .Text("编辑")
+                    .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)))
+                .OnClick(() => EditItem(item))
+                .CanDrag(false)
+                .Column(1)
+        );
 
     private UIElement EmptyListLabel() => new Label()
         .Text(string.IsNullOrWhiteSpace(_query) ? "暂无启动项" : "无匹配启动项")
@@ -199,6 +228,10 @@ internal sealed class LauncherApp
                 FieldRow("分类", category),
                 FieldRow("图标", icon),
                 FieldRow("每项热键", hotkey),
+                new Button()
+                    .Content(new Label().Text("启动"))
+                    .OnClick(() => LaunchItem(item))
+                    .CanDrag(false),
                 new Button()
                     .Content(new Label().Text("删除启动项"))
                     .OnClick(() => DeleteItem(item))
