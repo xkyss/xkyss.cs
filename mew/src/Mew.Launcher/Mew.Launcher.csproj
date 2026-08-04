@@ -11,6 +11,8 @@
     <AssemblyName>Mew.Launcher</AssemblyName>
     <MewUIBackend>Direct2D</MewUIBackend>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
