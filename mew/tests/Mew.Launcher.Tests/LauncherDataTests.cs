@@ -178,6 +178,16 @@ public class LauncherDataTests
         Assert.Null(LauncherData.FindByName(categories, "不存在"));
     }
 
+    // ── 新建启动项归属 ─────────────────────────────────────
+
+    [Fact]
+    public void CategoryIdForNewItem_固定节点归未分类_分类节点保持()
+    {
+        Assert.Null(LauncherData.CategoryIdForNewItem(LauncherData.AllNavId));
+        Assert.Null(LauncherData.CategoryIdForNewItem(LauncherData.UncategorizedNavId));
+        Assert.Equal("games", LauncherData.CategoryIdForNewItem("games"));
+    }
+
     // ── 导航树 ─────────────────────────────────────────────
 
     [Fact]

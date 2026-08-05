@@ -189,6 +189,10 @@ public static class LauncherData
             : AggregateSubtree(categories, items, navId);
     }
 
+    /// <summary>新建启动项的归属决策:在「全部」/「未分类」下新建 → 未分类(null);在分类节点下新建 → 该分类 id。</summary>
+    public static string? CategoryIdForNewItem(string navId) =>
+        navId is AllNavId or UncategorizedNavId ? null : navId;
+
     private static CategoryTreeNode ToNavNode(LauncherCategory category) => new(
         category.Id,
         category.Name,

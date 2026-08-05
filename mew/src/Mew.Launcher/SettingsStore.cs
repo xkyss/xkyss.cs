@@ -12,7 +12,7 @@ namespace Mew.Launcher;
 internal sealed partial class AppSettingsJsonContext : JsonSerializerContext;
 
 /// <summary>
-/// 应用设置(主题模式、呼出热键)。
+/// 应用设置(主题模式、呼出热键、列表形态)。
 /// 读写使用源生成序列化,避免运行时反射(AOT/Trim 兼容)。
 /// </summary>
 internal sealed class AppSettings
@@ -22,6 +22,9 @@ internal sealed class AppSettings
 
     /// <summary>浮层呼出热键,形如 Ctrl+Alt+Space,缺省 Ctrl+Alt+Space。</summary>
     public string? OverlayHotkey { get; set; }
+
+    /// <summary>启动项列表形态:card(卡片,默认)/ list(列表)。</summary>
+    public string? ItemsViewMode { get; set; }
 }
 
 /// <summary>
@@ -30,10 +33,11 @@ internal sealed class AppSettings
 /// </summary>
 internal sealed class SettingsStore
 {
-    public SettingsStore()
+    public SettingsStore(string? filePath = null)
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        FilePath = Path.Combine(appData, "Mew", "settings.json");
+        FilePath = filePath
+            ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mew", "settings.json");
     }
 
     public string FilePath { get; }

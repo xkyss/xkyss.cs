@@ -39,6 +39,9 @@ internal sealed class LauncherApp
     private LauncherItem? _current;
     private bool _loading;
     private TreeView? _tree;
+    private string _viewMode = "card"; // 启动项列表形态:card(卡片,默认)/ list(列表),持久化于 settings.json
+    private string _query = "";
+    private Button? _modeToggleButton;
 
     internal LauncherApp()
     {
@@ -48,6 +51,7 @@ internal sealed class LauncherApp
         var settings = _settings.Load();
         _overlayHotkey = string.IsNullOrWhiteSpace(settings.OverlayHotkey) ? DefaultOverlayHotkey : settings.OverlayHotkey!;
         _hotkeyStatus = new ObservableValue<string>(_overlayHotkey);
+        _viewMode = string.IsNullOrWhiteSpace(settings.ItemsViewMode) ? "card" : settings.ItemsViewMode!;
     }
 
     internal void Run()
@@ -72,7 +76,7 @@ internal sealed class LauncherApp
             })
             .SideBar(side => side.View("launch", "启动", BuildCategoryTree()))
             .EditorArea(editor => editor
-                .Document("items", "启动项", _listPanel)
+                .Document("items", "启动项", BuildItemsDocument())
                 .Document("detail", "启动项详情", _detailPanel)
                 .Document("settings", "设置", BuildSettingsPanel()))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
@@ -540,17 +544,33 @@ internal sealed class LauncherApp
         _navId = navId;
         _listPanel.Clear();
 
-        var shown = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId);
+        var shown = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId)
+            .Where(item => LauncherSearch.Matches(item, _query))
+            .ToList();
+
         if (shown.Count == 0)
         {
             _listPanel.Add(EmptyListLabel());
             return;
         }
 
+        if (_viewMode == "list")
+        {
+            foreach (var item in shown)
+            {
+                _listPanel.Add(ListRow(item));
+            }
+
+            return;
+        }
+
+        var wrap = new WrapPanel { ItemWidth = 128, ItemHeight = 96, Spacing = 8 };
         foreach (var item in shown)
         {
-            _listPanel.Add(ListRow(item));
+            wrap.Add(Card(item));
         }
+
+        _listPanel.Add(wrap);
     }
 
     /// <summary>编辑器区列表行:图标 + 名称 + 命令,双击启动,行尾「启动」按钮。</summary>
@@ -577,6 +597,7 @@ internal sealed class LauncherApp
             .Column(0);
         rowButton.OnClick(() => EditItem(item)); // 单击 → 打开详情
         rowButton.MouseDoubleClick += _ => LaunchItem(item); // 双击 → 启动
+        AttachContextMenu(rowButton, item);
 
         return new Grid()
             .Columns("*,Auto")
@@ -592,7 +613,117 @@ internal sealed class LauncherApp
             );
     }
 
-    /// <summary>侧边栏/列表的启动日志入口。</summary>
+    /// <summary>卡片:大图标 + 名称,单击开详情、双击启动、右键菜单(编辑/删除)。</summary>
+    private UIElement Card(LauncherItem item)
+    {
+        var icon = _icons.Resolve(item);
+        var card = new Button()
+            .Content(new StackPanel()
+                .Orientation(Orientation.Vertical)
+                .Spacing(6)
+                .Children(
+                    IconElement(icon, 40),
+                    new Label().Text(item.Name)
+                        .TextWrapping(TextWrapping.Wrap)
+                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
+                ))
+            .CanDrag(false)
+            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
+        card.OnClick(() => EditItem(item));
+        card.MouseDoubleClick += _ => LaunchItem(item);
+        AttachContextMenu(card, item);
+        return card;
+    }
+
+    /// <summary>挂右键菜单(编辑 / 删除),右键时在鼠标位置弹出。</summary>
+    private void AttachContextMenu(UIElement element, LauncherItem item)
+    {
+        var menu = new ContextMenu(new Menu()
+            .Item("编辑", () => EditItem(item))
+            .Separator()
+            .Item("删除", () => DeleteItem(item)));
+        element.MouseUp += e =>
+        {
+            if (e.RightButton)
+            {
+                menu.ShowAt(element, e.ScreenPosition);
+            }
+        };
+    }
+
+    private string ViewModeLabel() => _viewMode == "card" ? "卡片" : "列表";
+
+    /// <summary>切换卡片/列表形态并持久化,立即重绘列表。</summary>
+    private void ToggleViewMode()
+    {
+        _viewMode = _viewMode == "card" ? "list" : "card";
+        var settings = _settings.Load();
+        settings.ItemsViewMode = _viewMode;
+        _settings.Save(settings);
+        _modeToggleButton!.Content(new Label().Text(ViewModeLabel()));
+        ShowNav(_navId);
+    }
+
+    /// <summary>编辑器区「启动项列表」文档:顶部工具栏(搜索 / 新增 / 形态切换)+ 聚合列表(可滚动)。</summary>
+    private UIElement BuildItemsDocument()
+    {
+        var searchBox = new TextBox
+        {
+            Placeholder = "搜索启动项",
+            CanDrag = false,
+        };
+        searchBox.TextChanged += text =>
+        {
+            _query = text;
+            ShowNav(_navId);
+        };
+
+        _modeToggleButton = new Button()
+            .Content(new Label().Text(ViewModeLabel()))
+            .ToolTip("切换卡片 / 列表")
+            .OnClick(ToggleViewMode)
+            .CanDrag(false);
+
+        return new StackPanel()
+            .Padding(12)
+            .Spacing(8)
+            .Children(
+                new StackPanel()
+                    .Orientation(Orientation.Horizontal)
+                    .Spacing(8)
+                    .Children(
+                        searchBox,
+                        new Button()
+                            .Content(new Label().Text("＋ 新增"))
+                            .ToolTip("新增启动项(归入当前分类)")
+                            .OnClick(CreateItem)
+                            .CanDrag(false),
+                        _modeToggleButton
+                    ),
+                new ScrollViewer
+                {
+                    Content = _listPanel,
+                    VerticalScroll = ScrollMode.Auto,
+                }
+            );
+    }
+
+    /// <summary>新建启动项:自动归入当前导航节点对应的分类(「全部」/「未分类」下新建归未分类)。</summary>
+    private void CreateItem()
+    {
+        var item = new LauncherItem(
+            "item-" + Guid.NewGuid().ToString("N")[..8],
+            "新建启动项",
+            "",
+            CategoryId: LauncherData.CategoryIdForNewItem(_navId));
+
+        _items.Add(item);
+        _store.Save(_items);
+        _itemHotkeys.RegisterAll();
+        EditItem(item);
+        ShowNav(_navId);
+    }
+
     private UIElement BuildOutputPanel()
     {
         AppendLog("就绪");
@@ -620,18 +751,18 @@ internal sealed class LauncherApp
         _launchStatus.Value = message;
     }
 
-    private static UIElement IconElement(ImageSource? icon)
+    private static UIElement IconElement(ImageSource? icon, int size = 16)
     {
         if (icon is null)
         {
-            return new Border().Size(16, 16);
+            return new Border().Size(size, size);
         }
 
-        return new Image().Source(icon).Size(16, 16);
+        return new Image().Source(icon).Size(size, size);
     }
 
     private UIElement EmptyListLabel() => new Label()
-        .Text("暂无启动项")
+        .Text(string.IsNullOrWhiteSpace(_query) ? "暂无启动项" : "无匹配启动项")
         .FontSize(12)
         .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground));
 
