@@ -118,38 +118,65 @@ internal sealed class WorkbenchView
     {
         var theme = _workbench.ThemeContext;
         var items = _workbench.ActivityBarModel.Items;
-        var children = new Element[items.Count];
 
-        for (var i = 0; i < items.Count; i++)
+        if (items.Count == 0)
         {
-            var item = items[i];
-            var button = new Button()
-                .Size(36, 36)
-                .Content(item.CustomGlyph is { } custom
-                    ? custom
-                    : new GlyphElement()
-                        .Kind(item.Glyph)
-                        .GlyphSize(18)
-                        .WithTheme((_, glyph) => glyph.Foreground(theme.ActivityBar.Foreground)))
-                .ToolTip(item.Title);
-
-            if (item.OnClick is { } onClick)
-            {
-                button.OnClick(onClick);
-            }
-
-            children[i] = button;
+            return new Border()
+                .WithTheme((_, border) => border.Background(theme.ActivityBar.Background))
+                .Child(new StackPanel().Width(48));
         }
 
+        // VSCode 约定:最后一项(设置/管理类)钉在活动栏底部,其余图标从顶部排列。
+        var lastButton = BuildItemButton(items[^1], theme);
+        if (items.Count == 1)
+        {
+            return new Border()
+                .WithTheme((_, border) => border.Background(theme.ActivityBar.Background))
+                .Child(
+                    new StackPanel()
+                        .Width(48)
+                        .Padding(6, 8)
+                        .Spacing(4)
+                        .Children([lastButton])
+                );
+        }
+
+        var mainButtons = items.Take(items.Count - 1).Select(item => BuildItemButton(item, theme)).ToArray();
         return new Border()
             .WithTheme((_, border) => border.Background(theme.ActivityBar.Background))
             .Child(
-                new StackPanel()
-                    .Width(48)
-                    .Padding(6, 8)
-                    .Spacing(4)
-                    .Children(children)
+                new Grid()
+                    .Rows("*,Auto")
+                    .Children(
+                        new StackPanel()
+                            .Width(48)
+                            .Padding(6, 8)
+                            .Spacing(4)
+                            .Children(mainButtons)
+                            .Row(0),
+                        lastButton.Row(1)
+                    )
             );
+    }
+
+    private static Button BuildItemButton(ActivityBarItem item, WorkbenchThemeContext theme)
+    {
+        var button = new Button()
+            .Size(36, 36)
+            .Content(item.CustomGlyph is { } custom
+                ? custom
+                : new GlyphElement()
+                    .Kind(item.Glyph)
+                    .GlyphSize(18)
+                    .WithTheme((_, glyph) => glyph.Foreground(theme.ActivityBar.Foreground)))
+            .ToolTip(item.Title);
+
+        if (item.OnClick is { } onClick)
+        {
+            button.OnClick(onClick);
+        }
+
+        return button;
     }
 
     private UIElement BuildStatusBar()
