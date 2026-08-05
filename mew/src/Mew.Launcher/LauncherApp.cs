@@ -10,6 +10,7 @@ namespace Mew.Launcher;
 /// </summary>
 internal sealed class LauncherApp
 {
+    private const string AppVersion = "v0.1.2";
     private const string AllCategory = "全部";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
@@ -39,8 +40,12 @@ internal sealed class LauncherApp
     internal void Run()
     {
         var window = new NativeChromeWindow()
-            .Title("Mew Launcher — v0.1.2")
+            .Title($"Mew Launcher — {AppVersion}")
             .Resizable(1080, 720);
+
+        TrayIcon? tray = null;
+
+        BuildTitleBar(window, Quit);
 
         var categories = _items.Select(item => item.Category).Distinct().ToList();
 
@@ -69,7 +74,6 @@ internal sealed class LauncherApp
         window.Content = _workbench.Build();
 
         var overlay = new OverlayWindow(window, _items, _runner, _icons, _theme);
-        TrayIcon? tray = null;
 
         window.Closing += e =>
         {
@@ -126,6 +130,41 @@ internal sealed class LauncherApp
             tray?.Dispose();
             Application.Quit();
         }
+    }
+
+    /// <summary>标题栏左区:应用图标(exe 自带图标)+ 菜单栏(File=退出、Help=关于;设置入口留待票据 03)。</summary>
+    private static void BuildTitleBar(NativeChromeWindow window, Action quit)
+    {
+        var appIcon = IconResolver.ExtractIcon(Environment.ProcessPath!);
+        if (appIcon is not null)
+        {
+            window.TitleBarLeft.Add(new Image()
+                .Source(appIcon)
+                .Size(16, 16)
+                .Margin(new Thickness(8, 0, 4, 0)));
+        }
+
+        var menuBar = new MenuBar()
+            .Height(28)
+            .DrawBottomSeparator(false)
+            .Background(Color.Transparent)
+            .Items(
+                new MenuItem("_File").Menu(
+                    new Menu().Item("退出", quit)),
+                new MenuItem("_Help").Menu(
+                    new Menu().Item("关于", () => ShowAbout(window)))
+            );
+
+        window.TitleBarLeft.Add(menuBar);
+    }
+
+    private static void ShowAbout(NativeChromeWindow window)
+    {
+        MessageBox.Notify(
+            $"Mew Launcher {AppVersion}\n基于 MewUI 与 Workbench 的应用启动管理器。",
+            PromptIconKind.Info,
+            "关于 Mew Launcher",
+            window);
     }
 
     private UIElement BuildSideBar()

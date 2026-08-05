@@ -38,31 +38,34 @@ internal sealed class IconResolver
             return cached;
         }
 
-        ImageSource? result = null;
+        var result = ExtractIcon(path);
+        _cache[path] = result;
+        return result;
+    }
+
+    /// <summary>从文件提取图标:图片文件直接加载,否则取关联可执行文件图标(无缓存)。</summary>
+    internal static ImageSource? ExtractIcon(string path)
+    {
         try
         {
             if (IsImageFile(path))
             {
-                result = ImageSource.FromFile(path);
+                return ImageSource.FromFile(path);
             }
-            else
+
+            using var icon = Icon.ExtractAssociatedIcon(path);
+            if (icon is null)
             {
-                using var icon = Icon.ExtractAssociatedIcon(path);
-                if (icon is not null)
-                {
-                    using var bitmap = icon.ToBitmap();
-                    var bgra = BitmapToBgra(bitmap);
-                    result = ImageSource.FromBgraPixels(bitmap.Width, bitmap.Height, bgra, hasAlpha: true);
-                }
+                return null;
             }
+
+            using var bitmap = icon.ToBitmap();
+            return ImageSource.FromBgraPixels(bitmap.Width, bitmap.Height, BitmapToBgra(bitmap), hasAlpha: true);
         }
         catch (Exception ex) when (ex is ArgumentException or FileNotFoundException or IOException or UnauthorizedAccessException)
         {
-            result = null;
+            return null;
         }
-
-        _cache[path] = result;
-        return result;
     }
 
     private static bool IsImageFile(string path) =>

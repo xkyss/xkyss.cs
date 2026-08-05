@@ -146,6 +146,20 @@ public sealed class NativeChromeWindow : Window
         Loaded += OnLoaded;
     }
 
+    private void OnAppThemeChanged(Theme oldTheme, Theme newTheme)
+    {
+        _theme = newTheme;
+        UpdateChromeAppearance();
+
+        // 0.19.1 对窗口模板(chrome)内容的主题重绘存在缺陷:运行时切主题后图标/菜单/标题可能不再重绘,
+        // 强制整窗失效以触发重渲染。
+        Invalidate();
+        InvalidateVisual();
+        InvalidateMeasure();
+        InvalidateArrange();
+        PerformLayout();
+    }
+
     /// <summary>标题栏左区注入点(如图标、菜单栏)。</summary>
     public StackPanel TitleBarLeft => _leftArea;
 
@@ -228,6 +242,15 @@ public sealed class NativeChromeWindow : Window
             && !ChromeCapabilities.HasFlag(WindowChromeCapabilities.NativeWindowBorder))
         {
             _chromeBorder.BorderThickness = 1;
+        }
+
+        // 0.19.1 中 Window 的 OnThemeChanged/ThemeChanged 不随应用主题切换触发(样例 main 分支行为不同),
+        // 须监听 Application.ThemeChanged 才能让 chrome 配色跟随亮/暗切换。窗口可能在 Application.Run 之前创建,
+        // 故在 Loaded(应用已运行)时补订阅。
+        if (Application.IsRunning && Application.Current is { } app)
+        {
+            app.ThemeChanged -= OnAppThemeChanged;
+            app.ThemeChanged += OnAppThemeChanged;
         }
     }
 
