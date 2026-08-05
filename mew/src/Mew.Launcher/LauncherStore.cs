@@ -9,7 +9,7 @@ namespace Mew.Launcher;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     WriteIndented = true)]
 [JsonSerializable(typeof(LauncherDataFileDto))]
-[JsonSerializable(typeof(List<LauncherItem>))] // 旧格式迁移时反序列化
+[JsonSerializable(typeof(List<LegacyItem>))] // 旧格式迁移时反序列化
 internal sealed partial class LauncherJsonContext : JsonSerializerContext;
 
 /// <summary>磁盘上的启动项 DTO:新结构字段(不含兼容字段 category)。</summary>
@@ -70,13 +70,14 @@ internal sealed class LauncherStore
                 ?? new LauncherDataFileDto(null, null);
             _categories = LauncherData.NormalizeTree(file.Categories ?? []);
             var items = (file.Items ?? [])
-                .Select(dto => FromDto(dto, _categories))
+                .Select(FromDto)
                 .ToList();
             return LauncherData.NormalizeCategoryRefs(_categories, items);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            return DefaultItems();
+            var (_, items) = LauncherData.MigrateLegacy(DefaultItems());
+            return items;
         }
     }
 
@@ -121,21 +122,20 @@ internal sealed class LauncherStore
     /// <summary>旧格式(平铺数组)→ 新结构,迁移后立即写回。</summary>
     private List<LauncherItem> MigrateAndRewrite(string legacyJson)
     {
-        var legacy = JsonSerializer.Deserialize(legacyJson, LauncherJsonContext.Default.ListLauncherItem) ?? [];
+        var legacy = JsonSerializer.Deserialize(legacyJson, LauncherJsonContext.Default.ListLegacyItem) ?? [];
         var (categories, items) = LauncherData.MigrateLegacy(legacy);
         _categories = categories;
         Save(items);
         return items;
     }
 
-    /// <summary>DTO → 内存模型:兼容字段 Category 从分类树解析显示名(供现有界面过滤/显示)。</summary>
-    private static LauncherItem FromDto(LauncherItemDto dto, List<LauncherCategory> categories) => new(
+    /// <summary>DTO → 内存模型。</summary>
+    private static LauncherItem FromDto(LauncherItemDto dto) => new(
         dto.Id ?? "item-" + Guid.NewGuid().ToString("N")[..8],
         dto.Name ?? "",
         dto.Command ?? "",
         Args: dto.Args,
         WorkingDirectory: dto.WorkingDirectory,
-        Category: LauncherData.CategoryName(categories, dto.CategoryId) ?? "默认",
         CategoryId: dto.CategoryId,
         Icon: dto.Icon,
         Hotkey: dto.Hotkey);
@@ -150,11 +150,11 @@ internal sealed class LauncherStore
         item.Icon,
         item.Hotkey);
 
-    private static List<LauncherItem> DefaultItems() =>
+    private static List<LegacyItem> DefaultItems() =>
     [
-        new LauncherItem("vs-code", "VS Code", "code", Category: "开发"),
-        new LauncherItem("terminal", "Terminal", "wt", Category: "开发"),
-        new LauncherItem("github", "GitHub", "https://github.com", Category: "工具"),
-        new LauncherItem("notepad", "记事本", "notepad", Category: "工具"),
+        new LegacyItem("vs-code", "VS Code", "code", Category: "开发"),
+        new LegacyItem("terminal", "Terminal", "wt", Category: "开发"),
+        new LegacyItem("github", "GitHub", "https://github.com", Category: "工具"),
+        new LegacyItem("notepad", "记事本", "notepad", Category: "工具"),
     ];
 }

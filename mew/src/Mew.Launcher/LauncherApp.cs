@@ -575,7 +575,8 @@ internal sealed class LauncherApp
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background))
             .Column(0);
-        rowButton.MouseDoubleClick += _ => LaunchItem(item);
+        rowButton.OnClick(() => EditItem(item)); // 单击 → 打开详情
+        rowButton.MouseDoubleClick += _ => LaunchItem(item); // 双击 → 启动
 
         return new Grid()
             .Columns("*,Auto")
@@ -638,6 +639,7 @@ internal sealed class LauncherApp
     {
         _current = item;
         ShowItemDetail(item);
+        _workbench.OpenDocument("detail"); // 编辑器区激活「启动项详情」文档
     }
 
     private void ShowEmptyDetail()
@@ -663,7 +665,8 @@ internal sealed class LauncherApp
         var command = TextField(item.Command, "程序、脚本或 URL");
         var args = TextField(item.Args ?? "", "可选参数");
         var workingDirectory = TextField(item.WorkingDirectory ?? "", "可选工作目录");
-        var category = TextField(item.Category, "分类");
+        var categoryName = LauncherData.CategoryName(_store.Categories.ToList(), item.CategoryId) ?? "";
+        var category = TextField(categoryName, "分类名(留空 = 未分类)");
         var icon = TextField(item.Icon ?? "", "可选图标路径");
         var hotkey = TextField(item.Hotkey ?? "", "可选每项热键,如 Ctrl+Shift+1");
         var hotkeyHint = new Label()
@@ -677,7 +680,11 @@ internal sealed class LauncherApp
         command.TextChanged += text => UpdateCurrent(i => i with { Command = text });
         args.TextChanged += text => UpdateCurrent(i => i with { Args = string.IsNullOrWhiteSpace(text) ? null : text });
         workingDirectory.TextChanged += text => UpdateCurrent(i => i with { WorkingDirectory = string.IsNullOrWhiteSpace(text) ? null : text });
-        category.TextChanged += text => UpdateCurrent(i => i with { Category = string.IsNullOrWhiteSpace(text) ? "默认" : text });
+        category.TextChanged += text =>
+        {
+            var match = LauncherData.FindByName(_store.Categories.ToList(), text);
+            UpdateCurrent(i => i with { CategoryId = match?.Id });
+        };
         icon.TextChanged += text => UpdateCurrent(i => i with { Icon = string.IsNullOrWhiteSpace(text) ? null : text });
         hotkey.TextChanged += text =>
         {

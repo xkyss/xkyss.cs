@@ -51,10 +51,8 @@ public class LauncherStoreTests : IDisposable
         Assert.Equal(2, loaded.Count);
         var steam = loaded.Single(i => i.Id == "steam");
         Assert.Equal("games-steam", steam.CategoryId);
-        Assert.Equal("Steam", steam.Category); // 兼容字段填充分类名
         var github = loaded.Single(i => i.Id == "github");
         Assert.Null(github.CategoryId);
-        Assert.Equal("默认", github.Category);
         Assert.Equal("games-steam", reloaded.Categories[0].Children![0].Id);
     }
 
@@ -79,7 +77,6 @@ public class LauncherStoreTests : IDisposable
 
         Assert.Equal(2, loaded.Count);
         Assert.Equal("games", loaded[0].CategoryId);
-        Assert.Equal("游戏", loaded[0].Category);
         Assert.Equal("", loaded[1].Name); // 缺省归 "" 而非崩溃
     }
 
@@ -98,12 +95,11 @@ public class LauncherStoreTests : IDisposable
         var loaded = store.Load();
 
         Assert.Equal(2, loaded.Count);
-        Assert.Equal("开发", loaded[0].Category);
         Assert.Single(store.Categories);
         Assert.Equal("开发", store.Categories[0].Name);
         Assert.Equal("cat-1", store.Categories[0].Id); // 迁移自动生成唯一 slug
         Assert.Null(loaded[1].CategoryId); // 「默认」→ 未分类
-        Assert.Equal("默认", loaded[1].Category);
+        Assert.Equal("cat-1", loaded[0].CategoryId); // vs-code 归属迁移生成的分类
 
         // 已写回新格式:再次加载走新结构路径
         var json = File.ReadAllText(TempFile("launcher.json"));

@@ -13,7 +13,7 @@ public class LauncherDataTests
     [Fact]
     public void MigrateLegacy_中文分类_生成根级分类并引用()
     {
-        var legacy = new List<LauncherItem>
+        var legacy = new List<LegacyItem>
         {
             new("vs-code", "VS Code", "code", Category: "开发"),
             new("steam", "Steam", "steam", Category: "游戏"),
@@ -35,7 +35,7 @@ public class LauncherDataTests
     [Fact]
     public void MigrateLegacy_默认与空分类_归未分类()
     {
-        var legacy = new List<LauncherItem>
+        var legacy = new List<LegacyItem>
         {
             new("a", "A", "a", Category: "默认"),
             new("b", "B", "b", Category: ""),
@@ -57,9 +57,23 @@ public class LauncherDataTests
     }
 
     [Fact]
+    public void MigrateLegacy_缺字段_归一默认值()
+    {
+        var legacy = new List<LegacyItem> { new(null, null, null) };
+
+        var (_, items) = LauncherData.MigrateLegacy(legacy);
+
+        Assert.Single(items);
+        Assert.False(string.IsNullOrEmpty(items[0].Id));
+        Assert.Equal("", items[0].Name);
+        Assert.Equal("", items[0].Command);
+        Assert.Null(items[0].CategoryId);
+    }
+
+    [Fact]
     public void MigrateLegacy_重复分类_只建一次()
     {
-        var legacy = new List<LauncherItem>
+        var legacy = new List<LegacyItem>
         {
             new("a", "A", "a", Category: "开发"),
             new("b", "B", "b", Category: "开发"),
@@ -147,6 +161,21 @@ public class LauncherDataTests
 
         Assert.Equal("games", result[0].CategoryId);
         Assert.Null(result[1].CategoryId);
+    }
+
+    // ── 分类名查找(详情表单分类字段用) ────────────────────
+
+    [Fact]
+    public void FindByName_多级树_返回匹配节点()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+        };
+
+        Assert.Equal("games-steam", LauncherData.FindByName(categories, "Steam")?.Id);
+        Assert.Equal("games", LauncherData.FindByName(categories, "游戏")?.Id);
+        Assert.Null(LauncherData.FindByName(categories, "不存在"));
     }
 
     // ── 导航树 ─────────────────────────────────────────────

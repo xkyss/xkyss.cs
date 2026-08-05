@@ -7,9 +7,10 @@ namespace Mew.Launcher;
 public static class LauncherData
 {
     /// <summary>
-    /// 迁移旧平铺结构:旧分类文本 → 根级分类(按首次出现顺序生成唯一 slug id),「默认」/空分类 → 未分类(null)。
+    /// 迁移旧平铺结构:旧分类文本 → 根级分类(按首次出现顺序生成唯一 slug id),「默认」/空分类 → 未分类(null);
+    /// 输入为旧模型快照 <see cref="LegacyItem"/>(含分类文本字段)。
     /// </summary>
-    public static (List<LauncherCategory> Categories, List<LauncherItem> Items) MigrateLegacy(List<LauncherItem> legacy)
+    public static (List<LauncherCategory> Categories, List<LauncherItem> Items) MigrateLegacy(List<LegacyItem> legacy)
     {
         var categories = new List<LauncherCategory>();
         var byName = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -34,7 +35,15 @@ public static class LauncherData
             {
                 var name = item.Category?.Trim();
                 var categoryId = !string.IsNullOrEmpty(name) && byName.TryGetValue(name, out var id) ? id : null;
-                return item with { CategoryId = categoryId };
+                return new LauncherItem(
+                    item.Id ?? "item-" + Guid.NewGuid().ToString("N")[..8],
+                    item.Name ?? "",
+                    item.Command ?? "",
+                    item.Args,
+                    item.WorkingDirectory,
+                    categoryId,
+                    item.Icon,
+                    item.Hotkey);
             })
             .ToList();
 
@@ -62,7 +71,7 @@ public static class LauncherData
         var known = new HashSet<string>(FlattenIds(categories), StringComparer.Ordinal);
         return items
             .Select(i => i.CategoryId is not null && !known.Contains(i.CategoryId)
-                ? i with { CategoryId = null, Category = "默认" }
+                ? i with { CategoryId = null }
                 : i)
             .ToList();
     }
@@ -125,6 +134,25 @@ public static class LauncherData
         return Find(categories, categoryId)?.Name;
     }
 
+    /// <summary>按显示名查找分类节点(详情表单分类文本匹配用);找不到返回 null。</summary>
+    public static LauncherCategory? FindByName(List<LauncherCategory> categories, string name)
+    {
+        foreach (var category in categories)
+        {
+            if (category.Name == name)
+            {
+                return category;
+            }
+
+            if (category.Children is not null && FindByName(category.Children, name) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>归一分类树:Children 为 null 的节点补空表(手写 JSON 缺省)。</summary>
     public static List<LauncherCategory> NormalizeTree(List<LauncherCategory> categories) =>
         categories
@@ -170,3 +198,14 @@ public static class LauncherData
 
 /// <summary>侧边栏导航树节点:固定节点(「全部」「未分类」)或分类节点(映射自分类树)。</summary>
 public sealed record CategoryTreeNode(string Id, string Name, bool IsFixed, List<CategoryTreeNode> Children);
+
+/// <summary>旧模型快照(v0.1.x 平铺数组启动项,含分类文本字段),仅作为迁移输入。</summary>
+public sealed record LegacyItem(
+    string? Id,
+    string? Name,
+    string? Command,
+    string? Args = null,
+    string? WorkingDirectory = null,
+    string? Category = null,
+    string? Icon = null,
+    string? Hotkey = null);
