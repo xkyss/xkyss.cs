@@ -80,8 +80,8 @@ internal sealed class LauncherApp
                 .SetAccent(Accent.Blue))
             .ActivityBar(bar =>
             {
-                bar.Item("launch", "启动", GlyphKind.Hamburger, ShowLaunchContext);
-                bar.Item("settings", "设置", SettingsGlyph(), ShowSettingsContext);
+                bar.Item("launch", "启动", GlyphKind.Hamburger);
+                bar.Item("settings", "设置", SettingsGlyph());
             })
             .SideBar(side => side
                 .View("launch", "启动", BuildCategoryTree())
@@ -309,20 +309,6 @@ internal sealed class LauncherApp
         }
     }
 
-    /// <summary>活动栏「启动」上下文:侧边栏切分类树、编辑器区切启动项列表。</summary>
-    private void ShowLaunchContext()
-    {
-        _workbench.OpenToolPane("launch");
-        _workbench.OpenDocument("items");
-    }
-
-    /// <summary>活动栏「设置」上下文:侧边栏切设置分类,编辑器区显示对应设置内容。</summary>
-    private void ShowSettingsContext()
-    {
-        _workbench.OpenToolPane("settings");
-        _workbench.OpenDocument("settings");
-    }
-
     /// <summary>设置活动栏图标:Label 撑满按钮内容区(Padding 已清零),文本居中。</summary>
     private UIElement SettingsGlyph() => new Label
     {
@@ -334,8 +320,12 @@ internal sealed class LauncherApp
     }
     .WithTheme((_, label) => label.Foreground(_theme.ActivityBar.Foreground));
 
-    /// <summary>标题栏齿轮与 File→设置:切到「设置」上下文。</summary>
-    private void OpenSettings() => ShowSettingsContext();
+    /// <summary>标题栏齿轮与 File→设置:选择设置上下文并显式打开设置文档。</summary>
+    private void OpenSettings()
+    {
+        _workbench.SelectActivity("settings");
+        _workbench.OpenDocument("settings");
+    }
 
     /// <summary>设置页主题单选(跟随系统/亮/暗),状态栏外部切换时保持同步。</summary>
     private List<RadioButton>? _themeRadios;

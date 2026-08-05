@@ -12,22 +12,22 @@ public sealed class ActivityBar
 
     public IReadOnlyList<ActivityBarItem> Items => _items;
 
-    public ActivityBar Item(string id, string title, GlyphKind glyph, Action? onClick = null)
+    public ActivityBar Item(string id, string title, GlyphKind glyph)
     {
-        _items.Add(new ActivityBarItem(id, title, glyph, onClick));
+        _items.Add(new ActivityBarItem(id, title, glyph));
         return this;
     }
 
     /// <summary>注册自定义图标的活动栏项(内置 GlyphKind 无合适图标时,如设置齿轮)。</summary>
-    public ActivityBar Item(string id, string title, UIElement glyph, Action? onClick = null)
+    public ActivityBar Item(string id, string title, UIElement glyph)
     {
-        _items.Add(new ActivityBarItem(id, title, GlyphKind.Hamburger, onClick, glyph));
+        _items.Add(new ActivityBarItem(id, title, GlyphKind.Hamburger, glyph));
         return this;
     }
 }
 
 public sealed record ActivityBarItem(
-    string Id, string Title, GlyphKind Glyph, Action? OnClick = null, UIElement? CustomGlyph = null);
+    string Id, string Title, GlyphKind Glyph, UIElement? CustomGlyph = null);
 
 /// <summary>
 /// Declares the tool views shown in the side bar.

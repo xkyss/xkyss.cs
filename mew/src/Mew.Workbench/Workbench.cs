@@ -19,19 +19,41 @@ public sealed class Workbench
     private bool _sideBarVisible = true;
     private bool _panelVisible = true;
     private bool _statusBarVisible = true;
+    private string? _activeActivityId;
 
-    /// <summary>外壳区域显隐变更通知(WorkbenchView 订阅后应用 IsVisible)。</summary>
-    internal event Action? ChromeChanged;
+    /// <summary>工作台呈现状态变更通知(WorkbenchView 订阅后应用区域显隐与活动栏上下文)。</summary>
+    internal event Action? PresentationChanged;
 
     public bool IsActivityBarVisible => _activityBarVisible;
     public bool IsSideBarVisible => _sideBarVisible;
     public bool IsPanelVisible => _panelVisible;
     public bool IsStatusBarVisible => _statusBarVisible;
+    public string? ActiveActivityId => _activeActivityId;
 
-    public void ToggleActivityBar() { _activityBarVisible = !_activityBarVisible; ChromeChanged?.Invoke(); }
-    public void ToggleSideBar() { _sideBarVisible = !_sideBarVisible; ChromeChanged?.Invoke(); }
-    public void TogglePanel() { _panelVisible = !_panelVisible; ChromeChanged?.Invoke(); }
-    public void ToggleStatusBar() { _statusBarVisible = !_statusBarVisible; ChromeChanged?.Invoke(); }
+    public void ToggleActivityBar() { _activityBarVisible = !_activityBarVisible; PresentationChanged?.Invoke(); }
+    public void ToggleSideBar() { _sideBarVisible = !_sideBarVisible; PresentationChanged?.Invoke(); }
+    public void TogglePanel() { _panelVisible = !_panelVisible; PresentationChanged?.Invoke(); }
+    public void ToggleStatusBar() { _statusBarVisible = !_statusBarVisible; PresentationChanged?.Invoke(); }
+
+    /// <summary>
+    /// 选择活动栏上下文。选择当前项时切换侧边栏显隐；选择其他项时显示其唯一对应的侧边栏视图。
+    /// </summary>
+    public void SelectActivity(string id)
+    {
+        EnsureActivityContext(id);
+
+        if (_activeActivityId == id)
+        {
+            _sideBarVisible = !_sideBarVisible;
+        }
+        else
+        {
+            _activeActivityId = id;
+            _sideBarVisible = true;
+        }
+
+        PresentationChanged?.Invoke();
+    }
 
     public WorkbenchThemeContext ThemeContext => _theme;
 
@@ -73,6 +95,9 @@ public sealed class Workbench
 
     public UIElement Build()
     {
+        ValidateActivityContexts();
+        _activeActivityId ??= _activityBar.Items.FirstOrDefault()?.Id;
+
         var view = new WorkbenchView(this);
         var result = view.Build();
         _docking = view.Docking;
@@ -104,23 +129,6 @@ public sealed class Workbench
         }
     }
 
-    /// <summary>
-    /// 激活侧边栏指定工具视图(活动栏上下文切换用,如「启动」⇄「设置」)。
-    /// </summary>
-    public void OpenToolPane(string id)
-    {
-        if (_docking is not { } docking)
-        {
-            return;
-        }
-
-        var pane = docking.Panes.FirstOrDefault(p => p.Component == id);
-        if (pane is not null)
-        {
-            pane.Activate();
-        }
-    }
-
     internal ActivityBar ActivityBarModel => _activityBar;
 
     internal SideBar SideBarModel => _sideBar;
@@ -130,4 +138,30 @@ public sealed class Workbench
     internal BottomPanel PanelModel => _panel;
 
     internal StatusBar StatusBarModel => _statusBar;
+
+    internal SideBarView? ActiveSideBarView => _activeActivityId is null
+        ? null
+        : _sideBar.Views.Single(view => view.Id == _activeActivityId);
+
+    private void ValidateActivityContexts()
+    {
+        var activityIds = _activityBar.Items.Select(item => item.Id).ToList();
+        var sideBarIds = _sideBar.Views.Select(view => view.Id).ToList();
+
+        if (activityIds.Count != activityIds.Distinct(StringComparer.Ordinal).Count()
+            || sideBarIds.Count != sideBarIds.Distinct(StringComparer.Ordinal).Count()
+            || !activityIds.Order(StringComparer.Ordinal).SequenceEqual(sideBarIds.Order(StringComparer.Ordinal)))
+        {
+            throw new InvalidOperationException("活动栏项必须与侧边栏视图按唯一 ID 一对一配对。");
+        }
+    }
+
+    private void EnsureActivityContext(string id)
+    {
+        if (_activityBar.Items.All(item => item.Id != id)
+            || _sideBar.Views.All(view => view.Id != id))
+        {
+            throw new ArgumentException($"不存在活动栏上下文“{id}”。", nameof(id));
+        }
+    }
 }

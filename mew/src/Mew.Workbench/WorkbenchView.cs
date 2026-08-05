@@ -12,6 +12,7 @@ internal sealed class WorkbenchView
     private WorkbenchThemeContext? _theme;
     private UIElement? _activityBar;
     private UIElement? _statusBar;
+    private readonly Dictionary<string, Button> _activityButtons = [];
     private bool _panelPinned = true; // 底部面板 Pin/Unpin 状态跟踪(初始假设固定显示)
 
     internal WorkbenchView(Workbench workbench) => _workbench = workbench;
@@ -45,7 +46,7 @@ internal sealed class WorkbenchView
         }
 
         docking.Changed += (_, _) => layoutStore.Save(docking.SaveLayout());
-        _workbench.ChromeChanged += ApplyChromeVisibility;
+        _workbench.PresentationChanged += ApplyChromeVisibility;
         var shell = BuildShell(docking);
         ApplyChromeVisibility();
         return shell;
@@ -64,16 +65,48 @@ internal sealed class WorkbenchView
             _statusBar.IsVisible = _workbench.IsStatusBarVisible;
         }
 
-        var side = _workbench.SideBarModel.Views.FirstOrDefault();
-        if (side is not null)
-        {
-            ApplyToolPane(side.Id, side.Title, side.Content, DockEdge.Left, WorkbenchZone.SideBar, _workbench.IsSideBarVisible);
-        }
+        ApplySideBarVisibility();
+        ApplyActivitySelection();
 
         var panel = _workbench.PanelModel.Views.FirstOrDefault();
         if (panel is not null)
         {
             ApplyPanelPin(panel.Id, _workbench.IsPanelVisible);
+        }
+    }
+
+    private void ApplySideBarVisibility()
+    {
+        if (!_workbench.IsSideBarVisible)
+        {
+            foreach (var view in _workbench.SideBarModel.Views)
+            {
+                _docking!.Panes.FirstOrDefault(pane => pane.Component == view.Id)?.Close();
+            }
+
+            return;
+        }
+
+        if (_workbench.ActiveSideBarView is not { } side)
+        {
+            return;
+        }
+
+        foreach (var view in _workbench.SideBarModel.Views.Where(view => view.Id != side.Id))
+        {
+            _docking!.Panes.FirstOrDefault(pane => pane.Component == view.Id)?.Close();
+        }
+
+        ApplyToolPane(side.Id, side.Title, side.Content, DockEdge.Left, WorkbenchZone.SideBar, true);
+    }
+
+    private void ApplyActivitySelection()
+    {
+        foreach (var (id, button) in _activityButtons)
+        {
+            button.Background(id == _workbench.ActiveActivityId
+                ? _theme!.ActivityBar.Accent
+                : _theme!.ActivityBar.Background);
         }
     }
 
@@ -106,8 +139,10 @@ internal sealed class WorkbenchView
         {
             if (pane is null)
             {
-                _docking.AddToolPane(title, ThemedPane(content, _theme!, zone), edge, id);
+                pane = _docking.AddToolPane(title, ThemedPane(content, _theme!, zone), edge, id);
             }
+
+            pane.Activate();
         }
         else
         {
@@ -240,7 +275,7 @@ internal sealed class WorkbenchView
             );
     }
 
-    private static Button BuildItemButton(ActivityBarItem item, WorkbenchThemeContext theme)
+    private Button BuildItemButton(ActivityBarItem item, WorkbenchThemeContext theme)
     {
         var button = new Button()
             .Size(36, 36)
@@ -253,10 +288,8 @@ internal sealed class WorkbenchView
                     .WithTheme((_, glyph) => glyph.Foreground(theme.ActivityBar.Foreground)))
             .ToolTip(item.Title);
 
-        if (item.OnClick is { } onClick)
-        {
-            button.OnClick(onClick);
-        }
+        button.OnClick(() => _workbench.SelectActivity(item.Id));
+        _activityButtons.Add(item.Id, button);
 
         return button;
     }
