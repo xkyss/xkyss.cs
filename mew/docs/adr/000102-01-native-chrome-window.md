@@ -13,3 +13,12 @@ v0.1.1 使用系统标题栏;v0.1.2 起 Workbench 提供自绘标题栏的窗口
 - 框架职责:Workbench 提供 `NativeChromeWindow`(标题栏左区/居中标题/右区可注入,含窗口按钮),Launcher 创建窗口并配置;关闭→托盘、`NativeMessage`、`Loaded` 等窗口级钩子留在应用侧,框架只做外壳。
 - 标题栏是外壳 chrome,不属五区色板;术语见 `CONTEXT.md`「标题栏」「菜单栏」。
 - 自绘关闭按钮调 `Close()` 仍走 `Closing` 事件,托盘常驻行为不变。
+
+## Known Issues(上游框架缺陷)
+
+**运行时切换主题导致局部区域渲染损坏**(MewUI 0.19.1):应用运行中通过状态栏按钮在 跟随系统/亮/暗 间切换主题后,部分区域不随主题重绘或损坏(实测:侧边栏变纯黑、编辑器区仍亮,呈稳定混合态;无自绘 chrome 的普通窗口同样复现,与 `NativeChromeWindow` 无关)。
+
+- **根因**:MewUI 0.19.1 主题切换的传播/重绘不完整;`Window.OnThemeChanged`/`Window.ThemeChanged` 不随应用主题切换触发(0.19.1 行为,样例 main 分支不同),`Application.ThemeChanged` 虽触发但各区域重绘不一致。
+- **影响**:v0.1.1 的状态栏主题切换即有此问题(冒烟时未深查);v0.1.2 的标题栏配色切换同样受影响。
+- **缓解**:切换后重启应用可恢复完整主题;`NativeChromeWindow` 已订阅 `Application.ThemeChanged` 并强制整窗失效,标题栏自身(图标/菜单/标题)在切换后能重绘,但内容区损坏仍受上游缺陷影响。
+- **修复路径**:升级 MewUI/MewDock(受 ADR 000101-01 版本锁约束)或上游修复后跟随发布;已可向 https://github.com/aprillz/MewUI 提交 issue。
