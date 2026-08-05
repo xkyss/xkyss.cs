@@ -1,0 +1,133 @@
+namespace Mew.Launcher;
+
+/// <summary>
+/// 数据层纯逻辑(不依赖 UI 与文件):旧格式迁移、分类树子树聚合、未分类聚合、悬空引用归一。
+/// 是 LauncherStore 与单元测试共用的唯一逻辑出口。
+/// </summary>
+public static class LauncherData
+{
+    /// <summary>
+    /// 迁移旧平铺结构:旧分类文本 → 根级分类(按首次出现顺序生成唯一 slug id),「默认」/空分类 → 未分类(null)。
+    /// </summary>
+    public static (List<LauncherCategory> Categories, List<LauncherItem> Items) MigrateLegacy(List<LauncherItem> legacy)
+    {
+        var categories = new List<LauncherCategory>();
+        var byName = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var item in legacy)
+        {
+            var name = item.Category?.Trim();
+            if (string.IsNullOrEmpty(name) || name == "默认")
+            {
+                continue;
+            }
+
+            if (!byName.ContainsKey(name))
+            {
+                byName[name] = $"cat-{categories.Count + 1}";
+                categories.Add(new LauncherCategory(byName[name], name, []));
+            }
+        }
+
+        var items = legacy
+            .Select(item =>
+            {
+                var name = item.Category?.Trim();
+                var categoryId = !string.IsNullOrEmpty(name) && byName.TryGetValue(name, out var id) ? id : null;
+                return item with { CategoryId = categoryId };
+            })
+            .ToList();
+
+        return (categories, items);
+    }
+
+    /// <summary>
+    /// 子树聚合:返回归属指定分类及其所有子孙分类的启动项(不含未分类)。
+    /// </summary>
+    public static List<LauncherItem> AggregateSubtree(
+        List<LauncherCategory> categories, List<LauncherItem> items, string categoryId)
+    {
+        var ids = SubtreeIds(categories, categoryId);
+        return items.Where(i => i.CategoryId is not null && ids.Contains(i.CategoryId)).ToList();
+    }
+
+    /// <summary>未分类聚合:返回所有 categoryId 为空的启动项。</summary>
+    public static List<LauncherItem> Uncategorized(List<LauncherItem> items) =>
+        items.Where(i => string.IsNullOrWhiteSpace(i.CategoryId)).ToList();
+
+    /// <summary>归一悬空引用:categoryId 指向不存在的分类 → null(归未分类)。</summary>
+    public static List<LauncherItem> NormalizeCategoryRefs(
+        List<LauncherCategory> categories, List<LauncherItem> items)
+    {
+        var known = new HashSet<string>(FlattenIds(categories), StringComparer.Ordinal);
+        return items
+            .Select(i => i.CategoryId is not null && !known.Contains(i.CategoryId)
+                ? i with { CategoryId = null, Category = "默认" }
+                : i)
+            .ToList();
+    }
+
+    /// <summary>分类树中所有节点 id(扁平,含子孙)。</summary>
+    public static IEnumerable<string> FlattenIds(List<LauncherCategory> categories)
+    {
+        foreach (var category in categories)
+        {
+            yield return category.Id;
+            if (category.Children is not null)
+            {
+                foreach (var id in FlattenIds(category.Children))
+                {
+                    yield return id;
+                }
+            }
+        }
+    }
+
+    /// <summary>指定分类及其所有子孙的 id 集合。</summary>
+    public static HashSet<string> SubtreeIds(List<LauncherCategory> categories, string categoryId)
+    {
+        var node = Find(categories, categoryId);
+        if (node is null)
+        {
+            return [];
+        }
+
+        return new HashSet<string>(FlattenIds([node]), StringComparer.Ordinal);
+    }
+
+    /// <summary>按 id 查找分类节点(深度优先,整个树)。</summary>
+    public static LauncherCategory? Find(List<LauncherCategory> categories, string categoryId)
+    {
+        foreach (var category in categories)
+        {
+            if (category.Id == categoryId)
+            {
+                return category;
+            }
+
+            if (category.Children is not null && Find(category.Children, categoryId) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>分类 id → 显示名(UI 兼容字段填充用);找不到返回 null。</summary>
+    public static string? CategoryName(List<LauncherCategory> categories, string? categoryId)
+    {
+        if (string.IsNullOrEmpty(categoryId))
+        {
+            return null;
+        }
+
+        return Find(categories, categoryId)?.Name;
+    }
+
+    /// <summary>归一分类树:Children 为 null 的节点补空表(手写 JSON 缺省)。</summary>
+    public static List<LauncherCategory> NormalizeTree(List<LauncherCategory> categories) =>
+        categories
+            .Select(c => c with { Children = NormalizeTree(c.Children ?? []) })
+            .ToList();
+}

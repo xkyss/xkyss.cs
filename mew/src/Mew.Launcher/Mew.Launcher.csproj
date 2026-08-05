@@ -16,6 +16,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Mew.Launcher.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Mew.Workbench\Mew.Workbench.csproj" />
   </ItemGroup>
 

@@ -3,4 +3,7 @@
     <Project Path="src/Mew.Launcher/Mew.Launcher.csproj" />
     <Project Path="src/Mew.Workbench/Mew.Workbench.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Mew.Launcher.Tests/Mew.Launcher.Tests.csproj" />
+  </Folder>
 </Solution>
