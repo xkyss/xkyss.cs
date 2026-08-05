@@ -106,7 +106,7 @@ public sealed class WorkbenchThemeContext
 
     private static Theme CurrentTheme => Application.IsRunning ? Application.Current!.Theme : CreateFallbackTheme();
 
-    private static Theme CreateFallbackTheme()
+    internal static Theme CreateFallbackTheme()
     {
         var isDark = ThemeManager.Default == ThemeVariant.Dark;
         var seed = isDark ? ThemeManager.DefaultDarkSeed : ThemeManager.DefaultLightSeed;

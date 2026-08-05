@@ -38,8 +38,8 @@ internal sealed class LauncherApp
 
     internal void Run()
     {
-        var window = new Window()
-            .Title("Mew Launcher — v0.1.1")
+        var window = new NativeChromeWindow()
+            .Title("Mew Launcher — v0.1.2")
             .Resizable(1080, 720);
 
         var categories = _items.Select(item => item.Category).Distinct().ToList();
