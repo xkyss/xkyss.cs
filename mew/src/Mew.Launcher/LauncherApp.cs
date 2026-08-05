@@ -44,7 +44,7 @@ internal sealed class LauncherApp
     private string _viewMode = "card"; // 启动项列表形态:card(卡片,默认)/ list(列表),持久化于 settings.json
     private string _query = "";
     private Button? _modeToggleButton;
-    private string _categoryQuery = "";
+    private readonly Dictionary<string, string> _sideBarFilters = [];
     private TreeItemsView<CategoryTreeNode>? _treeItems;
     private const string SettingsAppearance = "appearance";
     private const string SettingsHotkey = "hotkey";
@@ -655,11 +655,12 @@ internal sealed class LauncherApp
         var searchBox = new TextBox
         {
             Placeholder = "搜索分类",
+            Text = SideBarFilter("launch"),
             CanDrag = false,
         };
         searchBox.TextChanged += text =>
         {
-            _categoryQuery = text;
+            _sideBarFilters["launch"] = text;
             RefreshCategoryTree();
         };
 
@@ -688,7 +689,7 @@ internal sealed class LauncherApp
     {
         _treeItems = new TreeItemsView<CategoryTreeNode>(
             LauncherData.FilterNavTree(
-                LauncherData.BuildNavTree(_store.Categories.ToList()), _categoryQuery),
+                LauncherData.BuildNavTree(_store.Categories.ToList()), SideBarFilter("launch")),
             node => node.Children,
             node => node.Name,
             node => node.Id,
@@ -696,6 +697,8 @@ internal sealed class LauncherApp
         _tree!.ItemsSource = _treeItems;
         _treeItems.SelectSingle(0);
     }
+
+    private string SideBarFilter(string activityId) => _sideBarFilters.GetValueOrDefault(activityId, "");
 
     /// <summary>分类树右键:固定节点(「全部」「未分类」)无操作,用户分类弹出 新建子分类/重命名/删除。</summary>
     private void OnCategoryTreeRightClick(MouseEventArgs e)
