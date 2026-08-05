@@ -15,6 +15,7 @@ internal sealed class LauncherApp
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
+    private readonly SettingsStore _settings = new();
     private readonly LauncherRunner _runner = new();
     private readonly IconResolver _icons = new();
     private readonly ObservableValue<string> _launchStatus = new("就绪");
@@ -45,13 +46,13 @@ internal sealed class LauncherApp
 
         TrayIcon? tray = null;
 
-        BuildTitleBar(window, Quit);
+        BuildTitleBar(window, Quit, OpenSettings);
 
         var categories = _items.Select(item => item.Category).Distinct().ToList();
 
         _workbench
             .Theme(theme => theme
-                .SetMode(ThemeVariant.System)
+                .SetMode(LoadThemeMode())
                 .SetAccent(Accent.Blue))
             .ActivityBar(bar =>
             {
@@ -62,7 +63,9 @@ internal sealed class LauncherApp
                 }
             })
             .SideBar(side => side.View("launcher", "启动项", BuildSideBar()))
-            .EditorArea(editor => editor.Document("detail", "启动项详情", _detailPanel))
+            .EditorArea(editor => editor
+                .Document("detail", "启动项详情", _detailPanel)
+                .Document("settings", "设置", BuildSettingsPanel()))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
                 .Item("launch", _launchStatus)
@@ -88,6 +91,13 @@ internal sealed class LauncherApp
             _itemHotkeys.RegisterAll();
             tray = new TrayIcon(window.Handle, ShowMain, Quit);
             tray.Add();
+
+            // 主题模式变更(状态栏循环按钮 / 设置页)统一持久化并同步设置页单选(票据 03)
+            if (Application.Current is { } app)
+            {
+                app.ThemeModeChanged += PersistThemeMode;
+                app.ThemeModeChanged += SyncThemeRadios;
+            }
         };
 
         window.NativeMessage += args =>
@@ -132,8 +142,8 @@ internal sealed class LauncherApp
         }
     }
 
-    /// <summary>标题栏左区:应用图标(exe 自带图标)+ 菜单栏(File=退出、Help=关于;设置入口留待票据 03)。</summary>
-    private static void BuildTitleBar(NativeChromeWindow window, Action quit)
+    /// <summary>标题栏:左区图标 + 菜单栏(File=设置/退出、Help=关于)、右区设置齿轮入口。</summary>
+    private static void BuildTitleBar(NativeChromeWindow window, Action quit, Action openSettings)
     {
         var appIcon = IconResolver.ExtractIcon(Environment.ProcessPath!);
         if (appIcon is not null)
@@ -150,12 +160,24 @@ internal sealed class LauncherApp
             .Background(Color.Transparent)
             .Items(
                 new MenuItem("_File").Menu(
-                    new Menu().Item("退出", quit)),
+                    new Menu()
+                        .Item("设置", openSettings)
+                        .Separator()
+                        .Item("退出", quit)),
                 new MenuItem("_Help").Menu(
                     new Menu().Item("关于", () => ShowAbout(window)))
             );
 
         window.TitleBarLeft.Add(menuBar);
+
+        // 右区:设置入口(齿轮),与 File→设置 打开同一设置页
+        var settingsButton = new Button()
+            .Content(new Label().Text("⚙").FontSize(14))
+            .ToolTip("设置")
+            .OnClick(openSettings)
+            .CanDrag(false)
+            .Size(36, 28);
+        window.TitleBarRight.Add(settingsButton);
     }
 
     private static void ShowAbout(NativeChromeWindow window)
@@ -165,6 +187,80 @@ internal sealed class LauncherApp
             PromptIconKind.Info,
             "关于 Mew Launcher",
             window);
+    }
+
+    /// <summary>从 settings.json 读取主题模式,缺省/无效回退跟随系统。</summary>
+    private ThemeVariant LoadThemeMode()
+    {
+        var stored = _settings.Load().ThemeMode;
+        return Enum.TryParse<ThemeVariant>(stored, out var mode) ? mode : ThemeVariant.System;
+    }
+
+    /// <summary>将当前主题模式持久化到 settings.json。</summary>
+    private void PersistThemeMode() => _settings.Save(new AppSettings { ThemeMode = _theme.Mode.ToString() });
+
+    /// <summary>设置页单选跟随当前主题模式(状态栏按钮等外部切换时同步)。</summary>
+    private void SyncThemeRadios()
+    {
+        if (_themeRadios is not { } radios)
+        {
+            return;
+        }
+
+        foreach (var (radio, mode) in radios.Zip(_themeModes))
+        {
+            radio.IsChecked = _theme.Mode == mode.Mode;
+        }
+    }
+
+    /// <summary>打开设置页(编辑器区文档标签)。</summary>
+    private void OpenSettings() => _workbench.OpenDocument("settings");
+
+    /// <summary>设置页主题单选(跟随系统/亮/暗),状态栏外部切换时保持同步。</summary>
+    private List<RadioButton>? _themeRadios;
+    private (ThemeVariant Mode, string Label)[] _themeModes =
+    [
+        (ThemeVariant.System, "跟随系统"),
+        (ThemeVariant.Light, "亮色"),
+        (ThemeVariant.Dark, "暗色"),
+    ];
+
+    /// <summary>设置页内容:主题三选一(跟随系统/亮/暗),即时生效并持久化(票据 03)。</summary>
+    private UIElement BuildSettingsPanel()
+    {
+        var theme = _theme;
+
+        var radios = _themeModes
+            .Select(m => new RadioButton()
+                .GroupName("theme")
+                .IsChecked(theme.Mode == m.Mode)
+                .Content(new Label().Text(m.Label)))
+            .ToList();
+        _themeRadios = radios;
+
+        foreach (var (radio, mode) in radios.Zip(_themeModes))
+        {
+            radio.OnCheckedChanged(isChecked =>
+            {
+                if (isChecked)
+                {
+                    theme.SetMode(mode.Mode);
+                }
+            });
+        }
+
+        return new StackPanel()
+            .Padding(24)
+            .Spacing(12)
+            .Children(
+                new Label().Text("设置").FontSize(20).Bold()
+                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                new Label().Text("主题").FontSize(14)
+                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                new StackPanel()
+                    .Spacing(6)
+                    .Children(radios.Cast<Element>().ToArray())
+            );
     }
 
     private UIElement BuildSideBar()
