@@ -13,7 +13,6 @@ namespace Mew.Launcher;
 internal sealed class LauncherApp
 {
     private const string AppVersion = "v0.1.3";
-    private const string AllCategory = "全部";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
@@ -36,10 +35,10 @@ internal sealed class LauncherApp
     private readonly StackPanel _listPanel = new();
     private readonly StackPanel _detailPanel = new();
     private readonly StackPanel _logPanel = new();
-    private string _category = AllCategory;
-    private string _query = "";
+    private string _navId = LauncherData.AllNavId; // 当前导航节点:「全部」/ 分类 id /「未分类」
     private LauncherItem? _current;
     private bool _loading;
+    private TreeView? _tree;
 
     internal LauncherApp()
     {
@@ -62,22 +61,18 @@ internal sealed class LauncherApp
 
         BuildTitleBar(window, Quit, OpenSettings);
 
-        var categories = _items.Select(item => item.Category).Distinct().ToList();
-
         _workbench
             .Theme(theme => theme
                 .SetMode(LoadThemeMode())
                 .SetAccent(Accent.Blue))
             .ActivityBar(bar =>
             {
-                bar.Item("all", AllCategory, GlyphKind.Hamburger, () => ShowCategory(AllCategory));
-                foreach (var category in categories)
-                {
-                    bar.Item(category, category, GlyphKind.Plus, () => ShowCategory(category));
-                }
+                bar.Item("launch", "启动", GlyphKind.Hamburger, ShowLaunchContext);
+                bar.Item("settings", "设置", SettingsGlyph(), ShowSettingsContext);
             })
-            .SideBar(side => side.View("launcher", "启动项", BuildSideBar()))
+            .SideBar(side => side.View("launch", "启动", BuildCategoryTree()))
             .EditorArea(editor => editor
+                .Document("items", "启动项", _listPanel)
                 .Document("detail", "启动项详情", _detailPanel)
                 .Document("settings", "设置", BuildSettingsPanel()))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
@@ -85,7 +80,7 @@ internal sealed class LauncherApp
                 .Item("launch", _launchStatus)
                 .Item("shortcut", _hotkeyStatus));
 
-        ShowCategory(AllCategory);
+        ShowNav(_navId);
         ShowEmptyDetail();
 
         window.Content = _workbench.Build();
@@ -236,6 +231,21 @@ internal sealed class LauncherApp
             radio.IsChecked = _theme.Mode == mode.Mode;
         }
     }
+
+    /// <summary>活动栏「启动」上下文:侧边栏切分类树、编辑器区切启动项列表。</summary>
+    private void ShowLaunchContext()
+    {
+        _workbench.OpenToolPane("launch");
+        _workbench.OpenDocument("items");
+    }
+
+    /// <summary>活动栏「设置」上下文(票据 02 占位):打开编辑器区设置文档。</summary>
+    private void ShowSettingsContext() => _workbench.OpenDocument("settings");
+
+    private UIElement SettingsGlyph() => new Label()
+        .Text("⚙")
+        .FontSize(14)
+        .WithTheme((_, label) => label.Foreground(_theme.ActivityBar.Foreground));
 
     /// <summary>打开设置页(编辑器区文档标签)。</summary>
     private void OpenSettings() => _workbench.OpenDocument("settings");
@@ -482,35 +492,106 @@ internal sealed class LauncherApp
         _ => "",
     };
 
-    private UIElement BuildSideBar()
+    /// <summary>侧边栏「启动」上下文:分类导航树(「全部」置顶、分类树、「未分类」收尾)。</summary>
+    private UIElement BuildCategoryTree()
     {
-        var searchBox = new TextBox
+        var roots = LauncherData.BuildNavTree(_store.Categories.ToList());
+        var treeItems = new TreeItemsView<CategoryTreeNode>(
+            roots,
+            node => node.Children,
+            node => node.Name,
+            node => node.Id,
+            node => node.Children.Count > 0);
+
+        var tree = new TreeView
         {
-            Placeholder = "搜索启动项",
+            ItemsSource = treeItems,
+            SelectionMode = ItemsSelectionMode.Single,
+            ExpandTrigger = TreeViewExpandTrigger.ClickChevron,
             CanDrag = false,
         };
-        searchBox.TextChanged += text =>
-        {
-            _query = text;
-            ShowCategory(_category);
-        };
+        _tree = tree;
+        tree.SelectionChanged += OnNavSelectionChanged;
+        treeItems.SelectSingle(0); // 默认选中「全部」
 
         return new StackPanel()
             .Padding(12)
             .Spacing(6)
             .Children(
-                new Button()
-                    .Content(new Label()
-                        .Text("＋ 新增启动项")
-                        .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)))
-                    .OnClick(CreateItem)
-                    .CanDrag(false)
-                    .WithTheme((_, button) => button.Background(_theme.SideBar.Background)),
-                searchBox,
-                _listPanel
+                new Label()
+                    .Text("启动项")
+                    .FontSize(12)
+                    .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)),
+                tree
             );
     }
 
+    private void OnNavSelectionChanged(object? item)
+    {
+        if (item is CategoryTreeNode node)
+        {
+            ShowNav(node.Id);
+        }
+    }
+
+    /// <summary>按导航节点显示编辑器区「启动项列表」:「全部」→ 所有项;「未分类」→ 无分类项;分类 id → 子树聚合。</summary>
+    private void ShowNav(string navId)
+    {
+        _navId = navId;
+        _listPanel.Clear();
+
+        var shown = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId);
+        if (shown.Count == 0)
+        {
+            _listPanel.Add(EmptyListLabel());
+            return;
+        }
+
+        foreach (var item in shown)
+        {
+            _listPanel.Add(ListRow(item));
+        }
+    }
+
+    /// <summary>编辑器区列表行:图标 + 名称 + 命令,双击启动,行尾「启动」按钮。</summary>
+    private UIElement ListRow(LauncherItem item)
+    {
+        var icon = _icons.Resolve(item);
+        var rowButton = new Button()
+            .Content(new StackPanel()
+                .Orientation(Orientation.Horizontal)
+                .Spacing(6)
+                .Children(
+                    IconElement(icon),
+                    new StackPanel()
+                        .Spacing(2)
+                        .Children(
+                            new Label().Text(item.Name)
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
+                            new Label().Text(item.Command).FontSize(11)
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
+                        )
+                ))
+            .CanDrag(false)
+            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background))
+            .Column(0);
+        rowButton.MouseDoubleClick += _ => LaunchItem(item);
+
+        return new Grid()
+            .Columns("*,Auto")
+            .Children(
+                rowButton,
+                new Button()
+                    .Content(new Label()
+                        .Text("启动")
+                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)))
+                    .OnClick(() => LaunchItem(item))
+                    .CanDrag(false)
+                    .Column(1)
+            );
+    }
+
+    /// <summary>侧边栏/列表的启动日志入口。</summary>
     private UIElement BuildOutputPanel()
     {
         AppendLog("就绪");
@@ -538,65 +619,6 @@ internal sealed class LauncherApp
         _launchStatus.Value = message;
     }
 
-    private void ShowCategory(string category)
-    {
-        _category = category;
-        _listPanel.Clear();
-
-        var shown = (category == AllCategory
-                ? _items
-                : _items.Where(item => item.Category == category))
-            .Where(item => LauncherSearch.Matches(item, _query))
-            .ToList();
-
-        if (shown.Count == 0)
-        {
-            _listPanel.Add(EmptyListLabel());
-            return;
-        }
-
-        foreach (var item in shown)
-        {
-            _listPanel.Add(SideBarRow(item));
-        }
-    }
-
-    private UIElement SideBarRow(LauncherItem item)
-    {
-        var icon = _icons.Resolve(item);
-
-        return new Grid()
-            .Columns("*,Auto")
-            .Children(
-                new Button()
-                    .Content(
-                        new StackPanel()
-                            .Orientation(Orientation.Horizontal)
-                            .Spacing(6)
-                            .Children(
-                                IconElement(icon),
-                                new StackPanel()
-                                    .Spacing(2)
-                                    .Children(
-                                        new Label().Text(item.Name)
-                                            .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)),
-                                        new Label().Text(item.Command).FontSize(11)
-                                            .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground))
-                                    )
-                            ))
-                    .OnClick(() => LaunchItem(item))
-                    .CanDrag(false)
-                    .Column(0),
-                new Button()
-                    .Content(new Label()
-                        .Text("编辑")
-                        .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)))
-                    .OnClick(() => EditItem(item))
-                    .CanDrag(false)
-                    .Column(1)
-            );
-    }
-
     private static UIElement IconElement(ImageSource? icon)
     {
         if (icon is null)
@@ -608,9 +630,9 @@ internal sealed class LauncherApp
     }
 
     private UIElement EmptyListLabel() => new Label()
-        .Text(string.IsNullOrWhiteSpace(_query) ? "暂无启动项" : "无匹配启动项")
+        .Text("暂无启动项")
         .FontSize(12)
-        .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground));
+        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground));
 
     private void EditItem(LauncherItem item)
     {
@@ -655,7 +677,7 @@ internal sealed class LauncherApp
         command.TextChanged += text => UpdateCurrent(i => i with { Command = text });
         args.TextChanged += text => UpdateCurrent(i => i with { Args = string.IsNullOrWhiteSpace(text) ? null : text });
         workingDirectory.TextChanged += text => UpdateCurrent(i => i with { WorkingDirectory = string.IsNullOrWhiteSpace(text) ? null : text });
-        category.TextChanged += text => UpdateCurrent(i => i with { Category = string.IsNullOrWhiteSpace(text) ? AllCategory : text });
+        category.TextChanged += text => UpdateCurrent(i => i with { Category = string.IsNullOrWhiteSpace(text) ? "默认" : text });
         icon.TextChanged += text => UpdateCurrent(i => i with { Icon = string.IsNullOrWhiteSpace(text) ? null : text });
         hotkey.TextChanged += text =>
         {
@@ -724,31 +746,15 @@ internal sealed class LauncherApp
         _items[index] = _current;
         _store.Save(_items);
         _itemHotkeys.RegisterAll();
-        ShowCategory(_category);
-    }
-
-    private void CreateItem()
-    {
-        var category = _category == AllCategory ? "默认" : _category;
-        var item = new LauncherItem(
-            "item-" + Guid.NewGuid().ToString("N")[..8],
-            "新建启动项",
-            "",
-            Category: category);
-
-        _items.Add(item);
-        _store.Save(_items);
-        _itemHotkeys.RegisterAll();
-        EditItem(item);
-        ShowCategory(_category);
+        ShowNav(_navId);
     }
 
     private void DeleteItem(LauncherItem item)
     {
-                _items.RemoveAll(candidate => candidate.Id == item.Id);
+        _items.RemoveAll(candidate => candidate.Id == item.Id);
         _store.Save(_items);
         _itemHotkeys.RegisterAll();
         ShowEmptyDetail();
-        ShowCategory(_category);
+        ShowNav(_navId);
     }
 }

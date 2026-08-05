@@ -125,10 +125,12 @@ internal sealed class WorkbenchView
             var item = items[i];
             var button = new Button()
                 .Size(36, 36)
-                .Content(new GlyphElement()
-                    .Kind(item.Glyph)
-                    .GlyphSize(18)
-                    .WithTheme((_, glyph) => glyph.Foreground(theme.ActivityBar.Foreground)))
+                .Content(item.CustomGlyph is { } custom
+                    ? custom
+                    : new GlyphElement()
+                        .Kind(item.Glyph)
+                        .GlyphSize(18)
+                        .WithTheme((_, glyph) => glyph.Foreground(theme.ActivityBar.Foreground)))
                 .ToolTip(item.Title);
 
             if (item.OnClick is { } onClick)

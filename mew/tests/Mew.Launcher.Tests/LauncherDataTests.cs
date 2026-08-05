@@ -148,4 +148,62 @@ public class LauncherDataTests
         Assert.Equal("games", result[0].CategoryId);
         Assert.Null(result[1].CategoryId);
     }
+
+    // ── 导航树 ─────────────────────────────────────────────
+
+    [Fact]
+    public void BuildNavTree_空分类_返回全部与未分类固定节点()
+    {
+        var nav = LauncherData.BuildNavTree([]);
+
+        Assert.Equal(2, nav.Count);
+        Assert.True(nav[0].IsFixed);
+        Assert.Equal(LauncherData.AllNavId, nav[0].Id);
+        Assert.Equal("全部", nav[0].Name);
+        Assert.True(nav[1].IsFixed);
+        Assert.Equal(LauncherData.UncategorizedNavId, nav[1].Id);
+        Assert.Equal("未分类", nav[1].Name);
+    }
+
+    [Fact]
+    public void BuildNavTree_多级分类_全部置顶分类居中未分类收尾()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+            new("tools", "工具", []),
+        };
+
+        var nav = LauncherData.BuildNavTree(categories);
+
+        Assert.Equal(4, nav.Count);
+        Assert.Equal(LauncherData.AllNavId, nav[0].Id);
+        Assert.Equal("games", nav[1].Id);
+        Assert.False(nav[1].IsFixed);
+        Assert.Equal("games-steam", nav[1].Children[0].Id);
+        Assert.False(nav[1].Children[0].IsFixed);
+        Assert.Equal("tools", nav[2].Id);
+        Assert.Equal(LauncherData.UncategorizedNavId, nav[3].Id);
+        Assert.True(nav[3].IsFixed);
+    }
+
+    [Fact]
+    public void AggregateForNav_全部未分类与子树()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+        };
+        var items = new List<LauncherItem>
+        {
+            new("launcher", "启动器", "mew", CategoryId: "games"),
+            new("steam", "Steam", "steam", CategoryId: "games-steam"),
+            new("github", "GitHub", "https://github.com", CategoryId: null),
+        };
+
+        Assert.Equal(3, LauncherData.AggregateForNav(categories, items, null).Count);
+        Assert.Equal(3, LauncherData.AggregateForNav(categories, items, LauncherData.AllNavId).Count);
+        Assert.Single(LauncherData.AggregateForNav(categories, items, LauncherData.UncategorizedNavId));
+        Assert.Equal(2, LauncherData.AggregateForNav(categories, items, "games").Count);
+    }
 }

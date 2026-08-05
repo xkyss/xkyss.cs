@@ -87,6 +87,23 @@ public sealed class Workbench
         }
     }
 
+    /// <summary>
+    /// 激活侧边栏指定工具视图(活动栏上下文切换用,如「启动」⇄「设置」)。
+    /// </summary>
+    public void OpenToolPane(string id)
+    {
+        if (_docking is not { } docking)
+        {
+            return;
+        }
+
+        var pane = docking.Panes.FirstOrDefault(p => p.Component == id);
+        if (pane is not null)
+        {
+            pane.Activate();
+        }
+    }
+
     internal ActivityBar ActivityBarModel => _activityBar;
 
     internal SideBar SideBarModel => _sideBar;

@@ -130,4 +130,43 @@ public static class LauncherData
         categories
             .Select(c => c with { Children = NormalizeTree(c.Children ?? []) })
             .ToList();
+
+    /// <summary>导航树固定节点 id:「全部」与「未分类」。</summary>
+    public const string AllNavId = "__all__";
+    public const string UncategorizedNavId = "__uncat__";
+
+    /// <summary>构建侧边栏导航树:「全部」置顶、分类树居中(按树结构映射)、「未分类」收尾;固定节点不可管理。</summary>
+    public static List<CategoryTreeNode> BuildNavTree(List<LauncherCategory> categories)
+    {
+        var nodes = categories.Select(ToNavNode).ToList();
+        return
+        [
+            new CategoryTreeNode(AllNavId, "全部", true, []),
+            .. nodes,
+            new CategoryTreeNode(UncategorizedNavId, "未分类", true, []),
+        ];
+    }
+
+    /// <summary>按导航节点聚合:null/「全部」→ 所有项;「未分类」→ 无分类项;分类 id → 子树聚合(含子孙)。</summary>
+    public static List<LauncherItem> AggregateForNav(
+        List<LauncherCategory> categories, List<LauncherItem> items, string? navId)
+    {
+        if (navId is null or AllNavId)
+        {
+            return items.ToList();
+        }
+
+        return navId == UncategorizedNavId
+            ? Uncategorized(items)
+            : AggregateSubtree(categories, items, navId);
+    }
+
+    private static CategoryTreeNode ToNavNode(LauncherCategory category) => new(
+        category.Id,
+        category.Name,
+        false,
+        (category.Children ?? []).Select(ToNavNode).ToList());
 }
+
+/// <summary>侧边栏导航树节点:固定节点(「全部」「未分类」)或分类节点(映射自分类树)。</summary>
+public sealed record CategoryTreeNode(string Id, string Name, bool IsFixed, List<CategoryTreeNode> Children);
