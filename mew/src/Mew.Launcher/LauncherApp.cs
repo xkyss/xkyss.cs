@@ -14,6 +14,7 @@ internal sealed class LauncherApp
 {
     private const string AppVersion = "v0.1.4";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
+    private const string RevealDocumentHotkey = "Ctrl+Alt+R";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
@@ -70,6 +71,7 @@ internal sealed class LauncherApp
 
         TrayIcon? tray = null;
         _window = window;
+        window.PreviewKeyDown += OnWindowKeyDown;
 
         _titleThemeButton = BuildTitleBar(window, Quit, OpenSettings, CycleTheme, _workbench);
         UpdateThemeButton(); // 初始图标/提示跟随已加载的主题模式
@@ -325,6 +327,18 @@ internal sealed class LauncherApp
     {
         _workbench.SelectActivity("settings");
         _workbench.OpenDocument("settings");
+    }
+
+    /// <summary>窗口内快捷键:定位当前启动项详情所属的侧边栏分类。</summary>
+    private void OnWindowKeyDown(KeyEventArgs e)
+    {
+        if (!_capturingHotkey && e.ControlKey && e.AltKey && e.Key == Key.R)
+        {
+            if (_workbench.RevealDocument("detail"))
+            {
+                Feedback($"已执行:在侧边栏定位 ({RevealDocumentHotkey})");
+            }
+        }
     }
 
     /// <summary>设置页主题单选(跟随系统/亮/暗),状态栏外部切换时保持同步。</summary>
@@ -1064,6 +1078,7 @@ internal sealed class LauncherApp
     {
         _current = item;
         ShowItemDetail(item);
+        _workbench.SetDocumentReveal("detail", "launch", () => ShowNav(item.CategoryId ?? LauncherData.UncategorizedNavId));
         _workbench.OpenDocument("detail"); // 编辑器区激活「启动项详情」文档
     }
 

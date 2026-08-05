@@ -51,6 +51,13 @@ internal sealed class WorkbenchView
         }
 
         docking.Changed += (_, _) => layoutStore.Save(docking.SaveLayout());
+        docking.TabMenuOpening += (_, args) =>
+        {
+            if (_workbench.CanRevealDocument(args.Pane.Component))
+            {
+                args.Menu.Item("在侧边栏定位", () => _workbench.RevealDocument(args.Pane.Component!));
+            }
+        };
         _workbench.PresentationChanged += ApplyChromeVisibility;
         _workbench.PresentationChanged += () => layoutStore.SavePresentation(
             new WorkbenchPresentationState(_workbench.ActiveActivityId, _workbench.IsSideBarVisible));

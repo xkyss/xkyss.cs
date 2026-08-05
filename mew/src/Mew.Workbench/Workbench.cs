@@ -20,6 +20,7 @@ public sealed class Workbench
     private bool _panelVisible = true;
     private bool _statusBarVisible = true;
     private string? _activeActivityId;
+    private readonly Dictionary<string, DocumentReveal> _documentReveals = [];
 
     /// <summary>工作台呈现状态变更通知(WorkbenchView 订阅后应用区域显隐与活动栏上下文)。</summary>
     internal event Action? PresentationChanged;
@@ -129,6 +130,18 @@ public sealed class Workbench
         }
     }
 
+    /// <summary>为编辑器文档声明显式的侧边栏定位行为。</summary>
+    public void SetDocumentReveal(string documentId, string activityId, Action selectObject)
+    {
+        EnsureActivityContext(activityId);
+        if (_editorArea.Documents.All(document => document.Id != documentId))
+        {
+            throw new ArgumentException($"不存在编辑器文档“{documentId}”。", nameof(documentId));
+        }
+
+        _documentReveals[documentId] = new DocumentReveal(activityId, selectObject);
+    }
+
     internal ActivityBar ActivityBarModel => _activityBar;
 
     internal SideBar SideBarModel => _sideBar;
@@ -142,6 +155,23 @@ public sealed class Workbench
     internal SideBarView? ActiveSideBarView => _activeActivityId is null
         ? null
         : _sideBar.Views.Single(view => view.Id == _activeActivityId);
+
+    internal bool CanRevealDocument(string? id) => id is not null && _documentReveals.ContainsKey(id);
+
+    /// <summary>显式定位已注册的编辑器文档；成功时显示其所属活动栏上下文。</summary>
+    public bool RevealDocument(string id)
+    {
+        if (!_documentReveals.TryGetValue(id, out var reveal))
+        {
+            return false;
+        }
+
+        _activeActivityId = reveal.ActivityId;
+        _sideBarVisible = true;
+        PresentationChanged?.Invoke();
+        reveal.SelectObject();
+        return true;
+    }
 
     internal void RestorePresentation(WorkbenchPresentationState state)
     {
@@ -172,4 +202,6 @@ public sealed class Workbench
             throw new ArgumentException($"不存在活动栏上下文“{id}”。", nameof(id));
         }
     }
+
+    private sealed record DocumentReveal(string ActivityId, Action SelectObject);
 }
