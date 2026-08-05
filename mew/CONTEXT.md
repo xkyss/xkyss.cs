@@ -55,3 +55,11 @@ _Avoid_: 皮肤、配色方案
 **五区色板（Zone Palette）**:
 Workbench 定义的五区专用颜色集合（活动栏、侧边栏、编辑器区、底部面板、状态栏各自的背景与文字色），工具通过 Workbench 主题上下文读取。
 _Avoid_: palette（口语可用，文档中用「五区色板」）
+
+**标题栏（Title Bar）**:
+Workbench 外壳顶部的自绘标题栏，承载应用图标、菜单栏、居中标题与右侧操作入口（含窗口按钮），替代系统标题栏；背景跟随窗口背景，不属五区色板。
+_Avoid_: titlebar、系统标题栏、窗口栏
+
+**菜单栏（Menu Bar）**:
+标题栏左区内的一行菜单（如 File、Help），以访问键与快捷键触发命令。
+_Avoid_: menubar、menu bar、菜单条
