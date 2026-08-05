@@ -44,6 +44,11 @@ internal sealed class LauncherApp
     private Button? _modeToggleButton;
     private string _categoryQuery = "";
     private TreeItemsView<CategoryTreeNode>? _treeItems;
+    private const string SettingsAppearance = "appearance";
+    private const string SettingsHotkey = "hotkey";
+    private const string SettingsData = "data";
+    private string _settingsNav = SettingsAppearance; // 设置上下文当前分类
+    private StackPanel? _settingsContent;
 
     internal LauncherApp()
     {
@@ -76,11 +81,13 @@ internal sealed class LauncherApp
                 bar.Item("launch", "启动", GlyphKind.Hamburger, ShowLaunchContext);
                 bar.Item("settings", "设置", SettingsGlyph(), ShowSettingsContext);
             })
-            .SideBar(side => side.View("launch", "启动", BuildCategoryTree()))
+            .SideBar(side => side
+                .View("launch", "启动", BuildCategoryTree())
+                .View("settings", "设置", BuildSettingsSideBar()))
             .EditorArea(editor => editor
                 .Document("items", "启动项", BuildItemsDocument())
                 .Document("detail", "启动项详情", _detailPanel)
-                .Document("settings", "设置", BuildSettingsPanel()))
+                .Document("settings", "设置", BuildSettingsDocument()))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
                 .Item("launch", _launchStatus)
@@ -245,16 +252,20 @@ internal sealed class LauncherApp
         _workbench.OpenDocument("items");
     }
 
-    /// <summary>活动栏「设置」上下文(票据 02 占位):打开编辑器区设置文档。</summary>
-    private void ShowSettingsContext() => _workbench.OpenDocument("settings");
+    /// <summary>活动栏「设置」上下文:侧边栏切设置分类,编辑器区显示对应设置内容。</summary>
+    private void ShowSettingsContext()
+    {
+        _workbench.OpenToolPane("settings");
+        _workbench.OpenDocument("settings");
+    }
 
     private UIElement SettingsGlyph() => new Label()
         .Text("⚙")
         .FontSize(14)
         .WithTheme((_, label) => label.Foreground(_theme.ActivityBar.Foreground));
 
-    /// <summary>打开设置页(编辑器区文档标签)。</summary>
-    private void OpenSettings() => _workbench.OpenDocument("settings");
+    /// <summary>标题栏齿轮与 File→设置:切到「设置」上下文。</summary>
+    private void OpenSettings() => ShowSettingsContext();
 
     /// <summary>设置页主题单选(跟随系统/亮/暗),状态栏外部切换时保持同步。</summary>
     private List<RadioButton>? _themeRadios;
@@ -265,11 +276,54 @@ internal sealed class LauncherApp
         (ThemeVariant.Dark, "暗色"),
     ];
 
-    /// <summary>设置页内容:主题三选一(跟随系统/亮/暗),即时生效并持久化(票据 03)。</summary>
-    private UIElement BuildSettingsPanel()
+    /// <summary>编辑器区「设置」文档:内容容器,随侧边栏设置分类切换(外观/热键/数据)。</summary>
+    private UIElement BuildSettingsDocument()
+    {
+        var content = new StackPanel();
+        _settingsContent = content;
+        ShowSettingsNav(_settingsNav);
+        return content;
+    }
+
+    /// <summary>侧边栏「设置」上下文:三个设置分类(外观/热键/数据)。</summary>
+    private UIElement BuildSettingsSideBar() => new StackPanel()
+        .Padding(12)
+        .Spacing(4)
+        .Children(
+            SettingsNavButton("外观", SettingsAppearance),
+            SettingsNavButton("热键", SettingsHotkey),
+            SettingsNavButton("数据", SettingsData)
+        );
+
+    private UIElement SettingsNavButton(string label, string id) => new Button()
+        .Content(new Label().Text(label)
+            .WithTheme((_, l) => l.Foreground(_theme.SideBar.Foreground)))
+        .OnClick(() => ShowSettingsNav(id))
+        .CanDrag(false)
+        .WithTheme((_, button) => button.Background(_theme.SideBar.Background));
+
+    /// <summary>切换设置分类并刷新编辑器区设置内容。</summary>
+    private void ShowSettingsNav(string id)
+    {
+        _settingsNav = id;
+        if (_settingsContent is not { } content)
+        {
+            return;
+        }
+
+        content.Clear();
+        content.Add(id switch
+        {
+            SettingsHotkey => BuildHotkeyPanel(),
+            SettingsData => BuildDataPanel(),
+            _ => BuildAppearancePanel(),
+        });
+    }
+
+    /// <summary>设置分类内容:外观(主题三选一,即时生效并持久化)。</summary>
+    private UIElement BuildAppearancePanel()
     {
         var theme = _theme;
-
         var radios = _themeModes
             .Select(m => new RadioButton()
                 .GroupName("theme")
@@ -289,6 +343,24 @@ internal sealed class LauncherApp
             });
         }
 
+        return new StackPanel()
+            .Padding(24)
+            .Spacing(12)
+            .Children(
+                new Label().Text("外观").FontSize(20).Bold()
+                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                new Label().Text("主题").FontSize(14)
+                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                new StackPanel()
+                    .Spacing(6)
+                    .Children(radios.Cast<Element>().ToArray())
+            );
+    }
+
+    /// <summary>设置分类内容:热键(呼出热键捕获改绑、冲突与格式提示)。</summary>
+    private UIElement BuildHotkeyPanel()
+    {
+        var theme = _theme;
         _hotkeyDisplay = new Label()
             .Text(_overlayHotkey)
             .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground));
@@ -302,29 +374,34 @@ internal sealed class LauncherApp
             .FontSize(11)
             .WithTheme((_, label) => label.Foreground(HotkeyWarning));
 
+        return new StackPanel()
+            .Padding(24)
+            .Spacing(12)
+            .Children(
+                new Label().Text("热键").FontSize(20).Bold()
+                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                new Label().Text("呼出热键").FontSize(14)
+                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                new StackPanel()
+                    .Orientation(Orientation.Horizontal)
+                    .Spacing(8)
+                    .Children(_hotkeyDisplay, _hotkeyChangeButton),
+                _hotkeyHint
+            );
+    }
+
+    /// <summary>设置分类内容:数据(启动项数据文件路径与打开所在文件夹)。</summary>
+    private UIElement BuildDataPanel()
+    {
+        var theme = _theme;
         var dataFilePath = _store.FilePath;
 
         return new StackPanel()
             .Padding(24)
             .Spacing(12)
             .Children(
-                new Label().Text("设置").FontSize(20).Bold()
+                new Label().Text("数据").FontSize(20).Bold()
                     .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
-                new Label().Text("主题").FontSize(14)
-                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
-                new StackPanel()
-                    .Spacing(6)
-                    .Children(radios.Cast<Element>().ToArray()),
-                new Label().Text("呼出热键").FontSize(14)
-                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
-                new StackPanel()
-                    .Orientation(Orientation.Horizontal)
-                    .Spacing(8)
-                    .Children(
-                        _hotkeyDisplay,
-                        _hotkeyChangeButton
-                    ),
-                _hotkeyHint,
                 new Label().Text("数据文件").FontSize(14)
                     .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
                 new StackPanel()
