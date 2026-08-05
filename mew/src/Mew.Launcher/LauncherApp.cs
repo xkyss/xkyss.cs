@@ -12,10 +12,18 @@ internal sealed class LauncherApp
 {
     private const string AppVersion = "v0.1.2";
     private const string AllCategory = "全部";
+    private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
     private readonly SettingsStore _settings = new();
+    private readonly ObservableValue<string> _hotkeyStatus;
+    private string _overlayHotkey;
+    private Window? _window;
+    private bool _capturingHotkey;
+    private Button? _hotkeyChangeButton;
+    private Label? _hotkeyDisplay;
+    private Label? _hotkeyHint;
     private readonly LauncherRunner _runner = new();
     private readonly IconResolver _icons = new();
     private readonly ObservableValue<string> _launchStatus = new("就绪");
@@ -36,6 +44,9 @@ internal sealed class LauncherApp
         _items = _store.Load();
         _theme = _workbench.ThemeContext;
         _itemHotkeys = new ItemHotkeys(_items, LaunchItem, Feedback);
+        var settings = _settings.Load();
+        _overlayHotkey = string.IsNullOrWhiteSpace(settings.OverlayHotkey) ? DefaultOverlayHotkey : settings.OverlayHotkey!;
+        _hotkeyStatus = new ObservableValue<string>(_overlayHotkey);
     }
 
     internal void Run()
@@ -45,6 +56,7 @@ internal sealed class LauncherApp
             .Resizable(1080, 720);
 
         TrayIcon? tray = null;
+        _window = window;
 
         BuildTitleBar(window, Quit, OpenSettings);
 
@@ -69,7 +81,7 @@ internal sealed class LauncherApp
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
                 .Item("launch", _launchStatus)
-                .Item("shortcut", "Ctrl+Alt+Space"));
+                .Item("shortcut", _hotkeyStatus));
 
         ShowCategory(AllCategory);
         ShowEmptyDetail();
@@ -86,7 +98,11 @@ internal sealed class LauncherApp
 
         window.Loaded += () =>
         {
-            GlobalHotkey.Register(window.Handle);
+            if (!GlobalHotkey.Register(window.Handle, _overlayHotkey))
+            {
+                AppendLog($"⚠ 呼出热键 {_overlayHotkey} 注册失败(可能已被其他程序占用)");
+            }
+
             _itemHotkeys.Attach(window.Handle);
             _itemHotkeys.RegisterAll();
             tray = new TrayIcon(window.Handle, ShowMain, Quit);
@@ -196,8 +212,13 @@ internal sealed class LauncherApp
         return Enum.TryParse<ThemeVariant>(stored, out var mode) ? mode : ThemeVariant.System;
     }
 
-    /// <summary>将当前主题模式持久化到 settings.json。</summary>
-    private void PersistThemeMode() => _settings.Save(new AppSettings { ThemeMode = _theme.Mode.ToString() });
+    /// <summary>将当前主题模式持久化到 settings.json(保留其他设置字段)。</summary>
+    private void PersistThemeMode()
+    {
+        var settings = _settings.Load();
+        settings.ThemeMode = _theme.Mode.ToString();
+        _settings.Save(settings);
+    }
 
     /// <summary>设置页单选跟随当前主题模式(状态栏按钮等外部切换时同步)。</summary>
     private void SyncThemeRadios()
@@ -249,6 +270,19 @@ internal sealed class LauncherApp
             });
         }
 
+        _hotkeyDisplay = new Label()
+            .Text(_overlayHotkey)
+            .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground));
+        _hotkeyChangeButton = new Button()
+            .Content(new Label().Text("更改"))
+            .ToolTip("点击后按下新的组合键")
+            .OnClick(StartCaptureHotkey)
+            .CanDrag(false);
+        _hotkeyHint = new Label()
+            .Text("")
+            .FontSize(11)
+            .WithTheme((_, label) => label.Foreground(HotkeyWarning));
+
         return new StackPanel()
             .Padding(24)
             .Spacing(12)
@@ -259,9 +293,159 @@ internal sealed class LauncherApp
                     .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
                 new StackPanel()
                     .Spacing(6)
-                    .Children(radios.Cast<Element>().ToArray())
+                    .Children(radios.Cast<Element>().ToArray()),
+                new Label().Text("呼出热键").FontSize(14)
+                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                new StackPanel()
+                    .Orientation(Orientation.Horizontal)
+                    .Spacing(8)
+                    .Children(
+                        _hotkeyDisplay,
+                        _hotkeyChangeButton
+                    ),
+                _hotkeyHint
             );
     }
+
+    /// <summary>进入热键捕获模式:下一次按键组合作为新呼出热键(Esc 取消)。</summary>
+    private void StartCaptureHotkey()
+    {
+        if (_window is null || _capturingHotkey)
+        {
+            return;
+        }
+
+        _capturingHotkey = true;
+        _hotkeyChangeButton!.Content(new Label().Text("请按下新热键…"));
+        _hotkeyHint!.Text = "按 Esc 取消";
+        _window.PreviewKeyDown += OnCaptureKeyDown;
+    }
+
+    private void OnCaptureKeyDown(KeyEventArgs e)
+    {
+        if (!_capturingHotkey)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (e.Key == Key.Escape)
+        {
+            CancelCaptureHotkey();
+            _hotkeyHint!.Text = "";
+            return;
+        }
+
+        var parts = new List<string>();
+        if (e.ControlKey)
+        {
+            parts.Add("Ctrl");
+        }
+        if (e.AltKey)
+        {
+            parts.Add("Alt");
+        }
+        if (e.ShiftKey)
+        {
+            parts.Add("Shift");
+        }
+        if (e.MetaKey)
+        {
+            parts.Add("Win");
+        }
+
+        var keyName = KeyToName(e.Key);
+        if (keyName.Length == 0)
+        {
+            _hotkeyHint!.Text = "请按字母/数字/功能键组合(如 Ctrl+Shift+1)";
+            return;
+        }
+        if (parts.Count == 0)
+        {
+            _hotkeyHint!.Text = "需要至少一个修饰键(Ctrl/Alt/Shift/Win)";
+            return;
+        }
+
+        parts.Add(keyName);
+        ApplyOverlayHotkey(string.Join("+", parts));
+    }
+
+    private void CancelCaptureHotkey()
+    {
+        if (!_capturingHotkey)
+        {
+            return;
+        }
+
+        _capturingHotkey = false;
+        _window!.PreviewKeyDown -= OnCaptureKeyDown;
+        _hotkeyChangeButton!.Content(new Label().Text("更改"));
+    }
+
+    /// <summary>校验、冲突检测、重新注册并持久化新呼出热键;失败时保持原热键并在设置页提示。</summary>
+    private void ApplyOverlayHotkey(string hotkey)
+    {
+        if (!HotkeyParser.TryParse(hotkey, out var modifiers, out var vk))
+        {
+            _hotkeyHint!.Text = "不支持的热键组合";
+            return;
+        }
+
+        // 与每项热键冲突检测
+        var conflict = _items.FirstOrDefault(item =>
+            !string.IsNullOrWhiteSpace(item.Hotkey)
+            && HotkeyParser.TryParse(item.Hotkey, out var m, out var k)
+            && m == modifiers && k == vk);
+        if (conflict is not null)
+        {
+            _hotkeyHint!.Text = $"与启动项「{conflict.Name}」的每项热键冲突";
+            return;
+        }
+
+        var handle = _window!.Handle;
+        GlobalHotkey.Unregister(handle);
+        if (!GlobalHotkey.Register(handle, hotkey))
+        {
+            GlobalHotkey.Register(handle, _overlayHotkey); // 恢复旧热键
+            _hotkeyHint!.Text = "注册失败(可能已被其他程序占用)";
+            return;
+        }
+
+        _overlayHotkey = hotkey;
+        _hotkeyDisplay!.Text = hotkey;
+        _hotkeyStatus.Value = hotkey;
+
+        var settings = _settings.Load();
+        settings.OverlayHotkey = hotkey;
+        _settings.Save(settings);
+
+        CancelCaptureHotkey();
+        _hotkeyHint!.Text = $"已生效:{hotkey}";
+    }
+
+    private static string KeyToName(Key key) => key switch
+    {
+        Key.Space => "Space",
+        Key.Enter => "Enter",
+        Key.Escape => "Escape",
+        Key.Tab => "Tab",
+        Key.Backspace => "Backspace",
+        Key.Insert => "Insert",
+        Key.Delete => "Delete",
+        Key.Home => "Home",
+        Key.End => "End",
+        Key.PageUp => "PageUp",
+        Key.PageDown => "PageDown",
+        Key.Left => "Left",
+        Key.Right => "Right",
+        Key.Up => "Up",
+        Key.Down => "Down",
+        >= Key.D0 and <= Key.D9 => ((char)(key - Key.D0 + '0')).ToString(),
+        >= Key.A and <= Key.Z => ((char)(key - Key.A + 'A')).ToString(),
+        >= Key.F1 and <= Key.F24 => "F" + (key - Key.F1 + 1),
+        _ => "",
+    };
 
     private UIElement BuildSideBar()
     {

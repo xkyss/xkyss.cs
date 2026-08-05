@@ -12,13 +12,16 @@ namespace Mew.Launcher;
 internal sealed partial class AppSettingsJsonContext : JsonSerializerContext;
 
 /// <summary>
-/// 应用设置(当前为主题模式;呼出热键等后续票据追加)。
+/// 应用设置(主题模式、呼出热键)。
 /// 读写使用源生成序列化,避免运行时反射(AOT/Trim 兼容)。
 /// </summary>
 internal sealed class AppSettings
 {
     /// <summary>主题模式,取值 ThemeVariant 枚举名:System/Light/Dark,缺省 System。</summary>
     public string? ThemeMode { get; set; }
+
+    /// <summary>浮层呼出热键,形如 Ctrl+Alt+Space,缺省 Ctrl+Alt+Space。</summary>
+    public string? OverlayHotkey { get; set; }
 }
 
 /// <summary>

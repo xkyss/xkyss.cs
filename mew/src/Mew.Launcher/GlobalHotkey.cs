@@ -3,14 +3,12 @@ using System.Runtime.InteropServices;
 namespace Mew.Launcher;
 
 /// <summary>
-/// 全局热键(Ctrl+Alt+Space)注册:基于 Win32 RegisterHotKey,经窗口 NativeMessage 消息钩子接收。
+/// 浮层全局热键注册:基于 Win32 RegisterHotKey,经窗口 NativeMessage 消息钩子接收。
+/// 组合键可配置(默认 Ctrl+Alt+Space),变更后重新注册即时生效。
 /// </summary>
 internal static class GlobalHotkey
 {
-    private const int ModAlt = 0x1;
-    private const int ModControl = 0x2;
-    private const int ModNoRepeat = 0x4000;
-    private const int VkSpace = 0x20;
+    private const uint ModNoRepeat = 0x4000;
     private const int OverlayHotkeyIdConst = 0x4D57; // "MW"
 
     /// <summary>浮层热键注册 id</summary>
@@ -25,8 +23,18 @@ internal static class GlobalHotkey
     [DllImport("user32.dll")]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
-    internal static bool Register(IntPtr hWnd) =>
-        RegisterHotKey(hWnd, OverlayHotkeyId, ModControl | ModAlt | ModNoRepeat, VkSpace);
+    /// <summary>
+    /// 按文本组合键(如 Ctrl+Alt+Space)注册浮层热键;解析失败或注册失败(已被占用)返回 false。
+    /// </summary>
+    internal static bool Register(IntPtr hWnd, string hotkey)
+    {
+        if (!HotkeyParser.TryParse(hotkey, out var modifiers, out var vk))
+        {
+            return false;
+        }
+
+        return RegisterHotKey(hWnd, OverlayHotkeyId, modifiers | ModNoRepeat, vk);
+    }
 
     internal static void Unregister(IntPtr hWnd) => UnregisterHotKey(hWnd, OverlayHotkeyId);
 }
