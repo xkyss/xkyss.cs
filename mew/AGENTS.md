@@ -22,6 +22,27 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root.
 
 See `docs/agents/domain.md`.
 
+### Version bump
+
+运行时版本号唯一来源是 `src/Mew.Launcher/LauncherApp.cs` 里的常量:
+
+```csharp
+private const string AppVersion = "v0.1.4";
+```
+
+该常量用于主窗口标题(`Mew Launcher — {AppVersion}`)与关于对话框(`Mew Launcher {AppVersion}`)。
+
+提升版本号时:
+
+- **只需修改这一行常量**;csproj 无 `<Version>`/`<AssemblyVersion>`,全仓无 AssemblyInfo,`Mew.slnx` 不含版本,均无需改动。
+- `.scratch/` 与 `docs/adr/` 中的旧版本号是已归档的 spec/验收记录/ADR 前缀,不回改。
+- 历史先例:版本提升提交为单文件单行改动,如 `6e02e1a`(v0.1.3)、`ba2885e`(v0.1.4)。
+
+开启下一个版本迭代(`vX.Y.Z`)时,除改常量外还需按 issue tracker / Domain docs 约定新建:
+
+1. `.scratch/<版本前缀>-<功能名>/spec.md`(该版本 PRD)
+2. `docs/adr/000XYZ-NN-*.md`(ADR 前缀 = 6 位版本号,如 `000105` ↔ `v0.1.5`)
+
 ### Git conventions
 
 Commit messages follow Conventional Commits 1.0.0 with repo-local Chinese message rules. See `docs/agents/git-conventions.md`.
