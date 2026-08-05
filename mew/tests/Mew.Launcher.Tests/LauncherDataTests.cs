@@ -163,21 +163,6 @@ public class LauncherDataTests
         Assert.Null(result[1].CategoryId);
     }
 
-    // ── 分类名查找(详情表单分类字段用) ────────────────────
-
-    [Fact]
-    public void FindByName_多级树_返回匹配节点()
-    {
-        var categories = new List<LauncherCategory>
-        {
-            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
-        };
-
-        Assert.Equal("games-steam", LauncherData.FindByName(categories, "Steam")?.Id);
-        Assert.Equal("games", LauncherData.FindByName(categories, "游戏")?.Id);
-        Assert.Null(LauncherData.FindByName(categories, "不存在"));
-    }
-
     // ── 新建启动项归属 ─────────────────────────────────────
 
     [Fact]
@@ -186,6 +171,167 @@ public class LauncherDataTests
         Assert.Null(LauncherData.CategoryIdForNewItem(LauncherData.AllNavId));
         Assert.Null(LauncherData.CategoryIdForNewItem(LauncherData.UncategorizedNavId));
         Assert.Equal("games", LauncherData.CategoryIdForNewItem("games"));
+    }
+
+    // ── 分类搜索过滤 ───────────────────────────────────────
+
+    [Fact]
+    public void FilterNavTree_空查询_返回原树()
+    {
+        var nav = LauncherData.BuildNavTree([new LauncherCategory("games", "游戏", [])]);
+
+        var result = LauncherData.FilterNavTree(nav, "");
+
+        Assert.Equal(nav.Count, result.Count); // 含固定节点
+    }
+
+    [Fact]
+    public void FilterNavTree_命中节点_整棵子树保留_隐藏固定节点()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+            new("tools", "工具", []),
+        };
+        var nav = LauncherData.BuildNavTree(categories);
+
+        var result = LauncherData.FilterNavTree(nav, "游");
+
+        Assert.Single(result);
+        Assert.Equal("games", result[0].Id);
+        Assert.Equal("games-steam", result[0].Children[0].Id); // 命中节点整棵子树保留
+    }
+
+    [Fact]
+    public void FilterNavTree_命中子分类_父链保留()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+        };
+        var nav = LauncherData.BuildNavTree(categories);
+
+        var result = LauncherData.FilterNavTree(nav, "steam");
+
+        Assert.Single(result);
+        Assert.Equal("games", result[0].Id);
+        Assert.Single(result[0].Children);
+        Assert.Equal("games-steam", result[0].Children[0].Id);
+    }
+
+    [Fact]
+    public void FilterNavTree_无匹配_返回空()
+    {
+        var nav = LauncherData.BuildNavTree([new LauncherCategory("games", "游戏", [])]);
+
+        var result = LauncherData.FilterNavTree(nav, "不存在");
+
+        Assert.Empty(result);
+    }
+
+    // ── 分类树增删改 ───────────────────────────────────────
+
+    [Fact]
+    public void RemoveCategoryNode_根分类_连子分类一起删()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+            new("tools", "工具", []),
+        };
+
+        var result = LauncherData.RemoveCategoryNode(categories, "games");
+
+        Assert.Single(result);
+        Assert.Equal("tools", result[0].Id);
+    }
+
+    [Fact]
+    public void RemoveCategoryNode_子分类_父分类保留其余子节点()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [
+                new LauncherCategory("games-steam", "Steam", []),
+                new LauncherCategory("games-epic", "Epic", []),
+            ]),
+        };
+
+        var result = LauncherData.RemoveCategoryNode(categories, "games-steam");
+
+        Assert.Single(result);
+        Assert.Single(result[0].Children!);
+        Assert.Equal("games-epic", result[0].Children![0].Id);
+    }
+
+    [Fact]
+    public void RemoveCategoryNode_不存在的id_原样返回()
+    {
+        var categories = new List<LauncherCategory> { new("games", "游戏", []) };
+
+        var result = LauncherData.RemoveCategoryNode(categories, "ghost");
+
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public void AddCategoryNode_加到父分类子节点()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+        };
+
+        var result = LauncherData.AddCategoryNode(categories, "games", new LauncherCategory("games-epic", "Epic", []));
+
+        Assert.Equal(2, result[0].Children!.Count);
+        Assert.Equal("games-epic", result[0].Children![1].Id);
+    }
+
+    [Fact]
+    public void AddCategoryNode_不存在的父_原样返回()
+    {
+        var categories = new List<LauncherCategory> { new("games", "游戏", []) };
+
+        var result = LauncherData.AddCategoryNode(categories, "ghost", new LauncherCategory("x", "X", []));
+
+        Assert.Single(result);
+        Assert.Empty(result[0].Children!); // 原样返回:子节点仍为空
+    }
+
+    [Fact]
+    public void RenameCategoryNode_改名_不动其他节点()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+        };
+
+        var result = LauncherData.RenameCategoryNode(categories, "games-steam", "Steam 平台");
+
+        Assert.Equal("游戏", result[0].Name);
+        Assert.Equal("Steam 平台", result[0].Children![0].Name);
+    }
+
+    // ── 分类选择器选项 ─────────────────────────────────────
+
+    [Fact]
+    public void FlattenCategoryOptions_未分类置顶_子分类带路径()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+            new("tools", "工具", []),
+        };
+
+        var options = LauncherData.FlattenCategoryOptions(categories);
+
+        Assert.Equal(4, options.Count);
+        Assert.Null(options[0].Id);
+        Assert.Equal("未分类", options[0].Path);
+        Assert.Equal("游戏", options[1].Path);
+        Assert.Equal("游戏 / Steam", options[2].Path);
+        Assert.Equal("工具", options[3].Path);
     }
 
     // ── 导航树 ─────────────────────────────────────────────

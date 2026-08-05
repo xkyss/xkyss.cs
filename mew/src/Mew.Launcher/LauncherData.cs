@@ -134,25 +134,6 @@ public static class LauncherData
         return Find(categories, categoryId)?.Name;
     }
 
-    /// <summary>按显示名查找分类节点(详情表单分类文本匹配用);找不到返回 null。</summary>
-    public static LauncherCategory? FindByName(List<LauncherCategory> categories, string name)
-    {
-        foreach (var category in categories)
-        {
-            if (category.Name == name)
-            {
-                return category;
-            }
-
-            if (category.Children is not null && FindByName(category.Children, name) is { } found)
-            {
-                return found;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>归一分类树:Children 为 null 的节点补空表(手写 JSON 缺省)。</summary>
     public static List<LauncherCategory> NormalizeTree(List<LauncherCategory> categories) =>
         categories
@@ -193,6 +174,136 @@ public static class LauncherData
     public static string? CategoryIdForNewItem(string navId) =>
         navId is AllNavId or UncategorizedNavId ? null : navId;
 
+    /// <summary>分类搜索过滤:空查询返回原树;非空时隐藏固定节点(「全部」「未分类」),保留匹配节点(整棵子树)及其父链。</summary>
+    public static List<CategoryTreeNode> FilterNavTree(List<CategoryTreeNode> nav, string query)
+    {
+        query = query.Trim();
+        if (query.Length == 0)
+        {
+            return nav;
+        }
+
+        var result = new List<CategoryTreeNode>();
+        foreach (var node in nav)
+        {
+            if (node.IsFixed)
+            {
+                continue;
+            }
+
+            if (FilterNode(node, query) is { } filtered)
+            {
+                result.Add(filtered);
+            }
+        }
+
+        return result;
+    }
+
+    private static CategoryTreeNode? FilterNode(CategoryTreeNode node, string query)
+    {
+        if (node.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+        {
+            return node; // 命中:整棵子树保留
+        }
+
+        var children = new List<CategoryTreeNode>();
+        foreach (var child in node.Children)
+        {
+            if (FilterNode(child, query) is { } filtered)
+            {
+                children.Add(filtered);
+            }
+        }
+
+        return children.Count > 0 ? node with { Children = children } : null;
+    }
+
+    /// <summary>连根删:移除指定分类节点(含其整棵子树),其余节点原样。</summary>
+    public static List<LauncherCategory> RemoveCategoryNode(List<LauncherCategory> categories, string categoryId)
+    {
+        var result = new List<LauncherCategory>();
+        foreach (var category in categories)
+        {
+            if (category.Id == categoryId)
+            {
+                continue;
+            }
+
+            result.Add(category.Children is { Count: > 0 }
+                ? category with { Children = RemoveCategoryNode(category.Children, categoryId) }
+                : category);
+        }
+
+        return result;
+    }
+
+    /// <summary>在指定父分类下追加子分类;父分类不存在时原样返回。</summary>
+    public static List<LauncherCategory> AddCategoryNode(
+        List<LauncherCategory> categories, string parentId, LauncherCategory newNode)
+    {
+        var result = new List<LauncherCategory>();
+        foreach (var category in categories)
+        {
+            if (category.Id == parentId)
+            {
+                var children = new List<LauncherCategory>(category.Children ?? []) { newNode };
+                result.Add(category with { Children = children });
+                continue;
+            }
+
+            result.Add(category.Children is { Count: > 0 }
+                ? category with { Children = AddCategoryNode(category.Children, parentId, newNode) }
+                : category);
+        }
+
+        return result;
+    }
+
+    /// <summary>重命名指定分类节点,其余节点不动。</summary>
+    public static List<LauncherCategory> RenameCategoryNode(
+        List<LauncherCategory> categories, string categoryId, string newName)
+    {
+        var result = new List<LauncherCategory>();
+        foreach (var category in categories)
+        {
+            if (category.Id == categoryId)
+            {
+                result.Add(category with { Name = newName });
+            }
+            else
+            {
+                result.Add(category.Children is { Count: > 0 }
+                    ? category with { Children = RenameCategoryNode(category.Children, categoryId, newName) }
+                    : category);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>详情表单分类选择器的选项:未分类置顶,分类节点按「父 / 子」路径展示。</summary>
+    public static List<CategoryOption> FlattenCategoryOptions(List<LauncherCategory> categories)
+    {
+        var options = new List<CategoryOption> { new(null, "未分类") };
+        foreach (var category in categories)
+        {
+            FlattenInto(category, "", options);
+        }
+
+        return options;
+    }
+
+    private static void FlattenInto(LauncherCategory category, string prefix, List<CategoryOption> options)
+    {
+        var path = prefix.Length == 0 ? category.Name : prefix + " / " + category.Name;
+        options.Add(new CategoryOption(category.Id, path));
+        foreach (var child in category.Children ?? [])
+        {
+            FlattenInto(child, path, options);
+        }
+    }
+
     private static CategoryTreeNode ToNavNode(LauncherCategory category) => new(
         category.Id,
         category.Name,
@@ -202,6 +313,9 @@ public static class LauncherData
 
 /// <summary>侧边栏导航树节点:固定节点(「全部」「未分类」)或分类节点(映射自分类树)。</summary>
 public sealed record CategoryTreeNode(string Id, string Name, bool IsFixed, List<CategoryTreeNode> Children);
+
+/// <summary>详情表单分类选择器选项:id 为 null 表示未分类。</summary>
+public sealed record CategoryOption(string? Id, string Path);
 
 /// <summary>旧模型快照(v0.1.x 平铺数组启动项,含分类文本字段),仅作为迁移输入。</summary>
 public sealed record LegacyItem(

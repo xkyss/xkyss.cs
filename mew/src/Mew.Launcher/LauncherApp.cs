@@ -42,6 +42,8 @@ internal sealed class LauncherApp
     private string _viewMode = "card"; // 启动项列表形态:card(卡片,默认)/ list(列表),持久化于 settings.json
     private string _query = "";
     private Button? _modeToggleButton;
+    private string _categoryQuery = "";
+    private TreeItemsView<CategoryTreeNode>? _treeItems;
 
     internal LauncherApp()
     {
@@ -496,27 +498,30 @@ internal sealed class LauncherApp
         _ => "",
     };
 
-    /// <summary>侧边栏「启动」上下文:分类导航树(「全部」置顶、分类树、「未分类」收尾)。</summary>
+    /// <summary>侧边栏「启动」上下文:分类搜索 + 分类导航树(「全部」置顶、分类树、「未分类」收尾)。</summary>
     private UIElement BuildCategoryTree()
     {
-        var roots = LauncherData.BuildNavTree(_store.Categories.ToList());
-        var treeItems = new TreeItemsView<CategoryTreeNode>(
-            roots,
-            node => node.Children,
-            node => node.Name,
-            node => node.Id,
-            node => node.Children.Count > 0);
+        var searchBox = new TextBox
+        {
+            Placeholder = "搜索分类",
+            CanDrag = false,
+        };
+        searchBox.TextChanged += text =>
+        {
+            _categoryQuery = text;
+            RefreshCategoryTree();
+        };
 
         var tree = new TreeView
         {
-            ItemsSource = treeItems,
             SelectionMode = ItemsSelectionMode.Single,
             ExpandTrigger = TreeViewExpandTrigger.ClickChevron,
             CanDrag = false,
         };
         _tree = tree;
         tree.SelectionChanged += OnNavSelectionChanged;
-        treeItems.SelectSingle(0); // 默认选中「全部」
+        tree.MouseUp += OnCategoryTreeRightClick;
+        RefreshCategoryTree(); // 构建树项并默认选中「全部」
 
         return new StackPanel()
             .Padding(12)
@@ -526,8 +531,164 @@ internal sealed class LauncherApp
                     .Text("启动项")
                     .FontSize(12)
                     .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)),
+                searchBox,
                 tree
             );
+    }
+
+    /// <summary>(重新)构建分类树项:按分类搜索词过滤,并默认选中「全部」。</summary>
+    private void RefreshCategoryTree()
+    {
+        _treeItems = new TreeItemsView<CategoryTreeNode>(
+            LauncherData.FilterNavTree(
+                LauncherData.BuildNavTree(_store.Categories.ToList()), _categoryQuery),
+            node => node.Children,
+            node => node.Name,
+            node => node.Id,
+            node => node.Children.Count > 0);
+        _tree!.ItemsSource = _treeItems;
+        _treeItems.SelectSingle(0);
+    }
+
+    /// <summary>分类树右键:固定节点(「全部」「未分类」)无操作,用户分类弹出 新建子分类/重命名/删除。</summary>
+    private void OnCategoryTreeRightClick(MouseEventArgs e)
+    {
+        if (!e.RightButton || _tree is not { } tree || _treeItems is not { } items)
+        {
+            return;
+        }
+
+        if (!tree.TryGetItemIndexAt(e, out var index))
+        {
+            return;
+        }
+
+        if (items.GetItem(index) is not CategoryTreeNode node || node.IsFixed)
+        {
+            return;
+        }
+
+        new ContextMenu(new Menu()
+            .Item("新建子分类", () => AddSubCategory(node.Id))
+            .Separator()
+            .Item("重命名", () => RenameCategory(node.Id))
+            .Item("删除", () => DeleteCategory(node.Id)))
+            .ShowAt(tree, e.ScreenPosition);
+    }
+
+    /// <summary>删除分类:确认(提示启动项数量)→ 连根删(子分类与项全删)→ 刷新树与列表。</summary>
+    private void DeleteCategory(string categoryId)
+    {
+        var categories = _store.Categories.ToList();
+        var removed = LauncherData.AggregateSubtree(categories, _items, categoryId);
+        var name = LauncherData.CategoryName(categories, categoryId) ?? categoryId;
+
+        var confirmed = MessageBox.Confirm(
+            $"删除分类「{name}」将连同其子分类一起删除,共 {removed.Count} 个启动项,且不可恢复。",
+            PromptIconKind.Warning,
+            "",
+            _window!);
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var removedIds = new HashSet<string>(removed.Select(i => i.Id), StringComparer.Ordinal);
+        _items.RemoveAll(i => removedIds.Contains(i.Id));
+        _store.UpdateCategories(LauncherData.RemoveCategoryNode(categories, categoryId));
+        _store.Save(_items);
+        _itemHotkeys.RegisterAll();
+
+        // 当前导航在被删分类(或其子孙)内 → 回退「全部」
+        if (_navId is not LauncherData.AllNavId and not LauncherData.UncategorizedNavId
+            && LauncherData.Find(_store.Categories.ToList(), _navId) is null)
+        {
+            _navId = LauncherData.AllNavId;
+        }
+
+        RefreshCategoryTree();
+        ShowNav(_navId);
+        ShowEmptyDetail(); // 若详情正显示被删分类的启动项,清空
+    }
+
+    /// <summary>在指定分类下新建子分类(轻量输入对话框)。</summary>
+    private void AddSubCategory(string parentId)
+    {
+        PromptText("新建子分类", "", name =>
+        {
+            if (name.Trim().Length == 0)
+            {
+                return;
+            }
+
+            var categories = _store.Categories.ToList();
+            var newNode = new LauncherCategory("cat-" + Guid.NewGuid().ToString("N")[..4], name.Trim(), []);
+            _store.UpdateCategories(LauncherData.AddCategoryNode(categories, parentId, newNode));
+            _store.Save(_items);
+            RefreshCategoryTree();
+        });
+    }
+
+    /// <summary>重命名分类(轻量输入对话框)。</summary>
+    private void RenameCategory(string categoryId)
+    {
+        var node = LauncherData.Find(_store.Categories.ToList(), categoryId);
+        if (node is null)
+        {
+            return;
+        }
+
+        PromptText("重命名分类", node.Name, name =>
+        {
+            if (name.Trim().Length == 0)
+            {
+                return;
+            }
+
+            var categories = _store.Categories.ToList();
+            _store.UpdateCategories(LauncherData.RenameCategoryNode(categories, categoryId, name.Trim()));
+            _store.Save(_items);
+            RefreshCategoryTree();
+        });
+    }
+
+    /// <summary>轻量模态文本输入对话框(新建/重命名分类用)。</summary>
+    private void PromptText(string title, string initial, Action<string> onConfirm)
+    {
+        var input = new TextBox
+        {
+            Text = initial,
+            CanDrag = false,
+        };
+
+        var dialog = new Window()
+            .Title(title)
+            .Fixed(380, 170);
+        var confirm = new Button()
+            .Content(new Label().Text("确定"))
+            .OnClick(() =>
+            {
+                dialog.Close();
+                onConfirm(input.Text);
+            })
+            .CanDrag(false);
+        var cancel = new Button()
+            .Content(new Label().Text("取消"))
+            .OnClick(() => dialog.Close())
+            .CanDrag(false);
+
+        dialog.Content = new StackPanel()
+            .Padding(16)
+            .Spacing(10)
+            .Children(
+                new Label().Text(title).FontSize(14),
+                input,
+                new StackPanel()
+                    .Orientation(Orientation.Horizontal)
+                    .Spacing(8)
+                    .Children(confirm, cancel)
+            );
+        dialog.ShowDialog(_window!);
     }
 
     private void OnNavSelectionChanged(object? item)
@@ -796,8 +957,24 @@ internal sealed class LauncherApp
         var command = TextField(item.Command, "程序、脚本或 URL");
         var args = TextField(item.Args ?? "", "可选参数");
         var workingDirectory = TextField(item.WorkingDirectory ?? "", "可选工作目录");
-        var categoryName = LauncherData.CategoryName(_store.Categories.ToList(), item.CategoryId) ?? "";
-        var category = TextField(categoryName, "分类名(留空 = 未分类)");
+        var categoryOptions = LauncherData.FlattenCategoryOptions(_store.Categories.ToList());
+        var categorySource = new ItemsView<CategoryOption>(
+            categoryOptions, option => option.Path, option => option.Id ?? "");
+        var categoryIndex = categoryOptions.FindIndex(option => option.Id == item.CategoryId);
+        var categoryCombo = new ComboBox
+        {
+            ItemsSource = categorySource,
+            SelectedIndex = categoryIndex >= 0 ? categoryIndex : 0, // 0 = 未分类
+            ChangeOnWheel = false,
+            CanDrag = false,
+        };
+        categoryCombo.SelectionChanged += selected =>
+        {
+            if (selected is CategoryOption option)
+            {
+                UpdateCurrent(i => i with { CategoryId = option.Id });
+            }
+        };
         var icon = TextField(item.Icon ?? "", "可选图标路径");
         var hotkey = TextField(item.Hotkey ?? "", "可选每项热键,如 Ctrl+Shift+1");
         var hotkeyHint = new Label()
@@ -811,10 +988,12 @@ internal sealed class LauncherApp
         command.TextChanged += text => UpdateCurrent(i => i with { Command = text });
         args.TextChanged += text => UpdateCurrent(i => i with { Args = string.IsNullOrWhiteSpace(text) ? null : text });
         workingDirectory.TextChanged += text => UpdateCurrent(i => i with { WorkingDirectory = string.IsNullOrWhiteSpace(text) ? null : text });
-        category.TextChanged += text =>
+        categoryCombo.SelectionChanged += selected =>
         {
-            var match = LauncherData.FindByName(_store.Categories.ToList(), text);
-            UpdateCurrent(i => i with { CategoryId = match?.Id });
+            if (selected is CategoryOption option)
+            {
+                UpdateCurrent(i => i with { CategoryId = option.Id });
+            }
         };
         icon.TextChanged += text => UpdateCurrent(i => i with { Icon = string.IsNullOrWhiteSpace(text) ? null : text });
         hotkey.TextChanged += text =>
@@ -837,7 +1016,7 @@ internal sealed class LauncherApp
                 FieldRow("命令", command),
                 FieldRow("参数", args),
                 FieldRow("工作目录", workingDirectory),
-                FieldRow("分类", category),
+                FieldRow("分类", categoryCombo),
                 FieldRow("图标", icon),
                 FieldRow("每项热键", hotkey),
                 hotkeyHint,
@@ -852,7 +1031,7 @@ internal sealed class LauncherApp
             );
     }
 
-    private UIElement FieldRow(string label, TextBox input) => new StackPanel()
+    private UIElement FieldRow(string label, UIElement input) => new StackPanel()
         .Spacing(4)
         .Children(
             new Label().Text(label).FontSize(12)
