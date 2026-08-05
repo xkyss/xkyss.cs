@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 
 namespace Mew.Workbench;
 
@@ -14,6 +15,7 @@ internal sealed class WorkbenchLayoutStore
     }
 
     public string FilePath { get; }
+    private string PresentationFilePath => Path.Combine(Path.GetDirectoryName(FilePath)!, "presentation.json");
 
     public string? TryLoad()
     {
@@ -45,4 +47,43 @@ internal sealed class WorkbenchLayoutStore
         {
         }
     }
+
+    public WorkbenchPresentationState? TryLoadPresentation()
+    {
+        try
+        {
+            return File.Exists(PresentationFilePath)
+                ? JsonSerializer.Deserialize<WorkbenchPresentationState>(File.ReadAllText(PresentationFilePath))
+                : null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    public void SavePresentation(WorkbenchPresentationState state)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(PresentationFilePath)!);
+            File.WriteAllText(PresentationFilePath, JsonSerializer.Serialize(state));
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
 }
+
+internal sealed record WorkbenchPresentationState(string? ActiveActivityId, bool IsSideBarVisible);

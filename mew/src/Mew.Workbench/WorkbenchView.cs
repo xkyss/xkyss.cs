@@ -45,8 +45,15 @@ internal sealed class WorkbenchView
             AddDefaultPanes(docking, theme);
         }
 
+        if (layoutStore.TryLoadPresentation() is { } presentation)
+        {
+            _workbench.RestorePresentation(presentation);
+        }
+
         docking.Changed += (_, _) => layoutStore.Save(docking.SaveLayout());
         _workbench.PresentationChanged += ApplyChromeVisibility;
+        _workbench.PresentationChanged += () => layoutStore.SavePresentation(
+            new WorkbenchPresentationState(_workbench.ActiveActivityId, _workbench.IsSideBarVisible));
         var shell = BuildShell(docking);
         ApplyChromeVisibility();
         return shell;

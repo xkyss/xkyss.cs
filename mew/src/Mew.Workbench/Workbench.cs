@@ -143,6 +143,14 @@ public sealed class Workbench
         ? null
         : _sideBar.Views.Single(view => view.Id == _activeActivityId);
 
+    internal void RestorePresentation(WorkbenchPresentationState state)
+    {
+        _activeActivityId = _activityBar.Items.Any(item => item.Id == state.ActiveActivityId)
+            ? state.ActiveActivityId
+            : _activityBar.Items.FirstOrDefault()?.Id;
+        _sideBarVisible = state.IsSideBarVisible;
+    }
+
     private void ValidateActivityContexts()
     {
         var activityIds = _activityBar.Items.Select(item => item.Id).ToList();
