@@ -8,12 +8,16 @@ namespace Mew.Workbench;
 internal sealed class WorkbenchView
 {
     private readonly Workbench _workbench;
+    private DockingManager? _docking;
 
     internal WorkbenchView(Workbench workbench) => _workbench = workbench;
+
+    internal DockingManager Docking => _docking ?? throw new InvalidOperationException("Build() 尚未调用");
 
     internal UIElement Build()
     {
         var docking = new DockingManager();
+        _docking = docking;
         var theme = _workbench.ThemeContext;
         var layoutStore = new WorkbenchLayoutStore();
 

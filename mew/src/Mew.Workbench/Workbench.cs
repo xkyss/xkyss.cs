@@ -1,4 +1,5 @@
 using Aprillz.MewUI.Controls;
+using Aprillz.MewUI.MewDock;
 
 namespace Mew.Workbench;
 
@@ -13,6 +14,7 @@ public sealed class Workbench
     private readonly BottomPanel _panel = new();
     private readonly StatusBar _statusBar = new();
     private readonly WorkbenchThemeContext _theme = new();
+    private DockingManager? _docking;
 
     public WorkbenchThemeContext ThemeContext => _theme;
 
@@ -52,7 +54,38 @@ public sealed class Workbench
         return this;
     }
 
-    public UIElement Build() => new WorkbenchView(this).Build();
+    public UIElement Build()
+    {
+        var view = new WorkbenchView(this);
+        var result = view.Build();
+        _docking = view.Docking;
+        return result;
+    }
+
+    /// <summary>
+    /// 激活(必要时先创建)编辑器区指定文档标签,供运行时按需打开文档(如设置页)。
+    /// </summary>
+    public void OpenDocument(string id)
+    {
+        if (_docking is not { } docking)
+        {
+            return;
+        }
+
+        var pane = docking.DocumentPanes.FirstOrDefault(p => p.Component == id);
+        if (pane is not null)
+        {
+            pane.Activate();
+            return;
+        }
+
+        // 持久化布局可能不含新文档(如升级引入的设置页),按注册信息补建后激活。
+        var document = _editorArea.Documents.FirstOrDefault(d => d.Id == id);
+        if (document is not null)
+        {
+            docking.AddDocumentPane(document.Title, document.Content, document.Id).Activate();
+        }
+    }
 
     internal ActivityBar ActivityBarModel => _activityBar;
 
