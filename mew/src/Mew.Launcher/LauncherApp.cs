@@ -70,7 +70,7 @@ internal sealed class LauncherApp
         TrayIcon? tray = null;
         _window = window;
 
-        BuildTitleBar(window, Quit, OpenSettings);
+        BuildTitleBar(window, Quit, OpenSettings, CycleTheme);
 
         _workbench
             .Theme(theme => theme
@@ -169,8 +169,8 @@ internal sealed class LauncherApp
         }
     }
 
-    /// <summary>标题栏:左区图标 + 菜单栏(File=设置/退出、Help=关于)、右区设置齿轮入口。</summary>
-    private static void BuildTitleBar(NativeChromeWindow window, Action quit, Action openSettings)
+    /// <summary>标题栏:左区图标 + 菜单栏(File=设置/退出、Help=关于)、右区「切换主题」按钮。</summary>
+    private static void BuildTitleBar(NativeChromeWindow window, Action quit, Action openSettings, Action cycleTheme)
     {
         var appIcon = IconResolver.ExtractIcon(Environment.ProcessPath!);
         if (appIcon is not null)
@@ -197,14 +197,26 @@ internal sealed class LauncherApp
 
         window.TitleBarLeft.Add(menuBar);
 
-        // 右区:设置入口(齿轮),与 File→设置 打开同一设置页
-        var settingsButton = new Button()
-            .Content(new Label().Text("⚙").FontSize(14))
-            .ToolTip("设置")
-            .OnClick(openSettings)
+        // 右区:切换主题按钮(循环 跟随系统/亮/暗,持久化由 ThemeModeChanged 统一处理)
+        var themeButton = new Button()
+            .Content(new Label().Text("切换主题").FontSize(12))
+            .ToolTip("切换 亮 / 暗 / 跟随系统")
+            .OnClick(cycleTheme)
             .CanDrag(false)
-            .Size(36, 28);
-        window.TitleBarRight.Add(settingsButton);
+            .Size(72, 28);
+        window.TitleBarRight.Add(themeButton);
+    }
+
+    /// <summary>循环切换主题模式(跟随系统 → 亮 → 暗),持久化由 Application.ThemeModeChanged 处理。</summary>
+    private void CycleTheme()
+    {
+        var next = _theme.Mode switch
+        {
+            ThemeVariant.System => ThemeVariant.Light,
+            ThemeVariant.Light => ThemeVariant.Dark,
+            _ => ThemeVariant.System,
+        };
+        _theme.SetMode(next);
     }
 
     private static void ShowAbout(NativeChromeWindow window)
