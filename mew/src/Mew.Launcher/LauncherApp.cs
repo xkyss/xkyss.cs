@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Mew.Workbench;
@@ -114,6 +116,7 @@ internal sealed class LauncherApp
                 app.ThemeModeChanged += PersistThemeMode;
                 app.ThemeModeChanged += SyncThemeRadios;
             }
+
         };
 
         window.NativeMessage += args =>
@@ -283,6 +286,8 @@ internal sealed class LauncherApp
             .FontSize(11)
             .WithTheme((_, label) => label.Foreground(HotkeyWarning));
 
+        var dataFilePath = _store.FilePath;
+
         return new StackPanel()
             .Padding(24)
             .Spacing(12)
@@ -303,8 +308,38 @@ internal sealed class LauncherApp
                         _hotkeyDisplay,
                         _hotkeyChangeButton
                     ),
-                _hotkeyHint
+                _hotkeyHint,
+                new Label().Text("数据文件").FontSize(14)
+                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                new StackPanel()
+                    .Orientation(Orientation.Horizontal)
+                    .Spacing(8)
+                    .Children(
+                        new Label()
+                            .Text(dataFilePath)
+                            .FontSize(12)
+                            .MaxWidth(460)
+                            .TextWrapping(TextWrapping.Wrap)
+                            .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
+                        new Button()
+                            .Content(new Label().Text("打开所在文件夹"))
+                            .ToolTip("在资源管理器中定位 launcher.json")
+                            .OnClick(() => OpenDataFolder(dataFilePath))
+                            .CanDrag(false)
+                    )
             );
+    }
+
+    /// <summary>在资源管理器中打开数据文件所在文件夹并选中该文件。</summary>
+    private static void OpenDataFolder(string filePath)
+    {
+        try
+        {
+            Process.Start("explorer.exe", $"/select,\"{filePath}\"");
+        }
+        catch (Exception ex) when (ex is Win32Exception or IOException or InvalidOperationException)
+        {
+        }
     }
 
     /// <summary>进入热键捕获模式:下一次按键组合作为新呼出热键(Esc 取消)。</summary>
