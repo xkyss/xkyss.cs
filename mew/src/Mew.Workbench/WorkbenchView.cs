@@ -9,12 +9,10 @@ internal sealed class WorkbenchView
 {
     private readonly Workbench _workbench;
     private DockingManager? _docking;
+    private WorkbenchThemeContext? _theme;
     private UIElement? _activityBar;
     private UIElement? _statusBar;
-    private DockPane? _sideBarPane;
-    private DockPane? _panelPane;
-    private (string Title, UIElement Content, DockEdge Edge, string Id)? _sideBarInfo;
-    private (string Title, UIElement Content, DockEdge Edge, string Id)? _panelInfo;
+    private bool _panelPinned = true; // 底部面板 Pin/Unpin 状态跟踪(初始假设固定显示)
 
     internal WorkbenchView(Workbench workbench) => _workbench = workbench;
 
@@ -25,6 +23,7 @@ internal sealed class WorkbenchView
         var docking = new DockingManager();
         _docking = docking;
         var theme = _workbench.ThemeContext;
+        _theme = theme;
         var layoutStore = new WorkbenchLayoutStore();
 
         docking.WithContentFactory(pane => ResolvePaneContent(pane, theme));
@@ -52,7 +51,7 @@ internal sealed class WorkbenchView
         return shell;
     }
 
-    /// <summary>应用外壳区域显隐:活动栏/状态栏直接控制;侧边栏/底部面板用 Close/重建 tool pane。</summary>
+    /// <summary>应用外壳区域显隐:活动栏/状态栏直接控制;侧边栏/底部面板按 id 查找并 Close/重建 tool pane。</summary>
     private void ApplyChromeVisibility()
     {
         if (_activityBar is not null)
@@ -65,26 +64,54 @@ internal sealed class WorkbenchView
             _statusBar.IsVisible = _workbench.IsStatusBarVisible;
         }
 
-        ApplyToolPane(ref _sideBarPane, _sideBarInfo, _workbench.IsSideBarVisible);
-        ApplyToolPane(ref _panelPane, _panelInfo, _workbench.IsPanelVisible);
+        var side = _workbench.SideBarModel.Views.FirstOrDefault();
+        if (side is not null)
+        {
+            ApplyToolPane(side.Id, side.Title, side.Content, DockEdge.Left, WorkbenchZone.SideBar, _workbench.IsSideBarVisible);
+        }
+
+        var panel = _workbench.PanelModel.Views.FirstOrDefault();
+        if (panel is not null)
+        {
+            ApplyPanelPin(panel.Id, _workbench.IsPanelVisible);
+        }
     }
 
-    private void ApplyToolPane(
-        ref DockPane? pane,
-        (string Title, UIElement Content, DockEdge Edge, string Id)? info,
-        bool visible)
+    /// <summary>底部面板显隐:与 MewDock 的 Auto Hide 行为一致——隐藏 = Unpin(收起成边缘条,悬停滑出),显示 = Pin(固定)。</summary>
+    private void ApplyPanelPin(string id, bool visible)
     {
+        var pane = _docking!.Panes.FirstOrDefault(p => p.Component == id);
+        if (pane is null || _panelPinned == visible)
+        {
+            return;
+        }
+
         if (visible)
         {
-            if (pane is null && info is { } i)
+            pane.Pin();
+        }
+        else
+        {
+            pane.Unpin();
+        }
+
+        _panelPinned = visible;
+    }
+
+    /// <summary>显示时按 id 查找(布局持久化路径下 pane 由 factory 创建,不依赖 AddDefaultPanes 缓存);隐藏时 Close。</summary>
+    private void ApplyToolPane(string id, string title, UIElement content, DockEdge edge, WorkbenchZone zone, bool visible)
+    {
+        var pane = _docking!.Panes.FirstOrDefault(p => p.Component == id);
+        if (visible)
+        {
+            if (pane is null)
             {
-                pane = _docking!.AddToolPane(i.Title, i.Content, i.Edge, i.Id);
+                _docking.AddToolPane(title, ThemedPane(content, _theme!, zone), edge, id);
             }
         }
         else
         {
             pane?.Close();
-            pane = null;
         }
     }
 
@@ -106,9 +133,7 @@ internal sealed class WorkbenchView
     {
         foreach (var view in _workbench.SideBarModel.Views)
         {
-            var pane = docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.SideBar), DockEdge.Left, view.Id);
-            _sideBarPane ??= pane;
-            _sideBarInfo ??= (view.Title, pane.Content!, DockEdge.Left, view.Id);
+            docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.SideBar), DockEdge.Left, view.Id);
         }
 
         foreach (var document in _workbench.EditorAreaModel.Documents)
@@ -118,9 +143,7 @@ internal sealed class WorkbenchView
 
         foreach (var view in _workbench.PanelModel.Views)
         {
-            var pane = docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.Panel), DockEdge.Bottom, view.Id);
-            _panelPane ??= pane;
-            _panelInfo ??= (view.Title, pane.Content!, DockEdge.Bottom, view.Id);
+            docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.Panel), DockEdge.Bottom, view.Id);
         }
     }
 
@@ -207,7 +230,12 @@ internal sealed class WorkbenchView
                             .Spacing(4)
                             .Children(mainButtons)
                             .Row(0),
-                        lastButton.Row(1)
+                        // 底部按钮与顶部同宽同留白,保证视觉对齐
+                        new StackPanel()
+                            .Width(48)
+                            .Padding(6, 8)
+                            .Children(lastButton)
+                            .Row(1)
                     )
             );
     }
@@ -216,6 +244,7 @@ internal sealed class WorkbenchView
     {
         var button = new Button()
             .Size(36, 36)
+            .Padding(0) // 清零默认内边距,避免自定义图标(如 ⚙)被内容区裁切
             .Content(item.CustomGlyph is { } custom
                 ? custom
                 : new GlyphElement()

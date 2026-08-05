@@ -323,10 +323,16 @@ internal sealed class LauncherApp
         _workbench.OpenDocument("settings");
     }
 
-    private UIElement SettingsGlyph() => new Label()
-        .Text("⚙")
-        .FontSize(14)
-        .WithTheme((_, label) => label.Foreground(_theme.ActivityBar.Foreground));
+    /// <summary>设置活动栏图标:Label 撑满按钮内容区(Padding 已清零),文本居中。</summary>
+    private UIElement SettingsGlyph() => new Label
+    {
+        Text = "⚙",
+        FontSize = 18,
+        TextAlignment = TextAlignment.Center,
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        VerticalAlignment = VerticalAlignment.Stretch,
+    }
+    .WithTheme((_, label) => label.Foreground(_theme.ActivityBar.Foreground));
 
     /// <summary>标题栏齿轮与 File→设置:切到「设置」上下文。</summary>
     private void OpenSettings() => ShowSettingsContext();
@@ -668,10 +674,6 @@ internal sealed class LauncherApp
             .Padding(12)
             .Spacing(6)
             .Children(
-                new Label()
-                    .Text("启动项")
-                    .FontSize(12)
-                    .WithTheme((_, label) => label.Foreground(_theme.SideBar.Foreground)),
                 searchBox,
                 tree
             );
