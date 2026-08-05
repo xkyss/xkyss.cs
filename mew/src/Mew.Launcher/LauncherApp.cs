@@ -12,7 +12,7 @@ namespace Mew.Launcher;
 /// </summary>
 internal sealed class LauncherApp
 {
-    private const string AppVersion = "v0.1.3";
+    private const string AppVersion = "v0.1.4";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
