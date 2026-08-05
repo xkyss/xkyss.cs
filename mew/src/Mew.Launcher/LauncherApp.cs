@@ -71,7 +71,7 @@ internal sealed class LauncherApp
         TrayIcon? tray = null;
         _window = window;
 
-        _titleThemeButton = BuildTitleBar(window, Quit, OpenSettings, CycleTheme);
+        _titleThemeButton = BuildTitleBar(window, Quit, OpenSettings, CycleTheme, _workbench);
         UpdateThemeButton(); // 初始图标/提示跟随已加载的主题模式
 
         _workbench
@@ -172,8 +172,8 @@ internal sealed class LauncherApp
         }
     }
 
-    /// <summary>标题栏:左区图标 + 菜单栏(File=设置/退出、Help=关于)、右区「切换主题」图标按钮。</summary>
-    private static Button BuildTitleBar(NativeChromeWindow window, Action quit, Action openSettings, Action cycleTheme)
+    /// <summary>标题栏:左区图标 + 菜单栏(File=设置/退出、View=区域显隐、Help=关于)、右区「切换主题」图标按钮。</summary>
+    private static Button BuildTitleBar(NativeChromeWindow window, Action quit, Action openSettings, Action cycleTheme, WorkbenchType workbench)
     {
         var appIcon = IconResolver.ExtractIcon(Environment.ProcessPath!);
         if (appIcon is not null)
@@ -194,6 +194,7 @@ internal sealed class LauncherApp
                         .Item("设置", openSettings)
                         .Separator()
                         .Item("退出", quit)),
+                new MenuItem("_View").Menu(BuildViewMenu(workbench)),
                 new MenuItem("_Help").Menu(
                     new Menu().Item("关于", () => ShowAbout(window)))
             );
@@ -209,6 +210,26 @@ internal sealed class LauncherApp
             .Size(36, 28);
         window.TitleBarRight.Add(themeButton);
         return themeButton;
+    }
+
+    /// <summary>查看菜单:显示/隐藏 侧边栏、底部面板、活动栏、状态栏;菜单项文本随当前显隐状态反转。</summary>
+    private static Menu BuildViewMenu(WorkbenchType workbench) => new Menu()
+        .Add(ViewToggleItem(workbench, workbench.ToggleSideBar, () => workbench.IsSideBarVisible, "侧边栏"))
+        .Add(ViewToggleItem(workbench, workbench.TogglePanel, () => workbench.IsPanelVisible, "底部面板"))
+        .Add(ViewToggleItem(workbench, workbench.ToggleActivityBar, () => workbench.IsActivityBarVisible, "活动栏"))
+        .Add(ViewToggleItem(workbench, workbench.ToggleStatusBar, () => workbench.IsStatusBarVisible, "状态栏"));
+
+    /// <summary>构造「(显示/隐藏)xx」菜单项:文本反映当前状态,点击切换后文本反转。</summary>
+    private static MenuItem ViewToggleItem(WorkbenchType workbench, Action toggle, Func<bool> isVisible, string label)
+    {
+        var item = new MenuItem("");
+        item.Click = () =>
+        {
+            toggle();
+            item.Text = isVisible() ? $"隐藏{label}" : $"显示{label}";
+        };
+        item.Text = isVisible() ? $"隐藏{label}" : $"显示{label}";
+        return item;
     }
 
     /// <summary>循环切换主题模式(跟随系统 → 亮 → 暗),持久化与标题栏图标由 ThemeModeChanged 统一处理。</summary>

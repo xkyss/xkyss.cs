@@ -9,6 +9,12 @@ internal sealed class WorkbenchView
 {
     private readonly Workbench _workbench;
     private DockingManager? _docking;
+    private UIElement? _activityBar;
+    private UIElement? _statusBar;
+    private DockPane? _sideBarPane;
+    private DockPane? _panelPane;
+    private (string Title, UIElement Content, DockEdge Edge, string Id)? _sideBarInfo;
+    private (string Title, UIElement Content, DockEdge Edge, string Id)? _panelInfo;
 
     internal WorkbenchView(Workbench workbench) => _workbench = workbench;
 
@@ -40,24 +46,69 @@ internal sealed class WorkbenchView
         }
 
         docking.Changed += (_, _) => layoutStore.Save(docking.SaveLayout());
-
-        return BuildShell(docking);
+        _workbench.ChromeChanged += ApplyChromeVisibility;
+        var shell = BuildShell(docking);
+        ApplyChromeVisibility();
+        return shell;
     }
 
-    private UIElement BuildShell(DockingManager docking) => new Grid()
-        .Rows("*,Auto")
-        .Columns("Auto,*")
-        .Children(
-            BuildActivityBar().Row(0).Column(0),
-            docking.Row(0).Column(1),
-            BuildStatusBar().Row(1).Column(0).ColumnSpan(2)
-        );
+    /// <summary>应用外壳区域显隐:活动栏/状态栏直接控制;侧边栏/底部面板用 Close/重建 tool pane。</summary>
+    private void ApplyChromeVisibility()
+    {
+        if (_activityBar is not null)
+        {
+            _activityBar.IsVisible = _workbench.IsActivityBarVisible;
+        }
+
+        if (_statusBar is not null)
+        {
+            _statusBar.IsVisible = _workbench.IsStatusBarVisible;
+        }
+
+        ApplyToolPane(ref _sideBarPane, _sideBarInfo, _workbench.IsSideBarVisible);
+        ApplyToolPane(ref _panelPane, _panelInfo, _workbench.IsPanelVisible);
+    }
+
+    private void ApplyToolPane(
+        ref DockPane? pane,
+        (string Title, UIElement Content, DockEdge Edge, string Id)? info,
+        bool visible)
+    {
+        if (visible)
+        {
+            if (pane is null && info is { } i)
+            {
+                pane = _docking!.AddToolPane(i.Title, i.Content, i.Edge, i.Id);
+            }
+        }
+        else
+        {
+            pane?.Close();
+            pane = null;
+        }
+    }
+
+    private UIElement BuildShell(DockingManager docking)
+    {
+        _activityBar = BuildActivityBar();
+        _statusBar = BuildStatusBar();
+        return new Grid()
+            .Rows("*,Auto")
+            .Columns("Auto,*")
+            .Children(
+                _activityBar.Row(0).Column(0),
+                docking.Row(0).Column(1),
+                _statusBar.Row(1).Column(0).ColumnSpan(2)
+            );
+    }
 
     private void AddDefaultPanes(DockingManager docking, WorkbenchThemeContext theme)
     {
         foreach (var view in _workbench.SideBarModel.Views)
         {
-            docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.SideBar), DockEdge.Left, view.Id);
+            var pane = docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.SideBar), DockEdge.Left, view.Id);
+            _sideBarPane ??= pane;
+            _sideBarInfo ??= (view.Title, pane.Content!, DockEdge.Left, view.Id);
         }
 
         foreach (var document in _workbench.EditorAreaModel.Documents)
@@ -67,7 +118,9 @@ internal sealed class WorkbenchView
 
         foreach (var view in _workbench.PanelModel.Views)
         {
-            docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.Panel), DockEdge.Bottom, view.Id);
+            var pane = docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.Panel), DockEdge.Bottom, view.Id);
+            _panelPane ??= pane;
+            _panelInfo ??= (view.Title, pane.Content!, DockEdge.Bottom, view.Id);
         }
     }
 

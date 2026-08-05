@@ -15,6 +15,23 @@ public sealed class Workbench
     private readonly StatusBar _statusBar = new();
     private readonly WorkbenchThemeContext _theme = new();
     private DockingManager? _docking;
+    private bool _activityBarVisible = true;
+    private bool _sideBarVisible = true;
+    private bool _panelVisible = true;
+    private bool _statusBarVisible = true;
+
+    /// <summary>外壳区域显隐变更通知(WorkbenchView 订阅后应用 IsVisible)。</summary>
+    internal event Action? ChromeChanged;
+
+    public bool IsActivityBarVisible => _activityBarVisible;
+    public bool IsSideBarVisible => _sideBarVisible;
+    public bool IsPanelVisible => _panelVisible;
+    public bool IsStatusBarVisible => _statusBarVisible;
+
+    public void ToggleActivityBar() { _activityBarVisible = !_activityBarVisible; ChromeChanged?.Invoke(); }
+    public void ToggleSideBar() { _sideBarVisible = !_sideBarVisible; ChromeChanged?.Invoke(); }
+    public void TogglePanel() { _panelVisible = !_panelVisible; ChromeChanged?.Invoke(); }
+    public void ToggleStatusBar() { _statusBarVisible = !_statusBarVisible; ChromeChanged?.Invoke(); }
 
     public WorkbenchThemeContext ThemeContext => _theme;
 
