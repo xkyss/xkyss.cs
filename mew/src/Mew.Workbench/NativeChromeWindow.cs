@@ -153,11 +153,13 @@ public sealed class NativeChromeWindow : Window
 
         // 0.19.1 对窗口模板(chrome)内容的主题重绘存在缺陷:运行时切主题后图标/菜单/标题可能不再重绘,
         // 强制整窗失效以触发重渲染。
+        // 注意:不能用 PerformLayout() 代替——它内部 ApplyTemplate() 会重建模板根,使整个内容树(含
+        // MewDock 的 FlexTabSetView)经历视觉根移除→ReleaseContent() 置空 _content,之后不再重新解析,
+        // 导致已打开的文档内容区(如设置页)在切主题后变空白(需要切走/切回 tab 才恢复)。
         Invalidate();
         InvalidateVisual();
         InvalidateMeasure();
         InvalidateArrange();
-        PerformLayout();
     }
 
     /// <summary>标题栏左区注入点(如图标、菜单栏)。</summary>
@@ -273,15 +275,28 @@ public sealed class NativeChromeWindow : Window
             ? palette.ControlBorder.Lerp(palette.Accent, 0.3)
             : palette.ControlBorder;
 
+        // 不调用 base.OnThemeChanged(避免模板重建摘掉内容树)时,窗口自身的主题化属性不会自动更新,
+        // 需手动同步:标题栏背景绑定窗口 Background,故此处显式设置主题窗口背景。
+        Background = palette.WindowBackground;
         BorderBrush = accentBorder;
         _titleText.Foreground = IsActive ? palette.WindowText : palette.DisabledText;
     }
 
     protected override void OnThemeChanged(Theme oldTheme, Theme newTheme)
     {
-        base.OnThemeChanged(oldTheme, newTheme);
+        // 0.19.1 的 Control.OnThemeChanged 会把窗口模板标记为 theme-stale,下一次布局时 ApplyTemplate()
+        // 会 DetachTemplateInstance() 重建模板根——整个内容树(含宿主 Content 里的 MewDock FlexTabSetView)
+        // 被摘下,tabset 的 _content 经 ReleaseContent() 置空后不再重新解析,导致已打开的文档内容区
+        // (如设置页)在切主题后空白(需切走/切回 tab 才恢复)。故此处不调用 base,模板保持不重建;
+        // 子元素各自的 OnThemeChanged 仍会重解析样式,配合下方 Invalidate* 强制整窗重绘,chrome
+        // 配色与图标/菜单/标题随主题更新。
         _theme = newTheme;
         UpdateChromeAppearance();
+
+        Invalidate();
+        InvalidateVisual();
+        InvalidateMeasure();
+        InvalidateArrange();
     }
 
     private void UpdateChromeButtonVisibility()
