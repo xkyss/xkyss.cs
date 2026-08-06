@@ -151,11 +151,9 @@ internal sealed class WorkbenchView
         var pane = _docking!.Panes.FirstOrDefault(p => p.Component == id);
         if (visible)
         {
-            if (pane is null)
-            {
-                pane = _docking.AddToolPane(title, ThemedPane(content, _theme!, zone), edge, id);
-            }
-
+            // 已保存的布局可让 pane 存在却隐藏其边框；重建当前窗格才能保证它与活动栏上下文同步可见。
+            pane?.Close();
+            pane = _docking.AddToolPane(title, ThemedPane(content, _theme!, zone), edge, id);
             pane.Activate();
         }
         else

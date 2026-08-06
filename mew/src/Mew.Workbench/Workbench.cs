@@ -36,6 +36,9 @@ public sealed class Workbench
     public void TogglePanel() { _panelVisible = !_panelVisible; PresentationChanged?.Invoke(); }
     public void ToggleStatusBar() { _statusBarVisible = !_statusBarVisible; PresentationChanged?.Invoke(); }
 
+    /// <summary>在宿主窗口挂载后重新应用当前工作台展示状态。</summary>
+    public void RefreshPresentation() => PresentationChanged?.Invoke();
+
     /// <summary>
     /// 选择活动栏上下文。选择当前项时切换侧边栏显隐；选择其他项时显示其唯一对应的侧边栏视图。
     /// </summary>

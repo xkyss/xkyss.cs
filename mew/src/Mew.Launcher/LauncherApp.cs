@@ -112,6 +112,8 @@ internal sealed class LauncherApp
 
         window.Loaded += () =>
         {
+            _workbench.RefreshPresentation();
+
             if (!GlobalHotkey.Register(window.Handle, _overlayHotkey))
             {
                 AppendLog($"⚠ 呼出热键 {_overlayHotkey} 注册失败(可能已被其他程序占用)");
