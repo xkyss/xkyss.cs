@@ -108,12 +108,14 @@ internal sealed class WorkbenchView
             return;
         }
 
+        // 先确保目标 pane 存在,再关闭其他 view 的 pane:保证 Left border 始终至少保留一个 tab,
+        // border 不会随 Close 销毁——手动调整的侧边栏宽度得以保留。
+        ApplyToolPane(side.Id, side.Title, side.Content, DockEdge.Left, WorkbenchZone.SideBar, true);
+
         foreach (var view in _workbench.SideBarModel.Views.Where(view => view.Id != side.Id))
         {
             _docking!.Panes.FirstOrDefault(pane => pane.Component == view.Id)?.Close();
         }
-
-        ApplyToolPane(side.Id, side.Title, side.Content, DockEdge.Left, WorkbenchZone.SideBar, true);
     }
 
     private void ApplyActivitySelection()
@@ -153,9 +155,13 @@ internal sealed class WorkbenchView
         var pane = _docking!.Panes.FirstOrDefault(p => p.Component == id);
         if (visible)
         {
-            // 已保存的布局可让 pane 存在却隐藏其边框；重建当前窗格才能保证它与活动栏上下文同步可见。
-            pane?.Close();
-            pane = _docking.AddToolPane(title, ThemedPane(content, _theme!, zone), edge, id);
+            // pane 已存在时直接激活,不 Close+Add 重建:重建会新建 border,丢失手动调整的宽度。
+            // 布局持久化后 pane 存在却隐藏边框的情形,Activate 同样使其恢复可见。
+            if (pane is null)
+            {
+                pane = _docking.AddToolPane(title, ThemedPane(content, _theme!, zone), edge, id);
+            }
+
             pane.Activate();
         }
         else
