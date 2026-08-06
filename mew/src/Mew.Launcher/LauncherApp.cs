@@ -846,6 +846,7 @@ internal sealed class LauncherApp
         if (item is CategoryTreeNode node)
         {
             ShowNav(node.Id);
+            _workbench.OpenDocument("items");
         }
     }
 
