@@ -188,12 +188,21 @@ public sealed class Workbench
     {
         var activityIds = _activityBar.Items.Select(item => item.Id).ToList();
         var sideBarIds = _sideBar.Views.Select(view => view.Id).ToList();
+        var dockComponentIds = sideBarIds
+            .Concat(_editorArea.Documents.Select(document => document.Id))
+            .Concat(_panel.Views.Select(view => view.Id))
+            .ToList();
 
         if (activityIds.Count != activityIds.Distinct(StringComparer.Ordinal).Count()
             || sideBarIds.Count != sideBarIds.Distinct(StringComparer.Ordinal).Count()
             || !activityIds.Order(StringComparer.Ordinal).SequenceEqual(sideBarIds.Order(StringComparer.Ordinal)))
         {
             throw new InvalidOperationException("活动栏项必须与侧边栏视图按唯一 ID 一对一配对。");
+        }
+
+        if (dockComponentIds.Count != dockComponentIds.Distinct(StringComparer.Ordinal).Count())
+        {
+            throw new InvalidOperationException("侧边栏、编辑器区与底部面板的停靠组件 ID 必须全局唯一。");
         }
     }
 

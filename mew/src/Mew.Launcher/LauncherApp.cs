@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Icon = System.Drawing.Icon;
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
@@ -17,6 +19,7 @@ internal sealed class LauncherApp
     private const string AppVersion = "v0.1.4";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private const string RevealDocumentHotkey = "Ctrl+Alt+R";
+    private const string SettingsDocumentId = "settings-document";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
@@ -94,7 +97,7 @@ internal sealed class LauncherApp
             .EditorArea(editor => editor
                 .Document("items", "启动项", BuildItemsDocument())
                 .Document("detail", "启动项详情", _detailPanel)
-                .Document("settings", "设置", BuildSettingsDocument()))
+                .Document(SettingsDocumentId, "设置", BuildSettingsDocument()))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
                 .Item("launch", _launchStatus)
@@ -102,6 +105,7 @@ internal sealed class LauncherApp
 
         ShowNav(_navId);
         ShowEmptyDetail();
+        MigrateLegacySettingsDocumentLayout();
 
         window.Content = _workbench.Build();
 
@@ -333,7 +337,68 @@ internal sealed class LauncherApp
     private void OpenSettings()
     {
         _workbench.SelectActivity("settings");
-        _workbench.OpenDocument("settings");
+        _workbench.OpenDocument(SettingsDocumentId);
+    }
+
+    /// <summary>
+    /// 将旧布局中央区域里与设置侧边栏共用的 <c>settings</c> 组件迁移为独立的设置文档 ID。
+    /// 仅修改中央布局树，侧边栏边框中的同名组件保持不变。
+    /// </summary>
+    private static void MigrateLegacySettingsDocumentLayout()
+    {
+        var layoutPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mew", "layout.json");
+
+        try
+        {
+            if (!File.Exists(layoutPath))
+            {
+                return;
+            }
+
+            var root = JsonNode.Parse(File.ReadAllText(layoutPath))?.AsObject();
+            if (root is null || !MigrateLegacySettingsDocumentComponent(root["layout"]))
+            {
+                return;
+            }
+
+            File.WriteAllText(layoutPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        catch (JsonException)
+        {
+        }
+    }
+
+    private static bool MigrateLegacySettingsDocumentComponent(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+        {
+            var changed = obj["component"]?.GetValue<string>() == "settings";
+            if (changed)
+            {
+                obj["component"] = SettingsDocumentId;
+            }
+
+            foreach (var child in obj)
+            {
+                changed |= MigrateLegacySettingsDocumentComponent(child.Value);
+            }
+
+            return changed;
+        }
+
+        if (node is JsonArray array)
+        {
+            return array.Any(MigrateLegacySettingsDocumentComponent);
+        }
+
+        return false;
     }
 
     private void ApplyWindowIcon(Window window)
@@ -406,6 +471,8 @@ internal sealed class LauncherApp
     private void ShowSettingsNav(string id)
     {
         _settingsNav = id;
+        // 设置分类是侧边栏到编辑器区的导航，选择时确保对应文档可见。
+        _workbench.OpenDocument(SettingsDocumentId);
         if (_settingsContent is not { } content)
         {
             return;
