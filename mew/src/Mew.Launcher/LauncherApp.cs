@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
+using Icon = System.Drawing.Icon;
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Mew.Workbench;
@@ -22,6 +24,7 @@ internal sealed class LauncherApp
     private readonly ObservableValue<string> _hotkeyStatus;
     private string _overlayHotkey;
     private Window? _window;
+    private Icon? _windowIcon;
     private bool _capturingHotkey;
     private Button? _hotkeyChangeButton;
     private Button? _titleThemeButton;
@@ -113,6 +116,7 @@ internal sealed class LauncherApp
         window.Loaded += () =>
         {
             _workbench.RefreshPresentation();
+            ApplyWindowIcon(window);
 
             if (!GlobalHotkey.Register(window.Handle, _overlayHotkey))
             {
@@ -162,6 +166,7 @@ internal sealed class LauncherApp
         };
 
         Application.Run(window);
+        _windowIcon?.Dispose();
 
         void ShowMain()
         {
@@ -184,8 +189,8 @@ internal sealed class LauncherApp
         {
             window.TitleBarLeft.Add(new Image()
                 .Source(appIcon)
-                .Size(16, 16)
-                .Margin(new Thickness(8, 0, 4, 0)));
+                .Size(20, 20)
+                .Margin(new Thickness(6, 0, 6, 0)));
         }
 
         var menuBar = new MenuBar()
@@ -330,6 +335,25 @@ internal sealed class LauncherApp
         _workbench.SelectActivity("settings");
         _workbench.OpenDocument("settings");
     }
+
+    private void ApplyWindowIcon(Window window)
+    {
+        _windowIcon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!);
+        if (_windowIcon is null)
+        {
+            return;
+        }
+
+        SendMessage(window.Handle, WmSetIcon, IconSmall, _windowIcon.Handle);
+        SendMessage(window.Handle, WmSetIcon, IconBig, _windowIcon.Handle);
+    }
+
+    private const uint WmSetIcon = 0x0080;
+    private static readonly IntPtr IconSmall = IntPtr.Zero;
+    private static readonly IntPtr IconBig = new(1);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     /// <summary>窗口内快捷键:定位当前启动项详情所属的侧边栏分类。</summary>
     private void OnWindowKeyDown(KeyEventArgs e)

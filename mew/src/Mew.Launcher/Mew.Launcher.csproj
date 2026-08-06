@@ -9,6 +9,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>Mew.Launcher</RootNamespace>
     <AssemblyName>Mew.Launcher</AssemblyName>
+    <ApplicationIcon>..\..\assets\mew-launcher-icon.ico</ApplicationIcon>
     <MewUIBackend>Direct2D</MewUIBackend>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <PublishAot>true</PublishAot>
