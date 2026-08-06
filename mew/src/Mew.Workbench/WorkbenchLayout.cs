@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Mew.Workbench;
 
@@ -53,7 +54,7 @@ internal sealed class WorkbenchLayoutStore
         try
         {
             return File.Exists(PresentationFilePath)
-                ? JsonSerializer.Deserialize<WorkbenchPresentationState>(File.ReadAllText(PresentationFilePath))
+                ? JsonSerializer.Deserialize(File.ReadAllText(PresentationFilePath), WorkbenchJsonContext.Default.WorkbenchPresentationState)
                 : null;
         }
         catch (IOException)
@@ -75,7 +76,7 @@ internal sealed class WorkbenchLayoutStore
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(PresentationFilePath)!);
-            File.WriteAllText(PresentationFilePath, JsonSerializer.Serialize(state));
+            File.WriteAllText(PresentationFilePath, JsonSerializer.Serialize(state, WorkbenchJsonContext.Default.WorkbenchPresentationState));
         }
         catch (IOException)
         {
@@ -87,3 +88,6 @@ internal sealed class WorkbenchLayoutStore
 }
 
 internal sealed record WorkbenchPresentationState(string? ActiveActivityId, bool IsSideBarVisible);
+
+[JsonSerializable(typeof(WorkbenchPresentationState))]
+internal sealed partial class WorkbenchJsonContext : JsonSerializerContext;
