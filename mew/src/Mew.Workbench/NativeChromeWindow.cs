@@ -268,7 +268,10 @@ public sealed class NativeChromeWindow : Window
     private void UpdateChromeAppearance()
     {
         var palette = CurrentTheme().Palette;
-        var accentBorder = IsActive ? palette.Accent : palette.ControlBorder;
+        // 焦点边框用 ControlBorder 与 Accent 低比例混合:保留激活/失焦区分,避免纯强调色边框过于醒目
+        var accentBorder = IsActive
+            ? palette.ControlBorder.Lerp(palette.Accent, 0.3)
+            : palette.ControlBorder;
 
         BorderBrush = accentBorder;
         _titleText.Foreground = IsActive ? palette.WindowText : palette.DisabledText;

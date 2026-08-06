@@ -1,6 +1,7 @@
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.MewDock;
+using System.Reflection;
 using System.Text.Json;
 
 namespace Mew.Workbench;
@@ -63,6 +64,7 @@ internal sealed class WorkbenchView
             new WorkbenchPresentationState(_workbench.ActiveActivityId, _workbench.IsSideBarVisible));
         var shell = BuildShell(docking);
         ApplyChromeVisibility();
+        SoftenDockFocusBorders(docking);
         return shell;
     }
 
@@ -160,6 +162,72 @@ internal sealed class WorkbenchView
         {
             pane?.Close();
         }
+    }
+
+    private static readonly MethodInfo DefineStyleRule = typeof(StyleSheet)
+        .GetMethods()
+        .FirstOrDefault(m => m.Name == nameof(StyleSheet.Define)
+            && m.IsGenericMethodDefinition
+            && m.GetParameters() is [{ ParameterType: var p }] && p == typeof(Style))
+        ?? throw new MissingMethodException(nameof(StyleSheet), nameof(StyleSheet.Define));
+
+    /// <summary>编辑器区 tabset:默认边框 + Focused 时改为 30% 强调色混合(原 75%)。</summary>
+    private static Style CreateSoftFocusTabSetStyle(Type type) => new(type)
+    {
+        Transitions = [Transition.Create(Control.BorderBrushProperty, 200, t => t)],
+        Setters =
+        [
+            Setter.Create(Control.BackgroundProperty, t => t.Palette.ContainerBackground),
+            Setter.Create(Control.BorderBrushProperty, t => t.Palette.ControlBorder),
+            Setter.Create(Control.CornerRadiusProperty, t => t.Metrics.ControlCornerRadius),
+            Setter.Create(Control.BorderThicknessProperty, t => t.Metrics.ControlBorderThickness),
+        ],
+        Triggers = [SoftFocusTrigger()],
+    };
+
+    /// <summary>侧边栏(ExtendedBorderBar):默认边框 + Focused 时改为 30% 强调色混合(原 75%)。</summary>
+    private static Style CreateSoftFocusBorderBarStyle(Type type) => new(type)
+    {
+        Transitions = [Transition.Create(Control.BorderBrushProperty, 200, t => t)],
+        Setters = [Setter.Create(Control.BorderBrushProperty, t => t.Palette.ControlBorder)],
+        Triggers = [SoftFocusTrigger()],
+    };
+
+    private static StateTrigger SoftFocusTrigger() => new()
+    {
+        Match = VisualStateFlags.Focused,
+        Setters =
+        [
+            Setter.Create(Control.BorderBrushProperty, t => t.Palette.ControlBorder.Lerp(t.Palette.Accent, 0.3)),
+        ],
+    };
+
+    /// <summary>
+    /// MewDock 内置 DockStyles 把焦点(tabset / 侧边栏)边框画成 ControlBorder→Accent 75% 混合,过于醒目。
+    /// FlexLayoutView 的 StyleSheet 按类型注册 rule 且 GetByType 从后往前匹配——向其中追加覆盖 rule 即可
+    /// 弱化焦点边框(与 NativeChromeWindow 的 30% 混合保持一致)。
+    /// 目标控件类型在 MewDock 中是 internal,无法静态引用,故经反射按名解析类型。
+    /// </summary>
+    private static void SoftenDockFocusBorders(DockingManager docking)
+    {
+        if (docking.Children.FirstOrDefault() is not FrameworkElement { StyleSheet: { } sheet })
+        {
+            return;
+        }
+
+        var assembly = typeof(DockingManager).Assembly;
+        OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Controls.FlexTabSetView", CreateSoftFocusTabSetStyle);
+        OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Extended.ExtendedBorderBar", CreateSoftFocusBorderBarStyle);
+    }
+
+    private static void OverrideStyle(Assembly assembly, StyleSheet sheet, string typeName, Func<Type, Style> factory)
+    {
+        if (assembly.GetType(typeName) is not { } type)
+        {
+            return;
+        }
+
+        DefineStyleRule.MakeGenericMethod(type).Invoke(sheet, [factory(type)]);
     }
 
     private UIElement BuildShell(DockingManager docking)
