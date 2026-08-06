@@ -152,14 +152,16 @@ public sealed class NativeChromeWindow : Window
         UpdateChromeAppearance();
 
         // 0.19.1 对窗口模板(chrome)内容的主题重绘存在缺陷:运行时切主题后图标/菜单/标题可能不再重绘,
-        // 强制整窗失效以触发重渲染。
-        // 注意:不能用 PerformLayout() 代替——它内部 ApplyTemplate() 会重建模板根,使整个内容树(含
-        // MewDock 的 FlexTabSetView)经历视觉根移除→ReleaseContent() 置空 _content,之后不再重新解析,
-        // 导致已打开的文档内容区(如设置页)在切主题后变空白(需要切走/切回 tab 才恢复)。
+        // 强制整窗失效并整窗重排(PerformLayout)以触发重渲染。
+        // OnThemeChanged 已不再调用 base(避免模板被标记 theme-stale),故 PerformLayout 内的
+        // ApplyTemplate 不会 DetachTemplateInstance,内容树(含 MewDock FlexTabSetView)保持不动;
+        // 全量 measure/arrange 会让各 Control 重解析样式并刷新继承值,使未显式 WithTheme 的默认文本
+        // (单选标签、标题栏菜单等)也随主题更新颜色。
         Invalidate();
         InvalidateVisual();
         InvalidateMeasure();
         InvalidateArrange();
+        PerformLayout();
     }
 
     /// <summary>标题栏左区注入点(如图标、菜单栏)。</summary>
@@ -276,8 +278,10 @@ public sealed class NativeChromeWindow : Window
             : palette.ControlBorder;
 
         // 不调用 base.OnThemeChanged(避免模板重建摘掉内容树)时,窗口自身的主题化属性不会自动更新,
-        // 需手动同步:标题栏背景绑定窗口 Background,故此处显式设置主题窗口背景。
+        // 需手动同步:标题栏背景绑定窗口 Background;菜单等 chrome 文本继承窗口 Foreground,
+        // 故背景与前景都按主题显式设置。
         Background = palette.WindowBackground;
+        Foreground = palette.WindowText;
         BorderBrush = accentBorder;
         _titleText.Foreground = IsActive ? palette.WindowText : palette.DisabledText;
     }
@@ -288,8 +292,7 @@ public sealed class NativeChromeWindow : Window
         // 会 DetachTemplateInstance() 重建模板根——整个内容树(含宿主 Content 里的 MewDock FlexTabSetView)
         // 被摘下,tabset 的 _content 经 ReleaseContent() 置空后不再重新解析,导致已打开的文档内容区
         // (如设置页)在切主题后空白(需切走/切回 tab 才恢复)。故此处不调用 base,模板保持不重建;
-        // 子元素各自的 OnThemeChanged 仍会重解析样式,配合下方 Invalidate* 强制整窗重绘,chrome
-        // 配色与图标/菜单/标题随主题更新。
+        // 子元素各自的 OnThemeChanged 仍会重解析样式;PerformLayout 做全量重排以刷新继承颜色。
         _theme = newTheme;
         UpdateChromeAppearance();
 
@@ -297,6 +300,7 @@ public sealed class NativeChromeWindow : Window
         InvalidateVisual();
         InvalidateMeasure();
         InvalidateArrange();
+        PerformLayout();
     }
 
     private void UpdateChromeButtonVisibility()
