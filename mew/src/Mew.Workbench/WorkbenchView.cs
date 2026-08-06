@@ -410,6 +410,7 @@ internal sealed class WorkbenchView
             .WithTheme((_, border) => border.Background(theme.StatusBar.Background))
             .Child(
                 new StackPanel()
+                    .Orientation(Orientation.Horizontal)
                     .Padding(10, 6)
                     .Spacing(16)
                     .Children(children)
