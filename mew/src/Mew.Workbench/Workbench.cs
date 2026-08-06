@@ -15,6 +15,7 @@ public sealed class Workbench
     private readonly StatusBar _statusBar = new();
     private readonly WorkbenchThemeContext _theme = new();
     private DockingManager? _docking;
+    private WorkbenchView? _view;
     private bool _activityBarVisible = true;
     private bool _sideBarVisible = true;
     private bool _panelVisible = true;
@@ -105,6 +106,7 @@ public sealed class Workbench
         var view = new WorkbenchView(this);
         var result = view.Build();
         _docking = view.Docking;
+        _view = view;
         return result;
     }
 
@@ -126,10 +128,12 @@ public sealed class Workbench
         }
 
         // 持久化布局可能不含新文档(如升级引入的设置页),按注册信息补建后激活。
+        // 显式内容必须与 ContentFactory 解析到同一实例(EditorPaneContent),否则 MewDock
+        // SyncContent 会在显式内容与 factory 内容实例不一致时分离内容且无法重新挂接,导致 tab 空白。
         var document = _editorArea.Documents.FirstOrDefault(d => d.Id == id);
         if (document is not null)
         {
-            docking.AddDocumentPane(document.Title, document.Content, document.Id).Activate();
+            docking.AddDocumentPane(document.Title, _view!.EditorPaneContent(id), document.Id).Activate();
         }
     }
 

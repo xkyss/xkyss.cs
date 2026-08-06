@@ -14,6 +14,10 @@ internal sealed class WorkbenchView
     private UIElement? _activityBar;
     private UIElement? _statusBar;
     private readonly Dictionary<string, Button> _activityButtons = [];
+    // 每个停靠组件的主题化内容单一实例:布局恢复(ContentFactory)、默认面板与运行时打开(OpenDocument)
+    // 必须解析到同一个实例。MewDock 的 SyncContent 在显式内容与 factory 内容实例不一致时会分离旧内容,
+    // 而共享子元素(如设置文档的 StackPanel)的 Parent 仍指向已分离的旧包装,导致其无法重新挂接、tab 空白。
+    private readonly Dictionary<string, UIElement> _paneContents = [];
     private bool _panelPinned = true; // 底部面板 Pin/Unpin 状态跟踪(初始假设固定显示)
 
     internal WorkbenchView(Workbench workbench) => _workbench = workbench;
@@ -159,7 +163,7 @@ internal sealed class WorkbenchView
             // 布局持久化后 pane 存在却隐藏边框的情形,Activate 同样使其恢复可见。
             if (pane is null)
             {
-                pane = _docking.AddToolPane(title, ThemedPane(content, _theme!, zone), edge, id);
+                pane = _docking.AddToolPane(title, PaneContent(id, content, zone), edge, id);
             }
 
             pane.Activate();
@@ -168,6 +172,29 @@ internal sealed class WorkbenchView
         {
             pane?.Close();
         }
+    }
+
+    /// <summary>
+    /// 返回停靠组件的主题化内容单一实例,并在首次访问时缓存。所有内容解析路径(factory 恢复、默认面板、
+    /// 运行时打开)共用缓存,保证 MewDock 的显式内容(_explicitContent)与 ContentFactory 解析结果是同一实例,
+    /// 避免 SyncContent 因实例不一致而分离内容后无法重新挂接(共享子元素的 Parent 仍指向旧包装)。
+    /// </summary>
+    private UIElement PaneContent(string id, UIElement content, WorkbenchZone zone)
+    {
+        if (_paneContents.TryGetValue(id, out var cached))
+        {
+            return cached;
+        }
+
+        return _paneContents[id] = ThemedPane(content, _theme!, zone);
+    }
+
+    /// <summary>运行时打开编辑器文档时使用的主题化内容:与布局恢复路径解析到的实例一致。</summary>
+    internal UIElement EditorPaneContent(string id)
+    {
+        var document = _workbench.EditorAreaModel.Documents.FirstOrDefault(d => d.Id == id)
+            ?? throw new ArgumentException($"不存在编辑器文档“{id}”。", nameof(id));
+        return PaneContent(id, document.Content, WorkbenchZone.EditorArea);
     }
 
     private static readonly MethodInfo DefineStyleRule = typeof(StyleSheet)
@@ -254,17 +281,17 @@ internal sealed class WorkbenchView
     {
         foreach (var view in _workbench.SideBarModel.Views)
         {
-            docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.SideBar), DockEdge.Left, view.Id);
+            docking.AddToolPane(view.Title, PaneContent(view.Id, view.Content, WorkbenchZone.SideBar), DockEdge.Left, view.Id);
         }
 
         foreach (var document in _workbench.EditorAreaModel.Documents)
         {
-            docking.AddDocumentPane(document.Title, ThemedPane(document.Content, theme, WorkbenchZone.EditorArea), document.Id);
+            docking.AddDocumentPane(document.Title, PaneContent(document.Id, document.Content, WorkbenchZone.EditorArea), document.Id);
         }
 
         foreach (var view in _workbench.PanelModel.Views)
         {
-            docking.AddToolPane(view.Title, ThemedPane(view.Content, theme, WorkbenchZone.Panel), DockEdge.Bottom, view.Id);
+            docking.AddToolPane(view.Title, PaneContent(view.Id, view.Content, WorkbenchZone.Panel), DockEdge.Bottom, view.Id);
         }
     }
 
@@ -279,7 +306,7 @@ internal sealed class WorkbenchView
         {
             if (view.Id == id)
             {
-                return ThemedPane(view.Content, theme, WorkbenchZone.SideBar);
+                return PaneContent(view.Id, view.Content, WorkbenchZone.SideBar);
             }
         }
 
@@ -287,7 +314,7 @@ internal sealed class WorkbenchView
         {
             if (document.Id == id)
             {
-                return ThemedPane(document.Content, theme, WorkbenchZone.EditorArea);
+                return PaneContent(document.Id, document.Content, WorkbenchZone.EditorArea);
             }
         }
 
@@ -295,7 +322,7 @@ internal sealed class WorkbenchView
         {
             if (view.Id == id)
             {
-                return ThemedPane(view.Content, theme, WorkbenchZone.Panel);
+                return PaneContent(view.Id, view.Content, WorkbenchZone.Panel);
             }
         }
 
