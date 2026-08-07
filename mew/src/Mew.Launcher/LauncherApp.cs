@@ -34,6 +34,7 @@ internal sealed class LauncherApp
     private Label? _hotkeyDisplay;
     private Label? _hotkeyHint;
     private readonly LauncherRunner _runner = new();
+    private readonly LaunchDebouncer _launchDebouncer = new(TimeSpan.FromMilliseconds(500));
     private readonly IconResolver _icons = new();
     private readonly ObservableValue<string> _launchStatus = new("就绪");
     private readonly List<LauncherItem> _items;
@@ -978,7 +979,7 @@ internal sealed class LauncherApp
         _listPanel.Add(wrap);
     }
 
-    /// <summary>编辑器区列表行:图标 + 名称 + 命令,双击启动,行尾「启动」按钮。</summary>
+    /// <summary>编辑器区列表行:图标 + 名称 + 命令,单击启动,右键菜单(编辑/删除)。</summary>
     private UIElement ListRow(LauncherItem item)
     {
         var icon = _icons.Resolve(item);
@@ -998,27 +999,14 @@ internal sealed class LauncherApp
                         )
                 ))
             .CanDrag(false)
-            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background))
-            .Column(0);
-        rowButton.OnClick(() => EditItem(item)); // 单击 → 打开详情
-        rowButton.MouseDoubleClick += _ => LaunchItem(item); // 双击 → 启动
+            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
+        rowButton.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
         AttachContextMenu(rowButton, item);
 
-        return new Grid()
-            .Columns("*,Auto")
-            .Children(
-                rowButton,
-                new Button()
-                    .Content(new Label()
-                        .Text("启动")
-                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)))
-                    .OnClick(() => LaunchItem(item))
-                    .CanDrag(false)
-                    .Column(1)
-            );
+        return rowButton;
     }
 
-    /// <summary>卡片:大图标 + 名称,单击开详情、双击启动、右键菜单(编辑/删除)。</summary>
+    /// <summary>卡片:大图标 + 名称,单击启动,右键菜单(编辑/删除)。</summary>
     private UIElement Card(LauncherItem item)
     {
         var icon = _icons.Resolve(item);
@@ -1034,8 +1022,7 @@ internal sealed class LauncherApp
                 ))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
-        card.OnClick(() => EditItem(item));
-        card.MouseDoubleClick += _ => LaunchItem(item);
+        card.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
         AttachContextMenu(card, item);
         return card;
     }
@@ -1141,6 +1128,15 @@ internal sealed class LauncherApp
             .Text($"{DateTime.Now:HH:mm:ss}  {message}")
             .FontSize(12)
             .WithTheme((_, label) => label.Foreground(_theme.Panel.Foreground)));
+    }
+
+    /// <summary>列表单击启动入口:同一启动项在防重时间窗内(双击场景)只启动一次。</summary>
+    private void TryLaunchFromList(LauncherItem item)
+    {
+        if (_launchDebouncer.ShouldLaunch(item.Id, DateTime.Now))
+        {
+            LaunchItem(item);
+        }
     }
 
     private void LaunchItem(LauncherItem item)
