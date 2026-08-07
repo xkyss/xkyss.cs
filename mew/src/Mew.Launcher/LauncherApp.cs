@@ -48,6 +48,9 @@ internal sealed class LauncherApp
     private LauncherItem? _current;
     private bool _loading;
     private TreeView? _tree;
+    private TextBox? _itemsSearchBox;
+    private TextBox? _categorySearchBox;
+    private StackPanel? _categoryTreePanel;
     private string _viewMode = "card"; // 启动项列表形态:card(卡片,默认)/ list(列表),持久化于 settings.json
     private string _query = "";
     private Button? _modeToggleButton;
@@ -757,6 +760,7 @@ internal sealed class LauncherApp
             _sideBarFilters["launch"] = text;
             RefreshCategoryTree();
         };
+        _categorySearchBox = searchBox;
 
         var tree = new TreeView
         {
@@ -767,28 +771,42 @@ internal sealed class LauncherApp
         _tree = tree;
         tree.SelectionChanged += OnNavSelectionChanged;
         tree.MouseUp += OnCategoryTreeRightClick;
-        RefreshCategoryTree(); // 构建树项并默认选中「全部」
+
+        var content = new StackPanel().Spacing(6);
+        _categoryTreePanel = content;
+        RefreshCategoryTree(); // 构建树项并默认选中「全部」;空态时面板内为引导视图
 
         return new StackPanel()
             .Padding(12)
             .Spacing(6)
             .Children(
                 searchBox,
-                tree
+                content
             );
     }
 
-    /// <summary>(重新)构建分类树项:按分类搜索词过滤,并默认选中「全部」。</summary>
+    /// <summary>(重新)构建分类树项:按分类搜索词过滤,并默认选中「全部」;过滤为空时显示「无匹配分类」引导。</summary>
     private void RefreshCategoryTree()
     {
+        var filtered = LauncherData.FilterNavTree(
+            LauncherData.BuildNavTree(_store.Categories.ToList()), SideBarFilter("launch"));
         _treeItems = new TreeItemsView<CategoryTreeNode>(
-            LauncherData.FilterNavTree(
-                LauncherData.BuildNavTree(_store.Categories.ToList()), SideBarFilter("launch")),
+            filtered,
             node => node.Children,
             node => node.Name,
             node => node.Id,
             node => node.Children.Count > 0);
         _tree!.ItemsSource = _treeItems;
+
+        _categoryTreePanel!.Clear();
+        if (filtered.Count == 0)
+        {
+            _categoryTreePanel.Add(EmptyStateView("无匹配分类", "清空搜索", ClearCategorySearch,
+                _theme.SideBar.Foreground, _theme.SideBar.Background));
+            return;
+        }
+
+        _categoryTreePanel.Add(_tree);
         _treeItems.SelectSingle(0);
     }
 
@@ -950,13 +968,21 @@ internal sealed class LauncherApp
         _navId = navId;
         _listPanel.Clear();
 
-        var shown = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId)
+        var aggregated = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId);
+        var shown = aggregated
             .Where(item => LauncherSearch.Matches(item, _query))
             .ToList();
 
         if (shown.Count == 0)
         {
-            _listPanel.Add(EmptyListLabel());
+            var kind = EmptyState.ForList(
+                hasItems: aggregated.Count > 0,
+                hasQuery: !string.IsNullOrWhiteSpace(_query));
+            _listPanel.Add(kind == EmptyStateKind.NoMatch
+                ? EmptyStateView("无匹配启动项", "清空搜索", ClearItemsSearch,
+                    _theme.EditorArea.Foreground, _theme.EditorArea.Background)
+                : EmptyStateView("暂无启动项", "＋ 新增启动项", CreateItem,
+                    _theme.EditorArea.Foreground, _theme.EditorArea.Background));
             return;
         }
 
@@ -1064,6 +1090,7 @@ internal sealed class LauncherApp
             Placeholder = "搜索启动项",
             CanDrag = false,
         };
+        _itemsSearchBox = searchBox;
         searchBox.TextChanged += text =>
         {
             _query = text;
@@ -1162,10 +1189,45 @@ internal sealed class LauncherApp
         return new Image().Source(icon).Size(size, size);
     }
 
-    private UIElement EmptyListLabel() => new Label()
-        .Text(string.IsNullOrWhiteSpace(_query) ? "暂无启动项" : "无匹配启动项")
-        .FontSize(12)
-        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground));
+    /// <summary>空状态组件:文案 + 引导动作按钮,启动项列表与分类树共用;颜色取自所在区的五区色板。</summary>
+    private UIElement EmptyStateView(string message, string actionLabel, Action action, Color foreground, Color background) =>
+        new StackPanel()
+            .Padding(16)
+            .Spacing(8)
+            .Children(
+                new Label().Text(message).FontSize(13)
+                    .WithTheme((_, label) => label.Foreground(foreground)),
+                new Button()
+                    .Content(new Label().Text(actionLabel)
+                        .WithTheme((_, label) => label.Foreground(foreground)))
+                    .OnClick(action)
+                    .CanDrag(false)
+                    .WithTheme((_, button) => button.Background(background))
+            );
+
+    /// <summary>清空启动项列表搜索词并刷新列表。</summary>
+    private void ClearItemsSearch()
+    {
+        _query = "";
+        if (_itemsSearchBox is { } box)
+        {
+            box.Text = "";
+        }
+
+        ShowNav(_navId);
+    }
+
+    /// <summary>清空分类树搜索词并刷新树。</summary>
+    private void ClearCategorySearch()
+    {
+        _sideBarFilters["launch"] = "";
+        if (_categorySearchBox is { } box)
+        {
+            box.Text = "";
+        }
+
+        RefreshCategoryTree();
+    }
 
     private void EditItem(LauncherItem item)
     {
