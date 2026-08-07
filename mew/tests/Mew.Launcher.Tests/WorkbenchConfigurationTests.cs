@@ -109,6 +109,27 @@ public class WorkbenchConfigurationTests
         Assert.Equal("不存在编辑器文档“ghost”。 (Parameter 'id')", exception.Message);
     }
 
+    /// <summary>键盘导航的门控依据:激活哪个编辑器文档即返回哪个文档 id(列表键盘导航只在启动项列表激活时生效)。</summary>
+    [Fact]
+    public void ActiveDocumentId_随激活文档变化()
+    {
+        using var _ = IsolateUserLayoutFiles();
+
+        var workbench = new WorkbenchType()
+            .ActivityBar(bar => bar.Item("launch", "启动", GlyphKind.Hamburger))
+            .SideBar(side => side.View("launch", "启动", new StackPanel()))
+            .EditorArea(editor => editor
+                .Document("items", "启动项", new StackPanel())
+                .Document("detail", "启动项详情", new StackPanel()));
+        workbench.Build();
+
+        workbench.OpenDocument("items");
+        Assert.Equal("items", workbench.ActiveDocumentId);
+
+        workbench.OpenDocument("detail");
+        Assert.Equal("detail", workbench.ActiveDocumentId);
+    }
+
     /// <summary>临时移走用户真实布局/呈现文件,保证用例在任意本机状态下可复现且不污染用户数据。</summary>
     private static IDisposable IsolateUserLayoutFiles()
     {

@@ -32,6 +32,10 @@ public sealed class Workbench
     public bool IsStatusBarVisible => _statusBarVisible;
     public string? ActiveActivityId => _activeActivityId;
 
+    /// <summary>当前激活的编辑器文档 id(编辑器区无激活文档时为 null),供应用按激活文档路由键盘操作。</summary>
+    public string? ActiveDocumentId =>
+        _docking?.ActiveGroup?.ActivePane is { IsDocument: true } pane ? pane.Component : null;
+
     public void ToggleActivityBar() { _activityBarVisible = !_activityBarVisible; PresentationChanged?.Invoke(); }
     public void ToggleSideBar() { _sideBarVisible = !_sideBarVisible; PresentationChanged?.Invoke(); }
     public void TogglePanel() { _panelVisible = !_panelVisible; PresentationChanged?.Invoke(); }
