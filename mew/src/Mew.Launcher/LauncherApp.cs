@@ -20,6 +20,7 @@ internal sealed class LauncherApp
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private const string RevealDocumentHotkey = "Ctrl+Alt+R";
     private const string SettingsDocumentId = "settings-document";
+    private const string DetailDocumentId = "detail";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
@@ -100,7 +101,7 @@ internal sealed class LauncherApp
                 .View("settings", "设置", BuildSettingsSideBar()))
             .EditorArea(editor => editor
                 .Document("items", "启动项", BuildItemsDocument())
-                .Document("detail", "启动项详情", _detailPanel)
+                .Document(DetailDocumentId, "启动项详情", _detailPanel)
                 .Document(SettingsDocumentId, "设置", BuildSettingsDocument()))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
@@ -1233,8 +1234,9 @@ internal sealed class LauncherApp
     {
         _current = item;
         ShowItemDetail(item);
-        _workbench.SetDocumentReveal("detail", "launch", () => ShowNav(item.CategoryId ?? LauncherData.UncategorizedNavId));
-        _workbench.OpenDocument("detail"); // 编辑器区激活「启动项详情」文档
+        _workbench.SetDocumentReveal(DetailDocumentId, "launch", () => ShowNav(item.CategoryId ?? LauncherData.UncategorizedNavId));
+        _workbench.OpenDocument(DetailDocumentId); // 编辑器区激活「启动项详情」文档
+        _workbench.SetDocumentTitle(DetailDocumentId, item.Name); // 标签随当前对象显示项名
     }
 
     private void ShowEmptyDetail()
@@ -1244,6 +1246,7 @@ internal sealed class LauncherApp
         _detailPanel.Add(new Label()
             .Text("从左侧选择启动项查看详情")
             .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)));
+        _workbench.SetDocumentTitle(DetailDocumentId, "启动项详情"); // 无选中项时标签回落默认名
     }
 
     private void ShowItemDetail(LauncherItem item)
@@ -1311,26 +1314,30 @@ internal sealed class LauncherApp
             .Padding(24)
             .Spacing(12)
             .Children(
-                new Label().Text(item.Name).FontSize(20).Bold()
-                    .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
-                new Label().Text(item.Id).FontSize(11)
-                    .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
+                // 第一行工具行:启动 / 删除(编辑时测试启动不必滚动)
+                new StackPanel()
+                    .Orientation(Orientation.Horizontal)
+                    .Spacing(8)
+                    .Children(
+                        new Button()
+                            .Content(new Label().Text("启动"))
+                            .OnClick(() => LaunchItem(item))
+                            .CanDrag(false),
+                        new Button()
+                            .Content(new Label().Text("删除启动项"))
+                            .OnClick(() => DeleteItem(item))
+                            .CanDrag(false)
+                    ),
+                SectionTitle("基本", _theme.EditorArea.Foreground),
                 FieldRow("名称", name),
                 FieldRow("命令", command),
                 FieldRow("参数", args),
                 FieldRow("工作目录", workingDirectory),
                 FieldRow("分类", categoryCombo),
+                SectionTitle("高级", _theme.EditorArea.Foreground),
                 FieldRow("图标", icon),
                 FieldRow("每项热键", hotkey),
-                hotkeyHint,
-                new Button()
-                    .Content(new Label().Text("启动"))
-                    .OnClick(() => LaunchItem(item))
-                    .CanDrag(false),
-                new Button()
-                    .Content(new Label().Text("删除启动项"))
-                    .OnClick(() => DeleteItem(item))
-                    .CanDrag(false)
+                hotkeyHint
             );
     }
 
@@ -1341,6 +1348,13 @@ internal sealed class LauncherApp
                 .WithTheme((_, l) => l.Foreground(_theme.EditorArea.Foreground)),
             input
         );
+
+    /// <summary>详情页分区标题(基本/高级)。</summary>
+    private static UIElement SectionTitle(string text, Color foreground) => new Label()
+        .Text(text)
+        .FontSize(14)
+        .Bold()
+        .WithTheme((_, label) => label.Foreground(foreground));
 
     private static TextBox TextField(string value, string placeholder) => new()
     {

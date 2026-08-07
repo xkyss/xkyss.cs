@@ -137,6 +137,24 @@ public sealed class Workbench
         }
     }
 
+    /// <summary>更新编辑器文档的标签标题(如详情文档随当前对象变化);已打开的标签即时生效,未打开时仅记录校验。</summary>
+    public void SetDocumentTitle(string id, string title)
+    {
+        if (_editorArea.Documents.All(document => document.Id != id))
+        {
+            throw new ArgumentException($"不存在编辑器文档“{id}”。", nameof(id));
+        }
+
+        if (_docking is { } docking)
+        {
+            var pane = docking.DocumentPanes.FirstOrDefault(p => p.Component == id);
+            if (pane is not null)
+            {
+                pane.Title = title;
+            }
+        }
+    }
+
     /// <summary>为编辑器文档声明显式的侧边栏定位行为。</summary>
     public void SetDocumentReveal(string documentId, string activityId, Action selectObject)
     {
