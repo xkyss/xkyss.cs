@@ -46,8 +46,10 @@ internal sealed class LauncherApp
     private readonly StackPanel _listPanel = new();
     private readonly SelectionModel _listSelection = new();
     private readonly List<Button> _listButtons = [];
+    private readonly List<Border> _listBars = [];
     private List<LauncherItem> _listItems = [];
     private int _styledSelection = -1;
+    private int _hoveredIndex = -1;
     private ScrollViewer? _listScrollViewer;
     private readonly StackPanel _detailPanel = new();
     private readonly StackPanel _logPanel = new();
@@ -1016,7 +1018,9 @@ internal sealed class LauncherApp
         _listPanel.Clear();
         _listItems = [];
         _listButtons.Clear();
+        _listBars.Clear();
         _styledSelection = -1;
+        _hoveredIndex = -1;
 
         var aggregated = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId);
         var shown = aggregated
@@ -1039,23 +1043,25 @@ internal sealed class LauncherApp
 
         if (_viewMode == "list")
         {
-            foreach (var item in shown)
+            for (var i = 0; i < shown.Count; i++)
             {
-                var row = ListRow(item);
-                _listPanel.Add(row);
-                _listItems.Add(item);
-                _listButtons.Add(row);
+                var (container, main, bar) = ListRow(shown[i], i);
+                _listPanel.Add(container);
+                _listItems.Add(shown[i]);
+                _listButtons.Add(main);
+                _listBars.Add(bar);
             }
         }
         else
         {
             var wrap = new WrapPanel { ItemWidth = 128, ItemHeight = 96, Spacing = 8 };
-            foreach (var item in shown)
+            for (var i = 0; i < shown.Count; i++)
             {
-                var card = Card(item);
-                wrap.Add(card);
-                _listItems.Add(item);
-                _listButtons.Add(card);
+                var (container, main, bar) = Card(shown[i], i);
+                wrap.Add(container);
+                _listItems.Add(shown[i]);
+                _listButtons.Add(main);
+                _listBars.Add(bar);
             }
 
             _listPanel.Add(wrap);
@@ -1065,11 +1071,11 @@ internal sealed class LauncherApp
         ApplyListSelection();
     }
 
-    /// <summary>编辑器区列表行:图标 + 名称 + 命令,单击启动,右键菜单(编辑/删除)。</summary>
-    private Button ListRow(LauncherItem item)
+    /// <summary>编辑器区列表行:图标 + 名称 + 命令,单击启动,悬停浮现「编辑」,右键菜单(编辑/删除)。</summary>
+    private (UIElement Container, Button Main, Border Bar) ListRow(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
-        var rowButton = new Button()
+        var main = new Button()
             .Content(new StackPanel()
                 .Orientation(Orientation.Horizontal)
                 .Spacing(6)
@@ -1086,17 +1092,17 @@ internal sealed class LauncherApp
                 ))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
-        rowButton.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
-        AttachContextMenu(rowButton, item);
+        main.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
+        AttachContextMenu(main, item);
 
-        return rowButton;
+        return BuildItemShell(item, main, index, editAtCorner: false);
     }
 
-    /// <summary>卡片:大图标 + 名称,单击启动,右键菜单(编辑/删除)。</summary>
-    private Button Card(LauncherItem item)
+    /// <summary>卡片:大图标 + 名称,单击启动,悬停浮现「编辑」,右键菜单(编辑/删除)。</summary>
+    private (UIElement Container, Button Main, Border Bar) Card(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
-        var card = new Button()
+        var main = new Button()
             .Content(new StackPanel()
                 .Orientation(Orientation.Vertical)
                 .Spacing(6)
@@ -1108,9 +1114,47 @@ internal sealed class LauncherApp
                 ))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
-        card.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
-        AttachContextMenu(card, item);
-        return card;
+        main.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
+        AttachContextMenu(main, item);
+        return BuildItemShell(item, main, index, editAtCorner: true);
+    }
+
+    /// <summary>
+    /// 组装列表项容器:主按钮(单击启动)+ 悬停浮现的「编辑」按钮 + 选中左缘条,三者兄弟叠加
+    /// (不嵌套按钮,避免点击冲突);主按钮与编辑按钮共用悬停计数,悬停态在两者间移动不丢失。
+    /// </summary>
+    private (UIElement Container, Button Main, Border Bar) BuildItemShell(LauncherItem item, Button main, int index, bool editAtCorner)
+    {
+        var edit = new Button()
+            .Content(new Label().Text("编辑")
+                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)))
+            .OnClick(() => EditItem(item))
+            .CanDrag(false)
+            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background))
+            .Padding(new Thickness(8, 2, 8, 2));
+        edit.IsVisible = false; // 悬停时浮现
+        edit.HorizontalAlignment = HorizontalAlignment.Right;
+        edit.VerticalAlignment = editAtCorner ? VerticalAlignment.Top : VerticalAlignment.Center;
+
+        var bar = new Border()
+            .Width(3)
+            .WithTheme((_, border) => border.Background(AccentBarColor));
+        bar.IsVisible = false; // 选中时显示左缘条
+        bar.HorizontalAlignment = HorizontalAlignment.Left;
+        bar.VerticalAlignment = VerticalAlignment.Stretch;
+
+        var hover = new HoverRefCount();
+        hover.RaisedChanged += () =>
+        {
+            edit.IsVisible = hover.IsRaised;
+            SetItemHovered(index, hover.IsRaised);
+        };
+        main.MouseEnter += () => hover.Enter();
+        main.MouseLeave += () => hover.Leave();
+        edit.MouseEnter += () => hover.Enter();
+        edit.MouseLeave += () => hover.Leave();
+
+        return (new Grid().Children(main, edit, bar), main, bar);
     }
 
     /// <summary>挂右键菜单(编辑 / 删除),右键时在鼠标位置弹出。</summary>
@@ -1281,22 +1325,80 @@ internal sealed class LauncherApp
 
         if (_styledSelection >= 0 && _styledSelection < _listButtons.Count)
         {
-            _listButtons[_styledSelection].Background(_theme.EditorArea.Background);
+            StyleListItem(_styledSelection, hovered: _styledSelection == _hoveredIndex);
         }
 
         if (selected >= 0 && selected < _listButtons.Count)
         {
-            _listButtons[selected].Background(_theme.EditorArea.Accent);
+            StyleListItem(selected, hovered: selected == _hoveredIndex);
         }
 
         _styledSelection = selected;
     }
 
-    /// <summary>主题切换后重涂选中高亮(WithTheme 回调先把选中项恢复为区背景,此处再涂回 accent)。</summary>
+    /// <summary>按「选中 &gt; 悬停 &gt; 常态」优先级重涂列表项:选中 = accent 背景 + 左缘条;悬停 = 背景微亮。</summary>
+    private void StyleListItem(int index, bool hovered)
+    {
+        if (index < 0 || index >= _listButtons.Count)
+        {
+            return;
+        }
+
+        var button = _listButtons[index];
+        var selected = index == _listSelection.Selected;
+        button.Background(selected
+            ? _theme.EditorArea.Accent
+            : hovered ? HoverBackground : _theme.EditorArea.Background);
+
+        if (index < _listBars.Count)
+        {
+            _listBars[index].IsVisible = selected; // 左缘条仅选中时显示
+        }
+    }
+
+    /// <summary>悬停背景:暗主题向白微亮、亮主题向黑微暗(等效「升一层」)。</summary>
+    private Color HoverBackground =>
+        _theme.IsDark
+            ? _theme.EditorArea.Background.Lerp(Color.FromRgb(255, 255, 255), 0.08)
+            : _theme.EditorArea.Background.Lerp(Color.FromRgb(0, 0, 0), 0.06);
+
+    /// <summary>选中左缘条:accent 向白提亮,保证 accent 背景上可见。</summary>
+    private Color AccentBarColor => _theme.EditorArea.Accent.Lerp(Color.FromRgb(255, 255, 255), 0.45);
+
+    /// <summary>记录当前悬停项并重涂:进入时替换旧悬停项,离开时仅当是当前悬停项才清除(事件顺序无关)。</summary>
+    private void SetItemHovered(int index, bool raised)
+    {
+        if (raised)
+        {
+            if (_hoveredIndex == index)
+            {
+                return;
+            }
+
+            if (_hoveredIndex >= 0)
+            {
+                StyleListItem(_hoveredIndex, hovered: false);
+            }
+
+            _hoveredIndex = index;
+            StyleListItem(index, hovered: true);
+        }
+        else if (_hoveredIndex == index)
+        {
+            _hoveredIndex = -1;
+            StyleListItem(index, hovered: false);
+        }
+    }
+
+    /// <summary>主题切换后全量重涂(WithTheme 回调先恢复区背景,此处重涂选中/悬停态)。</summary>
     private void ReapplyListSelection()
     {
-        _styledSelection = -1;
-        ApplyListSelection();
+        for (var i = 0; i < _listButtons.Count; i++)
+        {
+            StyleListItem(i, hovered: i == _hoveredIndex);
+        }
+
+        _styledSelection = _listSelection.Selected;
     }
 
     /// <summary>选中项滚出可视区时,滚动使其可见。</summary>
