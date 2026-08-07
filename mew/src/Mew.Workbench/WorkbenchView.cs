@@ -20,6 +20,8 @@ internal sealed class WorkbenchView
     // 而共享子元素(如设置文档的 StackPanel)的 Parent 仍指向已分离的旧包装,导致其无法重新挂接、tab 空白。
     private readonly Dictionary<string, UIElement> _paneContents = [];
     private bool _panelPinned = true; // 底部面板 Pin/Unpin 状态跟踪(初始假设固定显示)
+    // 已接线「悬浮显示关闭按钮」的 tab 实例:布局变更重扫时去重,避免重复订阅鼠标事件。
+    private readonly HashSet<object> _configuredTabClose = [];
 
     internal WorkbenchView(Workbench workbench) => _workbench = workbench;
 
@@ -63,9 +65,10 @@ internal sealed class WorkbenchView
 
         docking.Changed += (_, _) =>
         {
-            // 布局变更可能新建 tabset 视图:重新断言模型 flag + 视图层直接隐藏按钮
+            // 布局变更可能新建 tabset 视图:重新断言模型 flag + 视图层直接隐藏按钮 + 接线 tab 关闭按钮悬浮显示
             DisableTabSetMaximize(docking);
             HideMaximizeButtons(docking);
+            ConfigureTabCloseHover(docking);
             layoutStore.Save(docking.SaveLayout());
         };
         docking.TabMenuOpening += (_, args) =>
@@ -82,6 +85,7 @@ internal sealed class WorkbenchView
         ApplyChromeVisibility();
         DisableDockZoneBorders(docking);
         HideMaximizeButtons(docking); // 初始 tabset 视图已就绪,视图层隐藏最大化按钮
+        ConfigureTabCloseHover(docking); // 初始 tab 的关闭按钮默认隐藏,悬浮时显示
         return shell;
     }
 
@@ -224,7 +228,7 @@ internal sealed class WorkbenchView
         ?? throw new MissingMethodException(nameof(StyleSheet), nameof(StyleSheet.Define));
 
     /// <summary>
-    /// MewDock 内置 DockStyles 给 tabset / 侧边栏画边框(默认 ControlBorder,焦点时 ControlBorder→Accent 75% 混合)。
+    /// MewDock 内置 DockStyles 给 tabset / 侧边栏 / Tab 按钮画边框(默认 ControlBorder,焦点时 ControlBorder→Accent 75% 混合)。
     /// 五个工作台区按设计不显示边框:FlexLayoutView 的 StyleSheet 按类型注册 rule 且 GetByType 从后往前匹配——
     /// 向其中追加覆盖 rule 即可关闭边框。目标控件类型在 MewDock 中是 internal,无法静态引用,故经反射按名解析类型。
     /// </summary>
@@ -238,6 +242,7 @@ internal sealed class WorkbenchView
         var assembly = typeof(DockingManager).Assembly;
         OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Controls.FlexTabSetView", CreateBorderlessTabSetStyle);
         OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Extended.ExtendedBorderBar", CreateBorderlessBorderBarStyle);
+        OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Controls.FlexTabButton", CreateBorderlessTabButtonStyle);
     }
 
     /// <summary>
@@ -263,6 +268,37 @@ internal sealed class WorkbenchView
     private static Style CreateBorderlessBorderBarStyle(Type type) => new(type)
     {
         Setters = [Setter.Create(Control.BorderBrushProperty, Color.Transparent)],
+    };
+
+    /// <summary>
+    /// Tab 按钮(FlexTabButton):不显示边框。未选中项背景与 tab 栏一致(ContainerBackground),
+    /// 仅选中项用编辑器区背景(WindowBackground)区分,并与下方编辑内容连成一体。
+    /// </summary>
+    private static Style CreateBorderlessTabButtonStyle(Type type) => new(type)
+    {
+        Transitions = [Transition.Create(Control.BackgroundProperty, 200, t => t)],
+        Setters =
+        [
+            Setter.Create(Control.BackgroundProperty, t => t.Palette.ContainerBackground),
+            Setter.Create(Control.BorderBrushProperty, Color.Transparent),
+            Setter.Create(TextElement.ForegroundProperty, t => t.Palette.WindowText),
+            Setter.Create(Control.PaddingProperty, new Thickness(8.0, 2.0, 8.0, 2.0)),
+            Setter.Create(Control.CornerRadiusProperty, t => t.Metrics.ControlCornerRadius),
+            Setter.Create(Control.BorderThicknessProperty, 0.0),
+        ],
+        Triggers =
+        [
+            new StateTrigger
+            {
+                Match = VisualStateFlags.Hot,
+                Setters = [Setter.Create(Control.BackgroundProperty, t => t.Palette.ButtonHoverBackground)],
+            },
+            new StateTrigger
+            {
+                Match = VisualStateFlags.Selected,
+                Setters = [Setter.Create(Control.BackgroundProperty, t => t.Palette.WindowBackground)],
+            },
+        ],
     };
 
     private static void OverrideStyle(Assembly assembly, StyleSheet sheet, string typeName, Func<Type, Style> factory)
@@ -478,6 +514,99 @@ internal sealed class WorkbenchView
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 编辑器 tab 的「×」关闭按钮仅鼠标悬浮时显示,且 tab 宽度不随悬浮/按钮显隐变化。
+    /// 关闭按钮始终占据布局空间(IsVisible 保持 true),未悬浮时置透明并关闭命中测试;
+    /// 悬浮 tab 时恢复显示。FlexTabButton 与 _closeButton 在 MewDock 中为 internal/private,
+    /// 故经反射遍历停靠区视图树接线;运行时新建 tab 时 docking.Changed 会重新执行,
+    /// 已接线实例用 _configuredTabClose 去重。仅文档 tab 有 _closeButton,工具 tab 自动跳过。
+    /// </summary>
+    private void ConfigureTabCloseHover(DockingManager docking)
+    {
+        var assembly = typeof(DockingManager).Assembly;
+        if (assembly.GetType("Aprillz.MewUI.MewDock.Controls.FlexTabButton") is not { } tabType)
+        {
+            return;
+        }
+
+        var closeField = tabType.GetField("_closeButton", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (closeField is null || docking.Children.FirstOrDefault() is not UIElement root)
+        {
+            return;
+        }
+
+        VisitDockElements(root, element =>
+        {
+            if (tabType.IsInstanceOfType(element))
+            {
+                WireTabCloseHover(element, tabType, closeField);
+            }
+        });
+    }
+
+    /// <summary>深度优先遍历停靠区视图树(tabset 等 Control 仅实现 IVisualTreeHost,不属 Panel)。</summary>
+    private static void VisitDockElements(Element element, Action<UIElement> visit)
+    {
+        if (element is UIElement uiElement)
+        {
+            visit(uiElement);
+        }
+
+        if (element is Panel panel)
+        {
+            foreach (var child in panel.Children)
+            {
+                VisitDockElements(child, visit);
+            }
+        }
+        else if (element is IVisualTreeHost host)
+        {
+            host.VisitChildren(child =>
+            {
+                VisitDockElements(child, visit);
+                return true;
+            });
+        }
+    }
+
+    private void WireTabCloseHover(UIElement tab, Type tabType, FieldInfo closeField)
+    {
+        if (!_configuredTabClose.Add(tab))
+        {
+            return;
+        }
+
+        if (closeField.GetValue(tab) is not Button closeButton)
+        {
+            return;
+        }
+
+        // 关闭按钮(16px)始终占据布局空间,保证 tab 宽度不随悬浮/按钮显隐变化;
+        // 未悬浮时隐藏「×」内容并关闭命中测试,悬浮 tab 时恢复。
+        var glyph = closeButton.Content as UIElement;
+        if (glyph is not null)
+        {
+            glyph.IsVisible = false;
+        }
+        closeButton.IsHitTestVisible = false;
+        tab.MouseEnter += () =>
+        {
+            if (glyph is not null)
+            {
+                glyph.IsVisible = true;
+            }
+            closeButton.IsHitTestVisible = true;
+        };
+        tab.MouseLeave += () =>
+        {
+            if (glyph is not null)
+            {
+                glyph.IsVisible = false;
+            }
+            closeButton.IsHitTestVisible = false;
+        };
     }
 
     /// <summary>设置状态栏项文本颜色(启动失败红色醒目用);null 恢复区前景色。</summary>
