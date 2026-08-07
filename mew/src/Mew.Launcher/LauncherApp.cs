@@ -16,7 +16,7 @@ namespace Mew.Launcher;
 /// </summary>
 internal sealed class LauncherApp
 {
-    private const string AppVersion = "v0.1.4";
+    private const string AppVersion = "v0.1.5";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private const string RevealDocumentHotkey = "Ctrl+Alt+R";
     private const string SettingsDocumentId = "settings-document";
