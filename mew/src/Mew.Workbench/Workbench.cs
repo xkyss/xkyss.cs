@@ -1,3 +1,4 @@
+using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.MewDock;
 
@@ -31,6 +32,10 @@ public sealed class Workbench
     public bool IsPanelVisible => _panelVisible;
     public bool IsStatusBarVisible => _statusBarVisible;
     public string? ActiveActivityId => _activeActivityId;
+
+    /// <summary>当前激活的编辑器文档 id(编辑器区无激活文档时为 null),供应用按激活文档路由键盘操作。</summary>
+    public string? ActiveDocumentId =>
+        _docking?.ActiveGroup?.ActivePane is { IsDocument: true } pane ? pane.Component : null;
 
     public void ToggleActivityBar() { _activityBarVisible = !_activityBarVisible; PresentationChanged?.Invoke(); }
     public void ToggleSideBar() { _sideBarVisible = !_sideBarVisible; PresentationChanged?.Invoke(); }
@@ -135,6 +140,35 @@ public sealed class Workbench
         {
             docking.AddDocumentPane(document.Title, _view!.EditorPaneContent(id), document.Id).Activate();
         }
+    }
+
+    /// <summary>更新编辑器文档的标签标题(如详情文档随当前对象变化);已打开的标签即时生效,未打开时仅记录校验。</summary>
+    public void SetDocumentTitle(string id, string title)
+    {
+        if (_editorArea.Documents.All(document => document.Id != id))
+        {
+            throw new ArgumentException($"不存在编辑器文档“{id}”。", nameof(id));
+        }
+
+        if (_docking is { } docking)
+        {
+            var pane = docking.DocumentPanes.FirstOrDefault(p => p.Component == id);
+            if (pane is not null)
+            {
+                pane.Title = title;
+            }
+        }
+    }
+
+    /// <summary>设置状态栏项的文本颜色(如启动失败红色醒目);null 恢复区前景色。已打开的状态栏即时生效。</summary>
+    public void SetStatusTextColor(string id, Color? color)
+    {
+        if (_statusBar.Items.All(item => item.Id != id))
+        {
+            throw new ArgumentException($"不存在状态栏项“{id}”。", nameof(id));
+        }
+
+        _view?.SetStatusTextColor(id, color);
     }
 
     /// <summary>为编辑器文档声明显式的侧边栏定位行为。</summary>

@@ -16,10 +16,12 @@ namespace Mew.Launcher;
 /// </summary>
 internal sealed class LauncherApp
 {
-    private const string AppVersion = "v0.1.4";
+    private const string AppVersion = "v0.1.5";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private const string RevealDocumentHotkey = "Ctrl+Alt+R";
     private const string SettingsDocumentId = "settings-document";
+    private const string DetailDocumentId = "detail";
+    private const string ItemsDocumentId = "items";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
@@ -35,6 +37,7 @@ internal sealed class LauncherApp
     private Label? _hotkeyDisplay;
     private Label? _hotkeyHint;
     private readonly LauncherRunner _runner = new();
+    private readonly LaunchDebouncer _launchDebouncer = new(TimeSpan.FromMilliseconds(500));
     private readonly IconResolver _icons = new();
     private readonly ObservableValue<string> _launchStatus = new("就绪");
     private readonly List<LauncherItem> _items;
@@ -42,12 +45,22 @@ internal sealed class LauncherApp
     private readonly WorkbenchType _workbench = new();
     private readonly WorkbenchThemeContext _theme;
     private readonly StackPanel _listPanel = new();
+    private readonly SelectionModel _listSelection = new();
+    private readonly List<Button> _listButtons = [];
+    private readonly List<Border> _listBars = [];
+    private List<LauncherItem> _listItems = [];
+    private int _styledSelection = -1;
+    private int _hoveredIndex = -1;
+    private ScrollViewer? _listScrollViewer;
     private readonly StackPanel _detailPanel = new();
     private readonly StackPanel _logPanel = new();
     private string _navId = LauncherData.AllNavId; // 当前导航节点:「全部」/ 分类 id /「未分类」
     private LauncherItem? _current;
     private bool _loading;
     private TreeView? _tree;
+    private TextBox? _itemsSearchBox;
+    private TextBox? _categorySearchBox;
+    private StackPanel? _categoryTreePanel;
     private string _viewMode = "card"; // 启动项列表形态:card(卡片,默认)/ list(列表),持久化于 settings.json
     private string _query = "";
     private Button? _modeToggleButton;
@@ -95,8 +108,8 @@ internal sealed class LauncherApp
                 .View("launch", "启动", BuildCategoryTree())
                 .View("settings", "设置", BuildSettingsSideBar()))
             .EditorArea(editor => editor
-                .Document("items", "启动项", BuildItemsDocument())
-                .Document("detail", "启动项详情", _detailPanel)
+                .Document(ItemsDocumentId, "启动项", BuildItemsDocument())
+                .Document(DetailDocumentId, "启动项详情", _detailPanel)
                 .Document(SettingsDocumentId, "设置", BuildSettingsDocument()))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
@@ -137,6 +150,7 @@ internal sealed class LauncherApp
                 app.ThemeModeChanged += PersistThemeMode;
                 app.ThemeModeChanged += SyncThemeRadios;
                 app.ThemeModeChanged += UpdateThemeButton;
+                app.ThemeModeChanged += ReapplyListSelection;
             }
 
         };
@@ -455,14 +469,53 @@ internal sealed class LauncherApp
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-    /// <summary>窗口内快捷键:定位当前启动项详情所属的侧边栏分类。</summary>
+    /// <summary>窗口内快捷键:定位当前启动项详情所属的侧边栏分类;启动项列表激活时提供键盘导航。</summary>
     private void OnWindowKeyDown(KeyEventArgs e)
     {
-        if (!_capturingHotkey && e.ControlKey && e.AltKey && e.Key == Key.R)
+        if (_capturingHotkey)
         {
-            if (_workbench.RevealDocument("detail"))
+            return;
+        }
+
+        if (e.ControlKey && e.AltKey && e.Key == Key.R)
+        {
+            if (_workbench.RevealDocument(DetailDocumentId))
             {
                 Feedback($"已执行:在侧边栏定位 ({RevealDocumentHotkey})");
+            }
+
+            return;
+        }
+
+        // 列表键盘导航:仅当启动项列表文档激活且焦点不在文本输入内时生效(搜索/表单输入不劫持)
+        if (_workbench.ActiveDocumentId == ItemsDocumentId && !IsTextInputFocused())
+        {
+            // 「/」聚焦搜索:MewUI Key 枚举无标点键,经平台虚拟键码 VK_OEM_2(0xBF)识别
+            if (e.PlatformKey == 0xBF)
+            {
+                FocusItemsSearch();
+                e.Handled = true;
+                return;
+            }
+
+            switch (e.Key)
+            {
+                case Key.Up:
+                    MoveListSelection(-1);
+                    e.Handled = true;
+                    break;
+                case Key.Down:
+                    MoveListSelection(+1);
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    LaunchSelected();
+                    e.Handled = true;
+                    break;
+                case Key.F when e.ControlKey:
+                    FocusItemsSearch();
+                    e.Handled = true;
+                    break;
             }
         }
     }
@@ -790,6 +843,7 @@ internal sealed class LauncherApp
             _sideBarFilters["launch"] = text;
             RefreshCategoryTree();
         };
+        _categorySearchBox = searchBox;
 
         var tree = new TreeView
         {
@@ -800,28 +854,42 @@ internal sealed class LauncherApp
         _tree = tree;
         tree.SelectionChanged += OnNavSelectionChanged;
         tree.MouseUp += OnCategoryTreeRightClick;
-        RefreshCategoryTree(); // 构建树项并默认选中「全部」
+
+        var content = new StackPanel().Spacing(6);
+        _categoryTreePanel = content;
+        RefreshCategoryTree(); // 构建树项并默认选中「全部」;空态时面板内为引导视图
 
         return new StackPanel()
             .Padding(12)
             .Spacing(6)
             .Children(
                 searchBox,
-                tree
+                content
             );
     }
 
-    /// <summary>(重新)构建分类树项:按分类搜索词过滤,并默认选中「全部」。</summary>
+    /// <summary>(重新)构建分类树项:按分类搜索词过滤,并默认选中「全部」;过滤为空时显示「无匹配分类」引导。</summary>
     private void RefreshCategoryTree()
     {
+        var filtered = LauncherData.FilterNavTree(
+            LauncherData.BuildNavTree(_store.Categories.ToList()), SideBarFilter("launch"));
         _treeItems = new TreeItemsView<CategoryTreeNode>(
-            LauncherData.FilterNavTree(
-                LauncherData.BuildNavTree(_store.Categories.ToList()), SideBarFilter("launch")),
+            filtered,
             node => node.Children,
             node => node.Name,
             node => node.Id,
             node => node.Children.Count > 0);
         _tree!.ItemsSource = _treeItems;
+
+        _categoryTreePanel!.Clear();
+        if (filtered.Count == 0)
+        {
+            _categoryTreePanel.Add(EmptyStateView("无匹配分类", "清空搜索", ClearCategorySearch,
+                _theme.SideBar.Foreground, _theme.SideBar.Background));
+            return;
+        }
+
+        _categoryTreePanel.Add(_tree);
         _treeItems.SelectSingle(0);
     }
 
@@ -982,41 +1050,66 @@ internal sealed class LauncherApp
     {
         _navId = navId;
         _listPanel.Clear();
+        _listItems = [];
+        _listButtons.Clear();
+        _listBars.Clear();
+        _styledSelection = -1;
+        _hoveredIndex = -1;
 
-        var shown = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId)
+        var aggregated = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId);
+        var shown = aggregated
             .Where(item => LauncherSearch.Matches(item, _query))
             .ToList();
 
         if (shown.Count == 0)
         {
-            _listPanel.Add(EmptyListLabel());
+            _listSelection.Clamp(0);
+            var kind = EmptyState.ForList(
+                hasItems: aggregated.Count > 0,
+                hasQuery: !string.IsNullOrWhiteSpace(_query));
+            _listPanel.Add(kind == EmptyStateKind.NoMatch
+                ? EmptyStateView("无匹配启动项", "清空搜索", ClearItemsSearch,
+                    _theme.EditorArea.Foreground, _theme.EditorArea.Background)
+                : EmptyStateView("暂无启动项", "＋ 新增启动项", CreateItem,
+                    _theme.EditorArea.Foreground, _theme.EditorArea.Background));
             return;
         }
 
         if (_viewMode == "list")
         {
-            foreach (var item in shown)
+            for (var i = 0; i < shown.Count; i++)
             {
-                _listPanel.Add(ListRow(item));
+                var (container, main, bar) = ListRow(shown[i], i);
+                _listPanel.Add(container);
+                _listItems.Add(shown[i]);
+                _listButtons.Add(main);
+                _listBars.Add(bar);
+            }
+        }
+        else
+        {
+            var wrap = new WrapPanel { ItemWidth = 170, ItemHeight = 96, Spacing = 8 };
+            for (var i = 0; i < shown.Count; i++)
+            {
+                var (container, main, bar) = Card(shown[i], i);
+                wrap.Add(container);
+                _listItems.Add(shown[i]);
+                _listButtons.Add(main);
+                _listBars.Add(bar);
             }
 
-            return;
+            _listPanel.Add(wrap);
         }
 
-        var wrap = new WrapPanel { ItemWidth = 128, ItemHeight = 96, Spacing = 8 };
-        foreach (var item in shown)
-        {
-            wrap.Add(Card(item));
-        }
-
-        _listPanel.Add(wrap);
+        _listSelection.Clamp(shown.Count);
+        ApplyListSelection();
     }
 
-    /// <summary>编辑器区列表行:图标 + 名称 + 命令,双击启动,行尾「启动」按钮。</summary>
-    private UIElement ListRow(LauncherItem item)
+    /// <summary>编辑器区列表行:图标 + 名称 + 命令,单击启动,悬停浮现「编辑」,右键菜单(编辑/删除)。</summary>
+    private (UIElement Container, Button Main, Border Bar) ListRow(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
-        var rowButton = new Button()
+        var main = new Button()
             .Content(new StackPanel()
                 .Orientation(Orientation.Horizontal)
                 .Spacing(6)
@@ -1032,46 +1125,77 @@ internal sealed class LauncherApp
                         )
                 ))
             .CanDrag(false)
-            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background))
-            .Column(0);
-        rowButton.OnClick(() => EditItem(item)); // 单击 → 打开详情
-        rowButton.MouseDoubleClick += _ => LaunchItem(item); // 双击 → 启动
-        AttachContextMenu(rowButton, item);
+            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
+        main.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
+        AttachContextMenu(main, item);
 
-        return new Grid()
-            .Columns("*,Auto")
-            .Children(
-                rowButton,
-                new Button()
-                    .Content(new Label()
-                        .Text("启动")
-                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)))
-                    .OnClick(() => LaunchItem(item))
-                    .CanDrag(false)
-                    .Column(1)
-            );
+        return BuildItemShell(item, main, index, editAtCorner: false);
     }
 
-    /// <summary>卡片:大图标 + 名称,单击开详情、双击启动、右键菜单(编辑/删除)。</summary>
-    private UIElement Card(LauncherItem item)
+    /// <summary>卡片:24px 图标 + 名称同行(名称占剩余宽度可换行)、命令小字第二行,单击启动,悬停浮现「编辑」。</summary>
+    private (UIElement Container, Button Main, Border Bar) Card(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
-        var card = new Button()
+        var main = new Button()
             .Content(new StackPanel()
                 .Orientation(Orientation.Vertical)
                 .Spacing(6)
                 .Children(
-                    IconElement(icon, 40),
-                    new Label().Text(item.Name)
-                        .TextWrapping(TextWrapping.Wrap)
+                    new Grid()
+                        .Columns("Auto,*")
+                        .Children(
+                            IconElement(icon, 24),
+                            new Label().Text(item.Name)
+                                .TextWrapping(TextWrapping.Wrap)
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
+                                .Column(1)
+                        ),
+                    new Label().Text(item.Command).FontSize(11)
                         .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
                 ))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
-        card.OnClick(() => EditItem(item));
-        card.MouseDoubleClick += _ => LaunchItem(item);
-        AttachContextMenu(card, item);
-        return card;
+        main.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
+        AttachContextMenu(main, item);
+        return BuildItemShell(item, main, index, editAtCorner: true);
+    }
+
+    /// <summary>
+    /// 组装列表项容器:主按钮(单击启动)+ 悬停浮现的「编辑」按钮 + 选中左缘条,三者兄弟叠加
+    /// (不嵌套按钮,避免点击冲突);主按钮与编辑按钮共用悬停计数,悬停态在两者间移动不丢失。
+    /// </summary>
+    private (UIElement Container, Button Main, Border Bar) BuildItemShell(LauncherItem item, Button main, int index, bool editAtCorner)
+    {
+        var edit = new Button()
+            .Content(new Label().Text("编辑")
+                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)))
+            .OnClick(() => EditItem(item))
+            .CanDrag(false)
+            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background))
+            .Padding(new Thickness(8, 2, 8, 2));
+        edit.IsVisible = false; // 悬停时浮现
+        edit.HorizontalAlignment = HorizontalAlignment.Right;
+        edit.VerticalAlignment = editAtCorner ? VerticalAlignment.Top : VerticalAlignment.Center;
+
+        var bar = new Border()
+            .Width(3)
+            .WithTheme((_, border) => border.Background(AccentBarColor));
+        bar.IsVisible = false; // 选中时显示左缘条
+        bar.HorizontalAlignment = HorizontalAlignment.Left;
+        bar.VerticalAlignment = VerticalAlignment.Stretch;
+
+        var hover = new HoverRefCount();
+        hover.RaisedChanged += () =>
+        {
+            edit.IsVisible = hover.IsRaised;
+            SetItemHovered(index, hover.IsRaised);
+        };
+        main.MouseEnter += () => hover.Enter();
+        main.MouseLeave += () => hover.Leave();
+        edit.MouseEnter += () => hover.Enter();
+        edit.MouseLeave += () => hover.Leave();
+
+        return (new Grid().Children(main, edit, bar), main, bar);
     }
 
     /// <summary>挂右键菜单(编辑 / 删除),右键时在鼠标位置弹出。</summary>
@@ -1111,6 +1235,7 @@ internal sealed class LauncherApp
             Placeholder = "搜索启动项",
             CanDrag = false,
         };
+        _itemsSearchBox = searchBox;
         searchBox.TextChanged += text =>
         {
             _query = text;
@@ -1122,6 +1247,13 @@ internal sealed class LauncherApp
             .ToolTip("切换卡片 / 列表")
             .OnClick(ToggleViewMode)
             .CanDrag(false);
+
+        var scrollViewer = new ScrollViewer
+        {
+            Content = _listPanel,
+            VerticalScroll = ScrollMode.Auto,
+        };
+        _listScrollViewer = scrollViewer;
 
         return new StackPanel()
             .Padding(12)
@@ -1139,11 +1271,7 @@ internal sealed class LauncherApp
                             .CanDrag(false),
                         _modeToggleButton
                     ),
-                new ScrollViewer
-                {
-                    Content = _listPanel,
-                    VerticalScroll = ScrollMode.Auto,
-                }
+                scrollViewer
             );
     }
 
@@ -1177,11 +1305,181 @@ internal sealed class LauncherApp
             .WithTheme((_, label) => label.Foreground(_theme.Panel.Foreground)));
     }
 
+    /// <summary>列表单击启动入口:同一启动项在防重时间窗内(双击场景)只启动一次。</summary>
+    private void TryLaunchFromList(LauncherItem item)
+    {
+        if (_launchDebouncer.ShouldLaunch(item.Id, DateTime.Now))
+        {
+            LaunchItem(item);
+        }
+    }
+
+    /// <summary>列表键盘导航:移动选中并确保可见。</summary>
+    private void MoveListSelection(int delta)
+    {
+        if (_listItems.Count == 0)
+        {
+            return;
+        }
+
+        if (delta < 0)
+        {
+            _listSelection.MoveUp(_listItems.Count);
+        }
+        else
+        {
+            _listSelection.MoveDown(_listItems.Count);
+        }
+
+        ApplyListSelection();
+        EnsureSelectionVisible();
+    }
+
+    /// <summary>Enter 启动列表选中项(与单击共用防重入口)。</summary>
+    private void LaunchSelected()
+    {
+        if (_listItems.Count == 0 || _listSelection.Selected >= _listItems.Count)
+        {
+            return;
+        }
+
+        TryLaunchFromList(_listItems[_listSelection.Selected]);
+    }
+
+    /// <summary>聚焦启动项列表搜索框(「/」或 Ctrl+F)。</summary>
+    private void FocusItemsSearch() => _itemsSearchBox?.Focus();
+
+    /// <summary>按当前选中索引重涂选中项为 accent,其余恢复区背景(仅重涂新旧两项,不重建列表)。</summary>
+    private void ApplyListSelection()
+    {
+        if (_listButtons.Count == 0)
+        {
+            _styledSelection = -1;
+            return;
+        }
+
+        var selected = _listSelection.Selected;
+        if (_styledSelection == selected)
+        {
+            return;
+        }
+
+        if (_styledSelection >= 0 && _styledSelection < _listButtons.Count)
+        {
+            StyleListItem(_styledSelection, hovered: _styledSelection == _hoveredIndex);
+        }
+
+        if (selected >= 0 && selected < _listButtons.Count)
+        {
+            StyleListItem(selected, hovered: selected == _hoveredIndex);
+        }
+
+        _styledSelection = selected;
+    }
+
+    /// <summary>按「选中 &gt; 悬停 &gt; 常态」优先级重涂列表项:选中 = accent 背景 + 左缘条;悬停 = 背景微亮。</summary>
+    private void StyleListItem(int index, bool hovered)
+    {
+        if (index < 0 || index >= _listButtons.Count)
+        {
+            return;
+        }
+
+        var button = _listButtons[index];
+        var selected = index == _listSelection.Selected;
+        button.Background(selected
+            ? _theme.EditorArea.Accent
+            : hovered ? HoverBackground : _theme.EditorArea.Background);
+
+        if (index < _listBars.Count)
+        {
+            _listBars[index].IsVisible = selected; // 左缘条仅选中时显示
+        }
+    }
+
+    /// <summary>悬停背景:暗主题向白微亮、亮主题向黑微暗(等效「升一层」)。</summary>
+    private Color HoverBackground =>
+        _theme.IsDark
+            ? _theme.EditorArea.Background.Lerp(Color.FromRgb(255, 255, 255), 0.08)
+            : _theme.EditorArea.Background.Lerp(Color.FromRgb(0, 0, 0), 0.06);
+
+    /// <summary>选中左缘条:accent 向白提亮,保证 accent 背景上可见。</summary>
+    private Color AccentBarColor => _theme.EditorArea.Accent.Lerp(Color.FromRgb(255, 255, 255), 0.45);
+
+    /// <summary>记录当前悬停项并重涂:进入时替换旧悬停项,离开时仅当是当前悬停项才清除(事件顺序无关)。</summary>
+    private void SetItemHovered(int index, bool raised)
+    {
+        if (raised)
+        {
+            if (_hoveredIndex == index)
+            {
+                return;
+            }
+
+            if (_hoveredIndex >= 0)
+            {
+                StyleListItem(_hoveredIndex, hovered: false);
+            }
+
+            _hoveredIndex = index;
+            StyleListItem(index, hovered: true);
+        }
+        else if (_hoveredIndex == index)
+        {
+            _hoveredIndex = -1;
+            StyleListItem(index, hovered: false);
+        }
+    }
+
+    /// <summary>主题切换后全量重涂(WithTheme 回调先恢复区背景,此处重涂选中/悬停态)。</summary>
+    private void ReapplyListSelection()
+    {
+        for (var i = 0; i < _listButtons.Count; i++)
+        {
+            StyleListItem(i, hovered: i == _hoveredIndex);
+        }
+
+        _styledSelection = _listSelection.Selected;
+    }
+
+    /// <summary>选中项滚出可视区时,滚动使其可见。</summary>
+    private void EnsureSelectionVisible()
+    {
+        if (_listButtons.Count == 0 || _listScrollViewer is not { } scroller)
+        {
+            return;
+        }
+
+        var selected = _listButtons[_listSelection.Selected];
+        var itemRect = selected.RectToScreen(new Rect(0, 0, selected.RenderSize.Width, selected.RenderSize.Height));
+        var viewportRect = scroller.RectToScreen(new Rect(0, 0, scroller.ViewportWidth, scroller.ViewportHeight));
+
+        if (itemRect.Top < viewportRect.Top)
+        {
+            scroller.SetScrollOffsets(scroller.HorizontalOffset, scroller.VerticalOffset - (viewportRect.Top - itemRect.Top));
+        }
+        else if (itemRect.Bottom > viewportRect.Bottom)
+        {
+            scroller.SetScrollOffsets(scroller.HorizontalOffset, scroller.VerticalOffset + (itemRect.Bottom - viewportRect.Bottom));
+        }
+    }
+
+    /// <summary>焦点是否在文本输入控件内(搜索框/详情表单/下拉框):是则不劫持按键。</summary>
+    private bool IsTextInputFocused() =>
+        _window is { } window
+        && window.FocusManager?.FocusedElement is TextBox or MultiLineTextBox or PasswordBox or ComboBox;
+
     private void LaunchItem(LauncherItem item)
     {
         var result = _runner.Launch(item);
         AppendLog(result.Success ? "✓ " + result.Message : "✗ " + result.Message);
         _launchStatus.Value = result.Message;
+        // 失败醒目:状态栏红字 + toast;成功静默(仅状态栏轻文字)
+        _workbench.SetStatusTextColor("launch", result.Success ? null : HotkeyWarning);
+        if (!result.Success)
+        {
+            _window?.ShowToast(result.Message);
+        }
     }
 
     private void Feedback(string message)
@@ -1200,17 +1498,53 @@ internal sealed class LauncherApp
         return new Image().Source(icon).Size(size, size);
     }
 
-    private UIElement EmptyListLabel() => new Label()
-        .Text(string.IsNullOrWhiteSpace(_query) ? "暂无启动项" : "无匹配启动项")
-        .FontSize(12)
-        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground));
+    /// <summary>空状态组件:文案 + 引导动作按钮,启动项列表与分类树共用;颜色取自所在区的五区色板。</summary>
+    private UIElement EmptyStateView(string message, string actionLabel, Action action, Color foreground, Color background) =>
+        new StackPanel()
+            .Padding(16)
+            .Spacing(8)
+            .Children(
+                new Label().Text(message).FontSize(13)
+                    .WithTheme((_, label) => label.Foreground(foreground)),
+                new Button()
+                    .Content(new Label().Text(actionLabel)
+                        .WithTheme((_, label) => label.Foreground(foreground)))
+                    .OnClick(action)
+                    .CanDrag(false)
+                    .WithTheme((_, button) => button.Background(background))
+            );
+
+    /// <summary>清空启动项列表搜索词并刷新列表。</summary>
+    private void ClearItemsSearch()
+    {
+        _query = "";
+        if (_itemsSearchBox is { } box)
+        {
+            box.Text = "";
+        }
+
+        ShowNav(_navId);
+    }
+
+    /// <summary>清空分类树搜索词并刷新树。</summary>
+    private void ClearCategorySearch()
+    {
+        _sideBarFilters["launch"] = "";
+        if (_categorySearchBox is { } box)
+        {
+            box.Text = "";
+        }
+
+        RefreshCategoryTree();
+    }
 
     private void EditItem(LauncherItem item)
     {
         _current = item;
         ShowItemDetail(item);
-        _workbench.SetDocumentReveal("detail", "launch", () => ShowNav(item.CategoryId ?? LauncherData.UncategorizedNavId));
-        _workbench.OpenDocument("detail"); // 编辑器区激活「启动项详情」文档
+        _workbench.SetDocumentReveal(DetailDocumentId, "launch", () => ShowNav(item.CategoryId ?? LauncherData.UncategorizedNavId));
+        _workbench.OpenDocument(DetailDocumentId); // 编辑器区激活「启动项详情」文档
+        _workbench.SetDocumentTitle(DetailDocumentId, item.Name); // 标签随当前对象显示项名
     }
 
     private void ShowEmptyDetail()
@@ -1220,6 +1554,7 @@ internal sealed class LauncherApp
         _detailPanel.Add(new Label()
             .Text("从左侧选择启动项查看详情")
             .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)));
+        _workbench.SetDocumentTitle(DetailDocumentId, "启动项详情"); // 无选中项时标签回落默认名
     }
 
     private void ShowItemDetail(LauncherItem item)
@@ -1287,26 +1622,30 @@ internal sealed class LauncherApp
             .Padding(24)
             .Spacing(12)
             .Children(
-                new Label().Text(item.Name).FontSize(20).Bold()
-                    .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
-                new Label().Text(item.Id).FontSize(11)
-                    .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
+                // 第一行工具行:启动 / 删除(编辑时测试启动不必滚动)
+                new StackPanel()
+                    .Orientation(Orientation.Horizontal)
+                    .Spacing(8)
+                    .Children(
+                        new Button()
+                            .Content(new Label().Text("启动"))
+                            .OnClick(() => LaunchItem(item))
+                            .CanDrag(false),
+                        new Button()
+                            .Content(new Label().Text("删除启动项"))
+                            .OnClick(() => DeleteItem(item))
+                            .CanDrag(false)
+                    ),
+                SectionTitle("基本", _theme.EditorArea.Foreground),
                 FieldRow("名称", name),
                 FieldRow("命令", command),
                 FieldRow("参数", args),
                 FieldRow("工作目录", workingDirectory),
                 FieldRow("分类", categoryCombo),
+                SectionTitle("高级", _theme.EditorArea.Foreground),
                 FieldRow("图标", icon),
                 FieldRow("每项热键", hotkey),
-                hotkeyHint,
-                new Button()
-                    .Content(new Label().Text("启动"))
-                    .OnClick(() => LaunchItem(item))
-                    .CanDrag(false),
-                new Button()
-                    .Content(new Label().Text("删除启动项"))
-                    .OnClick(() => DeleteItem(item))
-                    .CanDrag(false)
+                hotkeyHint
             );
     }
 
@@ -1317,6 +1656,13 @@ internal sealed class LauncherApp
                 .WithTheme((_, l) => l.Foreground(_theme.EditorArea.Foreground)),
             input
         );
+
+    /// <summary>详情页分区标题(基本/高级)。</summary>
+    private static UIElement SectionTitle(string text, Color foreground) => new Label()
+        .Text(text)
+        .FontSize(14)
+        .Bold()
+        .WithTheme((_, label) => label.Foreground(foreground));
 
     private static TextBox TextField(string value, string placeholder) => new()
     {

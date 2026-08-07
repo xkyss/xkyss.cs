@@ -25,7 +25,7 @@ internal sealed class OverlayWindow
     private readonly TextBox _searchBox = new() { Placeholder = "输入以搜索启动项", CanDrag = false };
     private readonly StackPanel _resultPanel = new();
     private List<LauncherItem> _results = [];
-    private int _selected;
+    private readonly SelectionModel _selection = new();
 
     internal OverlayWindow(Window owner, List<LauncherItem> items, LauncherRunner runner, IconResolver icons, WorkbenchThemeContext theme)
     {
@@ -89,18 +89,18 @@ internal sealed class OverlayWindow
                 break;
 
             case Key.Enter when _results.Count > 0:
-                Launch(_results[_selected]);
+                Launch(_results[_selection.Selected]);
                 e.Handled = true;
                 break;
 
             case Key.Up when _results.Count > 0:
-                _selected = (_selected - 1 + _results.Count) % _results.Count;
+                _selection.MoveUp(_results.Count);
                 Refresh(_searchBox.Text);
                 e.Handled = true;
                 break;
 
             case Key.Down when _results.Count > 0:
-                _selected = (_selected + 1) % _results.Count;
+                _selection.MoveDown(_results.Count);
                 Refresh(_searchBox.Text);
                 e.Handled = true;
                 break;
@@ -110,12 +110,12 @@ internal sealed class OverlayWindow
     private void Refresh(string query)
     {
         _results = _items.Where(item => LauncherSearch.Matches(item, query)).Take(MaxResults).ToList();
-        _selected = _results.Count == 0 ? 0 : Math.Clamp(_selected, 0, _results.Count - 1);
+        _selection.Clamp(_results.Count);
 
         _resultPanel.Clear();
         for (var i = 0; i < _results.Count; i++)
         {
-            _resultPanel.Add(Row(_results[i], i == _selected));
+            _resultPanel.Add(Row(_results[i], i == _selection.Selected));
         }
     }
 
