@@ -139,11 +139,17 @@ internal sealed class WorkbenchView
     {
         foreach (var (id, button) in _activityButtons)
         {
-            button.Background(id == _workbench.ActiveActivityId
-                ? _theme!.ActivityBar.Accent
-                : _theme!.ActivityBar.Background);
+            button.Background(ActivityButtonBackground(id));
         }
     }
+
+    /// <summary>活动栏按钮背景:选中项为 accent 与区背景按 2:8 回混的低调选中色,其余为区背景。随主题与选中态重算。</summary>
+    private Color ActivityButtonBackground(string id) =>
+        id == _workbench.ActiveActivityId ? ActivityBarSelectedBackground : _theme!.ActivityBar.Background;
+
+    /// <summary>活动栏选中背景:accent 与区背景按 2:8 回混的低调选中色(替代整块鲜艳 accent),与启动项列表选中一致。</summary>
+    private Color ActivityBarSelectedBackground =>
+        _theme!.ActivityBar.Accent.Lerp(_theme.ActivityBar.Background, 0.8);
 
     /// <summary>底部面板显隐:与 MewDock 的 Auto Hide 行为一致——隐藏 = Unpin(收起成边缘条,悬停滑出),显示 = Pin(固定)。</summary>
     private void ApplyPanelPin(string id, bool visible)
@@ -399,6 +405,8 @@ internal sealed class WorkbenchView
         var button = new Button()
             .Size(36, 36)
             .Padding(0) // 清零默认内边距,避免自定义图标(如 ⚙)被内容区裁切
+            .BorderThickness(0) // 活动栏按钮不显示默认按钮边框
+            .CornerRadius(0)
             .Content(item.CustomGlyph is { } custom
                 ? custom
                 : new GlyphElement()
@@ -409,6 +417,9 @@ internal sealed class WorkbenchView
 
         button.OnClick(() => _workbench.SelectActivity(item.Id));
         _activityButtons.Add(item.Id, button);
+        // 背景随主题自动重涂:WithTheme 在主题切换时按当前选中态与新区背景重算
+        // (选中态切换时由 ApplyActivitySelection 重涂,两者都读当前选中项,互不覆盖失效)。
+        button.WithTheme((_, btn) => btn.Background(ActivityButtonBackground(item.Id)));
 
         return button;
     }
