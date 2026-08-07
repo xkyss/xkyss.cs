@@ -6,7 +6,7 @@ namespace Mew.Launcher;
 public static class LauncherSearch
 {
     /// <summary>
-    /// 查询是否匹配启动项:空查询放行全部;否则按名称或命令做大小写不敏感的子串匹配。
+    /// 查询是否匹配启动项:空查询放行全部;否则按名称、命令或简介做大小写不敏感的子串匹配。
     /// </summary>
     public static bool Matches(LauncherItem item, string query)
     {
@@ -16,6 +16,7 @@ public static class LauncherSearch
         }
 
         return item.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
-            || item.Command.Contains(query, StringComparison.OrdinalIgnoreCase);
+            || item.Command.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || (item.Description ?? "").Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 }

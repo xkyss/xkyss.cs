@@ -21,7 +21,8 @@ internal sealed record LauncherItemDto(
     string? WorkingDirectory = null,
     string? CategoryId = null,
     string? Icon = null,
-    string? Hotkey = null);
+    string? Hotkey = null,
+    string? Description = null);
 
 /// <summary>数据文件根结构:分类树 + 启动项。</summary>
 internal sealed record LauncherDataFileDto(
@@ -138,7 +139,8 @@ internal sealed class LauncherStore
         WorkingDirectory: dto.WorkingDirectory,
         CategoryId: dto.CategoryId,
         Icon: dto.Icon,
-        Hotkey: dto.Hotkey);
+        Hotkey: dto.Hotkey,
+        Description: dto.Description);
 
     private static LauncherItemDto ToDto(LauncherItem item) => new(
         item.Id,
@@ -148,7 +150,8 @@ internal sealed class LauncherStore
         item.WorkingDirectory,
         item.CategoryId,
         item.Icon,
-        item.Hotkey);
+        item.Hotkey,
+        item.Description);
 
     private static List<LegacyItem> DefaultItems() =>
     [

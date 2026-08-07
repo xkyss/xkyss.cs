@@ -52,6 +52,7 @@ internal sealed class LauncherApp
     private int _styledSelection = -1;
     private int _hoveredIndex = -1;
     private ScrollViewer? _listScrollViewer;
+    private WrapPanel? _cardPanel;
     private readonly StackPanel _detailPanel = new();
     private readonly StackPanel _logPanel = new();
     private string _navId = LauncherData.AllNavId; // 当前导航节点:「全部」/ 分类 id /「未分类」
@@ -347,6 +348,9 @@ internal sealed class LauncherApp
     }
     .WithTheme((_, label) => label.Foreground(_theme.ActivityBar.Foreground));
 
+    /// <summary>列表/卡片悬停「编辑」按钮的铅笔字形。</summary>
+    private const string EditGlyph = "✏️";
+
     /// <summary>标题栏齿轮与 File→设置:选择设置上下文并显式打开设置文档。</summary>
     private void OpenSettings()
     {
@@ -501,10 +505,18 @@ internal sealed class LauncherApp
             switch (e.Key)
             {
                 case Key.Up:
-                    MoveListSelection(-1);
+                    MoveListSelection(IsCardMode ? -CardColumns : -1); // 卡片:按行上下跳
                     e.Handled = true;
                     break;
                 case Key.Down:
+                    MoveListSelection(IsCardMode ? CardColumns : 1);
+                    e.Handled = true;
+                    break;
+                case Key.Left when IsCardMode:
+                    MoveListSelection(-1); // 卡片:左右横向移动
+                    e.Handled = true;
+                    break;
+                case Key.Right when IsCardMode:
                     MoveListSelection(+1);
                     e.Handled = true;
                     break;
@@ -1088,7 +1100,8 @@ internal sealed class LauncherApp
         }
         else
         {
-            var wrap = new WrapPanel { ItemWidth = 170, ItemHeight = 96, Spacing = 8 };
+            _cardPanel = new WrapPanel { ItemWidth = CardItemWidth, ItemHeight = CardItemHeight, Spacing = CardSpacing };
+            var wrap = _cardPanel;
             for (var i = 0; i < shown.Count; i++)
             {
                 var (container, main, bar) = Card(shown[i], i);
@@ -1105,24 +1118,35 @@ internal sealed class LauncherApp
         ApplyListSelection();
     }
 
-    /// <summary>编辑器区列表行:图标 + 名称 + 命令,单击启动,悬停浮现「编辑」,右键菜单(编辑/删除)。</summary>
+    /// <summary>编辑器区列表行:三列布局(图标 / 名称+命令行 / 简介),单击启动,悬停浮现「编辑」图标按钮,右键菜单(编辑/删除)。</summary>
     private (UIElement Container, Button Main, Border Bar) ListRow(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
         var main = new Button()
-            .Content(new StackPanel()
-                .Orientation(Orientation.Horizontal)
-                .Spacing(6)
+            .Content(new Grid()
+                .Columns("Auto,*,*")
+                .Spacing(8)
                 .Children(
-                    IconElement(icon),
+                    IconElement(icon, 32).VerticalAlignment(VerticalAlignment.Center),
                     new StackPanel()
                         .Spacing(2)
+                        .VerticalAlignment(VerticalAlignment.Center)
+                        .Column(1)
                         .Children(
                             new Label().Text(item.Name)
+                                .Bold()
                                 .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
                             new Label().Text(item.Command).FontSize(11)
                                 .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
-                        )
+                        ),
+                    new Label()
+                        .Text(item.Description ?? "")
+                        .FontSize(11)
+                        .TextAlignment(TextAlignment.Left)
+                        .TextWrapping(TextWrapping.Wrap)
+                        .VerticalAlignment(VerticalAlignment.Center)
+                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
+                        .Column(2)
                 ))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
@@ -1132,27 +1156,49 @@ internal sealed class LauncherApp
         return BuildItemShell(item, main, index, editAtCorner: false);
     }
 
-    /// <summary>卡片:24px 图标 + 名称同行(名称占剩余宽度可换行)、命令小字第二行,单击启动,悬停浮现「编辑」。</summary>
+    /// <summary>卡片第三行文案:简介,无简介时显示「暂无简介」占位,避免卡片空洞。</summary>
+    private static string CardBottomText(LauncherItem item) =>
+        string.IsNullOrWhiteSpace(item.Description) ? "暂无简介" : item.Description;
+
+    /// <summary>卡片:图标跨两行(左侧)+ 名称(加粗稍大)一行 + 命令行一行,下方第三行见 <see cref="CardBottomText"/>;单击启动,悬停浮现「编辑」图标按钮。</summary>
     private (UIElement Container, Button Main, Border Bar) Card(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
+        var content = new List<UIElement>
+        {
+            new Grid()
+                .Columns("Auto,*")
+                .Spacing(8)
+                .Children(
+                    IconElement(icon, 48),
+                    new StackPanel()
+                        .Spacing(2)
+                        .VerticalAlignment(VerticalAlignment.Center)
+                        .Column(1)
+                        .Children(
+                            new Label().Text(item.Name)
+                                .Bold()
+                                .FontSize(14)
+                                .TextWrapping(TextWrapping.Wrap)
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
+                            new Label().Text(item.Command).FontSize(11)
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
+                        )
+                )
+        };
+
+        // 第三行:简介/快捷键/参数/分类(始终有内容)
+        content.Add(new Label()
+            .Text(CardBottomText(item))
+            .FontSize(11)
+            .TextWrapping(TextWrapping.Wrap)
+            .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)));
+
         var main = new Button()
             .Content(new StackPanel()
                 .Orientation(Orientation.Vertical)
                 .Spacing(6)
-                .Children(
-                    new Grid()
-                        .Columns("Auto,*")
-                        .Children(
-                            IconElement(icon, 24),
-                            new Label().Text(item.Name)
-                                .TextWrapping(TextWrapping.Wrap)
-                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
-                                .Column(1)
-                        ),
-                    new Label().Text(item.Command).FontSize(11)
-                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
-                ))
+                .Children(content.ToArray()))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
         main.OnClick(() => TryLaunchFromList(item)); // 单击 → 启动(双击经防重只启动一次)
@@ -1161,18 +1207,19 @@ internal sealed class LauncherApp
     }
 
     /// <summary>
-    /// 组装列表项容器:主按钮(单击启动)+ 悬停浮现的「编辑」按钮 + 选中左缘条,三者兄弟叠加
+    /// 组装列表项容器:主按钮(单击启动)+ 悬停浮现的「编辑」图标按钮 + 选中左缘条,三者兄弟叠加
     /// (不嵌套按钮,避免点击冲突);主按钮与编辑按钮共用悬停计数,悬停态在两者间移动不丢失。
     /// </summary>
     private (UIElement Container, Button Main, Border Bar) BuildItemShell(LauncherItem item, Button main, int index, bool editAtCorner)
     {
         var edit = new Button()
-            .Content(new Label().Text("编辑")
+            .Content(new Label().Text(EditGlyph).FontSize(14)
                 .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)))
+            .ToolTip("编辑")
             .OnClick(() => EditItem(item))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background))
-            .Padding(new Thickness(8, 2, 8, 2));
+            .Padding(new Thickness(6, 2, 6, 2));
         edit.IsVisible = false; // 悬停时浮现
         edit.HorizontalAlignment = HorizontalAlignment.Right;
         edit.VerticalAlignment = editAtCorner ? VerticalAlignment.Top : VerticalAlignment.Center;
@@ -1213,6 +1260,29 @@ internal sealed class LauncherApp
             }
         };
     }
+
+    /// <summary>卡片网格列数:按卡片面板实际宽度与卡片尺寸推算,至少 1 列。</summary>
+    private int CardColumns
+    {
+        get
+        {
+            if (_cardPanel is not { } panel || panel.ActualWidth <= 0)
+            {
+                return 1;
+            }
+
+            var slot = CardItemWidth + CardSpacing;
+            return Math.Max(1, (int)((panel.ActualWidth + CardSpacing) / slot));
+        }
+    }
+
+    /// <summary>当前是否为卡片形态(左右键仅卡片可用,列表为单列)。</summary>
+    private bool IsCardMode => _viewMode == "card";
+
+    /// <summary>卡片布局常量:卡宽/卡高/间距,ShowNav 与列数推算共用。</summary>
+    private const double CardItemWidth = 170;
+    private const double CardItemHeight = 120;
+    private const double CardSpacing = 8;
 
     private string ViewModeLabel() => _viewMode == "card" ? "卡片" : "列表";
 
@@ -1377,7 +1447,7 @@ internal sealed class LauncherApp
         _styledSelection = selected;
     }
 
-    /// <summary>按「选中 &gt; 悬停 &gt; 常态」优先级重涂列表项:选中 = accent 背景 + 左缘条;悬停 = 背景微亮。</summary>
+    /// <summary>按「选中 &gt; 悬停 &gt; 常态」优先级重涂列表项:选中 = 低调 accent 背景 + 左缘条;悬停 = 背景微亮。</summary>
     private void StyleListItem(int index, bool hovered)
     {
         if (index < 0 || index >= _listButtons.Count)
@@ -1388,7 +1458,7 @@ internal sealed class LauncherApp
         var button = _listButtons[index];
         var selected = index == _listSelection.Selected;
         button.Background(selected
-            ? _theme.EditorArea.Accent
+            ? SelectedBackground
             : hovered ? HoverBackground : _theme.EditorArea.Background);
 
         if (index < _listBars.Count)
@@ -1402,6 +1472,10 @@ internal sealed class LauncherApp
         _theme.IsDark
             ? _theme.EditorArea.Background.Lerp(Color.FromRgb(255, 255, 255), 0.08)
             : _theme.EditorArea.Background.Lerp(Color.FromRgb(0, 0, 0), 0.06);
+
+    /// <summary>选中背景:accent 与区背景按 2:8 回混的低调选中色(替代整块鲜艳 accent)。</summary>
+    private Color SelectedBackground =>
+        _theme.EditorArea.Accent.Lerp(_theme.EditorArea.Background, 0.8);
 
     /// <summary>选中左缘条:accent 向白提亮,保证 accent 背景上可见。</summary>
     private Color AccentBarColor => _theme.EditorArea.Accent.Lerp(Color.FromRgb(255, 255, 255), 0.45);
@@ -1488,7 +1562,7 @@ internal sealed class LauncherApp
         _launchStatus.Value = message;
     }
 
-    private static UIElement IconElement(ImageSource? icon, int size = 16)
+    private static FrameworkElement IconElement(ImageSource? icon, int size = 16)
     {
         if (icon is null)
         {
@@ -1568,6 +1642,7 @@ internal sealed class LauncherApp
         _loading = true;
 
         var name = TextField(item.Name, "启动项名称");
+        var description = TextField(item.Description ?? "", "简要介绍该启动项");
         var command = TextField(item.Command, "程序、脚本或 URL");
         var args = TextField(item.Args ?? "", "可选参数");
         var workingDirectory = TextField(item.WorkingDirectory ?? "", "可选工作目录");
@@ -1599,6 +1674,7 @@ internal sealed class LauncherApp
         _loading = false;
 
         name.TextChanged += text => UpdateCurrent(i => i with { Name = text });
+        description.TextChanged += text => UpdateCurrent(i => i with { Description = string.IsNullOrWhiteSpace(text) ? null : text });
         command.TextChanged += text => UpdateCurrent(i => i with { Command = text });
         args.TextChanged += text => UpdateCurrent(i => i with { Args = string.IsNullOrWhiteSpace(text) ? null : text });
         workingDirectory.TextChanged += text => UpdateCurrent(i => i with { WorkingDirectory = string.IsNullOrWhiteSpace(text) ? null : text });
@@ -1638,6 +1714,7 @@ internal sealed class LauncherApp
                     ),
                 SectionTitle("基本", _theme.EditorArea.Foreground),
                 FieldRow("名称", name),
+                FieldRow("简介", description),
                 FieldRow("命令", command),
                 FieldRow("参数", args),
                 FieldRow("工作目录", workingDirectory),

@@ -40,7 +40,7 @@ public class LauncherStoreTests : IDisposable
         });
         var items = new List<LauncherItem>
         {
-            new("steam", "Steam", "steam", CategoryId: "games-steam"),
+            new("steam", "Steam", "steam", CategoryId: "games-steam", Description: "游戏平台"),
             new("github", "GitHub", "https://github.com", CategoryId: null),
         };
         store.Save(items);
@@ -51,6 +51,7 @@ public class LauncherStoreTests : IDisposable
         Assert.Equal(2, loaded.Count);
         var steam = loaded.Single(i => i.Id == "steam");
         Assert.Equal("games-steam", steam.CategoryId);
+        Assert.Equal("游戏平台", steam.Description);
         var github = loaded.Single(i => i.Id == "github");
         Assert.Null(github.CategoryId);
         Assert.Equal("games-steam", reloaded.Categories[0].Children![0].Id);
