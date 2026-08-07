@@ -28,6 +28,8 @@ internal sealed class LauncherApp
     private string _overlayHotkey;
     private Window? _window;
     private Icon? _windowIcon;
+    private IntPtr _windowLargeIcon;
+    private IntPtr _windowSmallIcon;
     private bool _capturingHotkey;
     private Button? _hotkeyChangeButton;
     private Button? _titleThemeButton;
@@ -171,6 +173,7 @@ internal sealed class LauncherApp
 
         Application.Run(window);
         _windowIcon?.Dispose();
+        DestroyWindowIcons();
 
         void ShowMain()
         {
@@ -193,7 +196,7 @@ internal sealed class LauncherApp
         {
             window.TitleBarLeft.Add(new Image()
                 .Source(appIcon)
-                .Size(20, 20)
+                .Size(24, 24)
                 .Margin(new Thickness(6, 0, 6, 0)));
         }
 
@@ -401,9 +404,22 @@ internal sealed class LauncherApp
         return false;
     }
 
+    /// <summary>设置窗口系统图标:大图标(任务栏/Alt+Tab)与小图标(标题栏/窗口切换)分别从 exe 图标资源提取,
+    /// 避免 ExtractAssociatedIcon 只返回 32px 小图标导致任务栏放大后显小/模糊。</summary>
     private void ApplyWindowIcon(Window window)
     {
-        _windowIcon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!);
+        var path = Environment.ProcessPath!;
+        if (ExtractIconEx(path, 0, out var largeIcon, out var smallIcon, 1) > 0)
+        {
+            _windowLargeIcon = largeIcon;
+            _windowSmallIcon = smallIcon;
+            SendMessage(window.Handle, WmSetIcon, IconSmall, smallIcon);
+            SendMessage(window.Handle, WmSetIcon, IconBig, largeIcon);
+            return;
+        }
+
+        // 回退:资源提取失败时退回 ExtractAssociatedIcon
+        _windowIcon = Icon.ExtractAssociatedIcon(path);
         if (_windowIcon is null)
         {
             return;
@@ -413,9 +429,31 @@ internal sealed class LauncherApp
         SendMessage(window.Handle, WmSetIcon, IconBig, _windowIcon.Handle);
     }
 
+    /// <summary>释放 ExtractIconEx 提取的窗口大/小图标句柄(WM_SETICON 不接管句柄所有权)。</summary>
+    private void DestroyWindowIcons()
+    {
+        if (_windowLargeIcon != IntPtr.Zero)
+        {
+            DestroyIcon(_windowLargeIcon);
+            _windowLargeIcon = IntPtr.Zero;
+        }
+
+        if (_windowSmallIcon != IntPtr.Zero)
+        {
+            DestroyIcon(_windowSmallIcon);
+            _windowSmallIcon = IntPtr.Zero;
+        }
+    }
+
     private const uint WmSetIcon = 0x0080;
     private static readonly IntPtr IconSmall = IntPtr.Zero;
     private static readonly IntPtr IconBig = new(1);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint ExtractIconEx(string szFile, int nIconIndex, out IntPtr phiconLarge, out IntPtr phiconSmall, uint nIcons);
+
+    [DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr hIcon);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
