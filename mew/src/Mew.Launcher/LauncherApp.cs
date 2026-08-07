@@ -24,7 +24,6 @@ internal sealed class LauncherApp
 
     private readonly LauncherStore _store = new();
     private readonly SettingsStore _settings = new();
-    private readonly ObservableValue<string> _hotkeyStatus;
     private string _overlayHotkey;
     private Window? _window;
     private Icon? _windowIcon;
@@ -67,7 +66,6 @@ internal sealed class LauncherApp
         _itemHotkeys = new ItemHotkeys(_items, LaunchItem, Feedback);
         var settings = _settings.Load();
         _overlayHotkey = string.IsNullOrWhiteSpace(settings.OverlayHotkey) ? DefaultOverlayHotkey : settings.OverlayHotkey!;
-        _hotkeyStatus = new ObservableValue<string>(_overlayHotkey);
         _viewMode = string.IsNullOrWhiteSpace(settings.ItemsViewMode) ? "card" : settings.ItemsViewMode!;
     }
 
@@ -102,8 +100,7 @@ internal sealed class LauncherApp
                 .Document(SettingsDocumentId, "设置", BuildSettingsDocument()))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
-                .Item("launch", _launchStatus)
-                .Item("shortcut", _hotkeyStatus));
+                .Item("launch", _launchStatus));
 
         ShowNav(_navId);
         ShowEmptyDetail();
@@ -134,7 +131,7 @@ internal sealed class LauncherApp
             tray = new TrayIcon(window.Handle, ShowMain, Quit);
             tray.Add();
 
-            // 主题模式变更(状态栏循环按钮 / 设置页 / 标题栏)统一持久化并同步各处显示
+            // 主题模式变更(设置页 / 标题栏)统一持久化并同步各处显示
             if (Application.Current is { } app)
             {
                 app.ThemeModeChanged += PersistThemeMode;
@@ -747,7 +744,6 @@ internal sealed class LauncherApp
 
         _overlayHotkey = hotkey;
         _hotkeyDisplay!.Text = hotkey;
-        _hotkeyStatus.Value = hotkey;
 
         var settings = _settings.Load();
         settings.OverlayHotkey = hotkey;

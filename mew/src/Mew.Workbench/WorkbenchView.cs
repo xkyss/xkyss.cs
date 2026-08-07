@@ -411,7 +411,7 @@ internal sealed class WorkbenchView
     {
         var theme = _workbench.ThemeContext;
         var items = _workbench.StatusBarModel.Items;
-        var children = new Element[items.Count + 1];
+        var children = new Element[items.Count];
 
         for (var i = 0; i < items.Count; i++)
         {
@@ -421,17 +421,6 @@ internal sealed class WorkbenchView
                 .FontSize(12)
                 .WithTheme((_, label) => label.Foreground(theme.StatusBar.Foreground));
         }
-
-        children[items.Count] = new Button()
-            .FontSize(12)
-            .Padding(8, 4)
-            .OnClick(() => CycleTheme(theme))
-            .WithTheme((_, button) =>
-            {
-                button.Content(ThemeModeLabel(theme.Mode));
-                button.Foreground(theme.StatusBar.Foreground);
-                button.Background(theme.StatusBar.Background);
-            });
 
         return new Border()
             .WithTheme((_, border) => border.Background(theme.StatusBar.Background))
@@ -443,23 +432,4 @@ internal sealed class WorkbenchView
                     .Children(children)
             );
     }
-
-    private static void CycleTheme(WorkbenchThemeContext theme)
-    {
-        var next = theme.Mode switch
-        {
-            ThemeVariant.System => ThemeVariant.Light,
-            ThemeVariant.Light => ThemeVariant.Dark,
-            _ => ThemeVariant.System,
-        };
-
-        theme.SetMode(next);
-    }
-
-    private static string ThemeModeLabel(ThemeVariant mode) => mode switch
-    {
-        ThemeVariant.Light => "主题: 亮色",
-        ThemeVariant.Dark => "主题: 暗色",
-        _ => "主题: 系统",
-    };
 }
