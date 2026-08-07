@@ -849,7 +849,10 @@ internal sealed class LauncherApp
             Placeholder = "搜索分类",
             Text = SideBarFilter("launch"),
             CanDrag = false,
+            BorderThickness = 0, // 平时不显示边框;聚焦时恢复边框作输入反馈
         };
+        searchBox.OnGotFocus(() => searchBox.BorderThickness = 1);
+        searchBox.OnLostFocus(() => searchBox.BorderThickness = 0);
         searchBox.TextChanged += text =>
         {
             _sideBarFilters["launch"] = text;
@@ -862,10 +865,18 @@ internal sealed class LauncherApp
             SelectionMode = ItemsSelectionMode.Single,
             ExpandTrigger = TreeViewExpandTrigger.ClickChevron,
             CanDrag = false,
+            BorderThickness = 0,
+            CornerRadius = 0,
         };
         _tree = tree;
         tree.SelectionChanged += OnNavSelectionChanged;
         tree.MouseUp += OnCategoryTreeRightClick;
+        // 分类树不显示默认边框:边框清零,背景跟随侧边栏区背景(去掉按钮式面板观感,与区背景融为一体)
+        tree.WithTheme((_, view) =>
+        {
+            view.BorderBrush = Color.Transparent;
+            view.Background = _theme.SideBar.Background;
+        });
 
         var content = new StackPanel().Spacing(6);
         _categoryTreePanel = content;
