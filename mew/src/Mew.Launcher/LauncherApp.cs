@@ -1054,7 +1054,7 @@ internal sealed class LauncherApp
         }
         else
         {
-            var wrap = new WrapPanel { ItemWidth = 128, ItemHeight = 96, Spacing = 8 };
+            var wrap = new WrapPanel { ItemWidth = 170, ItemHeight = 96, Spacing = 8 };
             for (var i = 0; i < shown.Count; i++)
             {
                 var (container, main, bar) = Card(shown[i], i);
@@ -1098,7 +1098,7 @@ internal sealed class LauncherApp
         return BuildItemShell(item, main, index, editAtCorner: false);
     }
 
-    /// <summary>卡片:大图标 + 名称,单击启动,悬停浮现「编辑」,右键菜单(编辑/删除)。</summary>
+    /// <summary>卡片:24px 图标 + 名称同行(名称占剩余宽度可换行)、命令小字第二行,单击启动,悬停浮现「编辑」。</summary>
     private (UIElement Container, Button Main, Border Bar) Card(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
@@ -1107,9 +1107,16 @@ internal sealed class LauncherApp
                 .Orientation(Orientation.Vertical)
                 .Spacing(6)
                 .Children(
-                    IconElement(icon, 40),
-                    new Label().Text(item.Name)
-                        .TextWrapping(TextWrapping.Wrap)
+                    new Grid()
+                        .Columns("Auto,*")
+                        .Children(
+                            IconElement(icon, 24),
+                            new Label().Text(item.Name)
+                                .TextWrapping(TextWrapping.Wrap)
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
+                                .Column(1)
+                        ),
+                    new Label().Text(item.Command).FontSize(11)
                         .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
                 ))
             .CanDrag(false)
