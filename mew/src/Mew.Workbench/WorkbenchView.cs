@@ -80,7 +80,7 @@ internal sealed class WorkbenchView
             new WorkbenchPresentationState(_workbench.ActiveActivityId, _workbench.IsSideBarVisible));
         var shell = BuildShell(docking);
         ApplyChromeVisibility();
-        SoftenDockFocusBorders(docking);
+        DisableDockZoneBorders(docking);
         HideMaximizeButtons(docking); // 初始 tabset 视图已就绪,视图层隐藏最大化按钮
         return shell;
     }
@@ -217,44 +217,12 @@ internal sealed class WorkbenchView
             && m.GetParameters() is [{ ParameterType: var p }] && p == typeof(Style))
         ?? throw new MissingMethodException(nameof(StyleSheet), nameof(StyleSheet.Define));
 
-    /// <summary>编辑器区 tabset:默认边框 + Focused 时改为 30% 强调色混合(原 75%)。</summary>
-    private static Style CreateSoftFocusTabSetStyle(Type type) => new(type)
-    {
-        Transitions = [Transition.Create(Control.BorderBrushProperty, 200, t => t)],
-        Setters =
-        [
-            Setter.Create(Control.BackgroundProperty, t => t.Palette.ContainerBackground),
-            Setter.Create(Control.BorderBrushProperty, t => t.Palette.ControlBorder),
-            Setter.Create(Control.CornerRadiusProperty, t => t.Metrics.ControlCornerRadius),
-            Setter.Create(Control.BorderThicknessProperty, t => t.Metrics.ControlBorderThickness),
-        ],
-        Triggers = [SoftFocusTrigger()],
-    };
-
-    /// <summary>侧边栏(ExtendedBorderBar):默认边框 + Focused 时改为 30% 强调色混合(原 75%)。</summary>
-    private static Style CreateSoftFocusBorderBarStyle(Type type) => new(type)
-    {
-        Transitions = [Transition.Create(Control.BorderBrushProperty, 200, t => t)],
-        Setters = [Setter.Create(Control.BorderBrushProperty, t => t.Palette.ControlBorder)],
-        Triggers = [SoftFocusTrigger()],
-    };
-
-    private static StateTrigger SoftFocusTrigger() => new()
-    {
-        Match = VisualStateFlags.Focused,
-        Setters =
-        [
-            Setter.Create(Control.BorderBrushProperty, t => t.Palette.ControlBorder.Lerp(t.Palette.Accent, 0.3)),
-        ],
-    };
-
     /// <summary>
-    /// MewDock 内置 DockStyles 把焦点(tabset / 侧边栏)边框画成 ControlBorder→Accent 75% 混合,过于醒目。
-    /// FlexLayoutView 的 StyleSheet 按类型注册 rule 且 GetByType 从后往前匹配——向其中追加覆盖 rule 即可
-    /// 弱化焦点边框(与 NativeChromeWindow 的 30% 混合保持一致)。
-    /// 目标控件类型在 MewDock 中是 internal,无法静态引用,故经反射按名解析类型。
+    /// MewDock 内置 DockStyles 给 tabset / 侧边栏画边框(默认 ControlBorder,焦点时 ControlBorder→Accent 75% 混合)。
+    /// 五个工作台区按设计不显示边框:FlexLayoutView 的 StyleSheet 按类型注册 rule 且 GetByType 从后往前匹配——
+    /// 向其中追加覆盖 rule 即可关闭边框。目标控件类型在 MewDock 中是 internal,无法静态引用,故经反射按名解析类型。
     /// </summary>
-    private static void SoftenDockFocusBorders(DockingManager docking)
+    private static void DisableDockZoneBorders(DockingManager docking)
     {
         if (docking.Children.FirstOrDefault() is not FrameworkElement { StyleSheet: { } sheet })
         {
@@ -262,9 +230,34 @@ internal sealed class WorkbenchView
         }
 
         var assembly = typeof(DockingManager).Assembly;
-        OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Controls.FlexTabSetView", CreateSoftFocusTabSetStyle);
-        OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Extended.ExtendedBorderBar", CreateSoftFocusBorderBarStyle);
+        OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Controls.FlexTabSetView", CreateBorderlessTabSetStyle);
+        OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Extended.ExtendedBorderBar", CreateBorderlessBorderBarStyle);
     }
+
+    /// <summary>
+    /// 编辑器区/侧边栏/底部面板的 tabset:无边框。BorderThickness 置 0 后 FlexTabSetView 的 body
+    /// 只画背景不画边框;圆角一并清零,避免 body 背景与相邻区之间出现缺角。
+    /// </summary>
+    private static Style CreateBorderlessTabSetStyle(Type type) => new(type)
+    {
+        Setters =
+        [
+            Setter.Create(Control.BackgroundProperty, t => t.Palette.ContainerBackground),
+            Setter.Create(Control.BorderBrushProperty, Color.Transparent),
+            Setter.Create(Control.CornerRadiusProperty, 0.0),
+            Setter.Create(Control.BorderThicknessProperty, 0.0),
+        ],
+    };
+
+    /// <summary>
+    /// 自动隐藏边缘条(ExtendedBorderBar)的折叠面板:其边框在 OnRender 里硬编码取
+    /// Theme.Metrics.ControlBorderThickness,无法用 BorderThickness 关闭——把 BorderBrush 设为
+    /// 透明即可让 DrawBackgroundAndBorder 跳过边框绘制(背景仍按原样填充)。
+    /// </summary>
+    private static Style CreateBorderlessBorderBarStyle(Type type) => new(type)
+    {
+        Setters = [Setter.Create(Control.BorderBrushProperty, Color.Transparent)],
+    };
 
     private static void OverrideStyle(Assembly assembly, StyleSheet sheet, string typeName, Func<Type, Style> factory)
     {
@@ -423,7 +416,7 @@ internal sealed class WorkbenchView
     /// <summary>
     /// 标签栏「最大化/恢复」按钮无实际效果(MewDock 最大化未完整接线),关闭模型级 TabSetEnableMaximize
     /// 使 TabSetNode.IsEnableMaximize / CanMaximize 为假,按钮不再渲染。DockingManager 不公开模型引用,
-    /// 故按私有字段 _model 反射获取;与 SoftenDockFocusBorders 同属 MewDock 内部适配。
+    /// 故按私有字段 _model 反射获取;与 DisableDockZoneBorders 同属 MewDock 内部适配。
     /// </summary>
     private static void DisableTabSetMaximize(DockingManager docking)
     {
@@ -438,7 +431,7 @@ internal sealed class WorkbenchView
     /// <summary>
     /// 视图层隐藏所有 tabset 的「最大化/恢复」按钮。按钮在 FlexTabSetView 构造时按模型 flag 创建,
     /// 而模型在首次布局(AddDocumentPane 路径)时才就绪,flag 时序不可控;直接隐藏视图的
-    /// _maximizeButton 字段在所有场景下都可靠。与 SoftenDockFocusBorders 同属 MewDock 内部适配。
+    /// _maximizeButton 字段在所有场景下都可靠。与 DisableDockZoneBorders 同属 MewDock 内部适配。
     /// </summary>
     private static void HideMaximizeButtons(DockingManager docking)
     {

@@ -154,6 +154,30 @@ public class WorkbenchConfigurationTests
         Assert.Equal(zoneForeground, label.Foreground);
     }
 
+    /// <summary>区背景覆盖:设置后仅该区生效,其他区(含默认同色板的区)保持默认,前景/强调色不变。</summary>
+    [Fact]
+    public void ThemeContext_区背景覆盖_各区独立生效()
+    {
+        var theme = new WorkbenchType().ThemeContext;
+        var panelBefore = theme.Get(WorkbenchZone.Panel);
+        var editorBefore = theme.Get(WorkbenchZone.EditorArea);
+
+        var overrideColor = Color.FromRgb(12, 34, 56);
+        theme.SetZoneBackground(WorkbenchZone.Panel, overrideColor);
+
+        var panelAfter = theme.Get(WorkbenchZone.Panel);
+        Assert.Equal(overrideColor, panelAfter.Background);
+        Assert.Equal(panelBefore.Foreground, panelAfter.Foreground);
+        Assert.Equal(panelBefore.Accent, panelAfter.Accent);
+
+        // 面板与侧边栏默认取同一色板背景,覆盖面板不影响侧边栏
+        Assert.Equal(panelBefore.Background, theme.Get(WorkbenchZone.SideBar).Background);
+        Assert.NotEqual(panelAfter.Background, theme.Get(WorkbenchZone.SideBar).Background);
+
+        // 编辑器区不受影响
+        Assert.Equal(editorBefore.Background, theme.Get(WorkbenchZone.EditorArea).Background);
+    }
+
     /// <summary>临时移走用户真实布局/呈现文件,保证用例在任意本机状态下可复现且不污染用户数据。</summary>
     private static IDisposable IsolateUserLayoutFiles()
     {

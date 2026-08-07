@@ -40,6 +40,9 @@ public sealed record ZonePalette(Color Background, Color Foreground, Color Accen
 /// </summary>
 public sealed class WorkbenchThemeContext
 {
+    // 五个区各自的背景色覆盖:未设置的区取主题色板默认背景(亮暗主题自动适配)。
+    private readonly Dictionary<WorkbenchZone, Color> _zoneBackgrounds = [];
+
     internal WorkbenchThemeContext()
     {
     }
@@ -60,7 +63,20 @@ public sealed class WorkbenchThemeContext
 
     public ZonePalette StatusBar => Get(WorkbenchZone.StatusBar);
 
-    public ZonePalette Get(WorkbenchZone zone) => ZonePalette.Create(CurrentTheme, zone);
+    public ZonePalette Get(WorkbenchZone zone)
+    {
+        var palette = ZonePalette.Create(CurrentTheme, zone);
+        return _zoneBackgrounds.TryGetValue(zone, out var background)
+            ? palette with { Background = background }
+            : palette;
+    }
+
+    /// <summary>覆盖指定工作台区的背景色;未设置时取主题色板的区默认背景,亮暗主题自动适配。</summary>
+    public WorkbenchThemeContext SetZoneBackground(WorkbenchZone zone, Color background)
+    {
+        _zoneBackgrounds[zone] = background;
+        return this;
+    }
 
     public WorkbenchThemeContext SetMode(ThemeVariant mode)
     {
