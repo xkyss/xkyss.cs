@@ -1,3 +1,4 @@
+using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.MewDock;
 
@@ -157,6 +158,17 @@ public sealed class Workbench
                 pane.Title = title;
             }
         }
+    }
+
+    /// <summary>设置状态栏项的文本颜色(如启动失败红色醒目);null 恢复区前景色。已打开的状态栏即时生效。</summary>
+    public void SetStatusTextColor(string id, Color? color)
+    {
+        if (_statusBar.Items.All(item => item.Id != id))
+        {
+            throw new ArgumentException($"不存在状态栏项“{id}”。", nameof(id));
+        }
+
+        _view?.SetStatusTextColor(id, color);
     }
 
     /// <summary>为编辑器文档声明显式的侧边栏定位行为。</summary>

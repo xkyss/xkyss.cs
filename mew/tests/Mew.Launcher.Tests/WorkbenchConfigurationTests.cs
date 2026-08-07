@@ -130,6 +130,30 @@ public class WorkbenchConfigurationTests
         Assert.Equal("detail", workbench.ActiveDocumentId);
     }
 
+    /// <summary>启动失败反馈的承载能力:状态栏项可临时变红(失败醒目),置 null 恢复区前景色。</summary>
+    [Fact]
+    public void SetStatusTextColor_状态栏项变红_置null恢复区前景()
+    {
+        using var _ = IsolateUserLayoutFiles();
+
+        var workbench = new WorkbenchType()
+            .ActivityBar(bar => bar.Item("launch", "启动", GlyphKind.Hamburger))
+            .SideBar(side => side.View("launch", "启动", new StackPanel()))
+            .StatusBar(status => status.Item("launch", "就绪"));
+        var shell = workbench.Build();
+        var label = FindAllByType(shell, typeof(Label))
+            .OfType<Label>()
+            .Single(l => l.Text == "就绪");
+        var zoneForeground = workbench.ThemeContext.StatusBar.Foreground;
+
+        var red = Color.FromRgb(200, 60, 60);
+        workbench.SetStatusTextColor("launch", red);
+        Assert.Equal(red, label.Foreground);
+
+        workbench.SetStatusTextColor("launch", null);
+        Assert.Equal(zoneForeground, label.Foreground);
+    }
+
     /// <summary>临时移走用户真实布局/呈现文件,保证用例在任意本机状态下可复现且不污染用户数据。</summary>
     private static IDisposable IsolateUserLayoutFiles()
     {
@@ -169,6 +193,27 @@ public class WorkbenchConfigurationTests
     private sealed class Disposable(Action dispose) : IDisposable
     {
         public void Dispose() => dispose();
+    }
+
+    /// <summary>从指定根元素向下查找目标类型的全部元素。</summary>
+    private static List<UIElement> FindAllByType(UIElement root, Type type)
+    {
+        var found = new List<UIElement>();
+        if (type.IsInstanceOfType(root))
+        {
+            found.Add(root);
+        }
+
+        if (root is IVisualTreeHost host)
+        {
+            host.VisitChildren(child =>
+            {
+                found.AddRange(FindAllByType((UIElement)child, type));
+                return true;
+            });
+        }
+
+        return found;
     }
 
     /// <summary>从指定根元素向下查找目标类型的第一个元素。</summary>

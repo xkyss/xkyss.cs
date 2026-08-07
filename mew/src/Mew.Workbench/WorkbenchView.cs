@@ -14,6 +14,7 @@ internal sealed class WorkbenchView
     private UIElement? _activityBar;
     private UIElement? _statusBar;
     private readonly Dictionary<string, Button> _activityButtons = [];
+    private readonly Dictionary<string, Label> _statusLabels = [];
     // 每个停靠组件的主题化内容单一实例:布局恢复(ContentFactory)、默认面板与运行时打开(OpenDocument)
     // 必须解析到同一个实例。MewDock 的 SyncContent 在显式内容与 factory 内容实例不一致时会分离旧内容,
     // 而共享子元素(如设置文档的 StackPanel)的 Parent 仍指向已分离的旧包装,导致其无法重新挂接、tab 空白。
@@ -407,6 +408,15 @@ internal sealed class WorkbenchView
         return button;
     }
 
+    /// <summary>设置状态栏项文本颜色(启动失败红色醒目用);null 恢复区前景色。</summary>
+    internal void SetStatusTextColor(string id, Color? color)
+    {
+        if (_statusLabels.TryGetValue(id, out var label))
+        {
+            label.Foreground = color ?? _theme!.StatusBar.Foreground;
+        }
+    }
+
     private UIElement BuildStatusBar()
     {
         var theme = _workbench.ThemeContext;
@@ -416,10 +426,12 @@ internal sealed class WorkbenchView
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            children[i] = new Label()
+            var label = new Label()
                 .BindText(item.Text)
                 .FontSize(12)
                 .WithTheme((_, label) => label.Foreground(theme.StatusBar.Foreground));
+            _statusLabels[item.Id] = label;
+            children[i] = label;
         }
 
         children[items.Count] = new Button()

@@ -1433,6 +1433,12 @@ internal sealed class LauncherApp
         var result = _runner.Launch(item);
         AppendLog(result.Success ? "✓ " + result.Message : "✗ " + result.Message);
         _launchStatus.Value = result.Message;
+        // 失败醒目:状态栏红字 + toast;成功静默(仅状态栏轻文字)
+        _workbench.SetStatusTextColor("launch", result.Success ? null : HotkeyWarning);
+        if (!result.Success)
+        {
+            _window?.ShowToast(result.Message);
+        }
     }
 
     private void Feedback(string message)
