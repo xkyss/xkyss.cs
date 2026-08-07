@@ -51,12 +51,23 @@ internal sealed class WorkbenchView
             AddDefaultPanes(docking, theme);
         }
 
+        // 标签栏「最大化/恢复」按钮无实际效果,禁用以隐藏。FlexTabSetView 在构造时按
+        // TabSetEnableMaximize 决定是否创建按钮,而模型在首次布局时才创建,故在每次布局变更后
+        // 重新断言该 flag(首次启动的 AddDocumentPane 路径也覆盖到)。
+        DisableTabSetMaximize(docking);
+
         if (layoutStore.TryLoadPresentation() is { } presentation)
         {
             _workbench.RestorePresentation(presentation);
         }
 
-        docking.Changed += (_, _) => layoutStore.Save(docking.SaveLayout());
+        docking.Changed += (_, _) =>
+        {
+            // 布局变更可能新建 tabset 视图:重新断言模型 flag + 视图层直接隐藏按钮
+            DisableTabSetMaximize(docking);
+            HideMaximizeButtons(docking);
+            layoutStore.Save(docking.SaveLayout());
+        };
         docking.TabMenuOpening += (_, args) =>
         {
             if (_workbench.CanRevealDocument(args.Pane.Component))
@@ -70,6 +81,7 @@ internal sealed class WorkbenchView
         var shell = BuildShell(docking);
         ApplyChromeVisibility();
         SoftenDockFocusBorders(docking);
+        HideMaximizeButtons(docking); // 初始 tabset 视图已就绪,视图层隐藏最大化按钮
         return shell;
     }
 
@@ -406,6 +418,62 @@ internal sealed class WorkbenchView
         _activityButtons.Add(item.Id, button);
 
         return button;
+    }
+
+    /// <summary>
+    /// 标签栏「最大化/恢复」按钮无实际效果(MewDock 最大化未完整接线),关闭模型级 TabSetEnableMaximize
+    /// 使 TabSetNode.IsEnableMaximize / CanMaximize 为假,按钮不再渲染。DockingManager 不公开模型引用,
+    /// 故按私有字段 _model 反射获取;与 SoftenDockFocusBorders 同属 MewDock 内部适配。
+    /// </summary>
+    private static void DisableTabSetMaximize(DockingManager docking)
+    {
+        var model = typeof(DockingManager)
+            .GetField("_model", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?.GetValue(docking);
+        model?.GetType()
+            .GetProperty("TabSetEnableMaximize")
+            ?.SetValue(model, false);
+    }
+
+    /// <summary>
+    /// 视图层隐藏所有 tabset 的「最大化/恢复」按钮。按钮在 FlexTabSetView 构造时按模型 flag 创建,
+    /// 而模型在首次布局(AddDocumentPane 路径)时才就绪,flag 时序不可控;直接隐藏视图的
+    /// _maximizeButton 字段在所有场景下都可靠。与 SoftenDockFocusBorders 同属 MewDock 内部适配。
+    /// </summary>
+    private static void HideMaximizeButtons(DockingManager docking)
+    {
+        var assembly = typeof(DockingManager).Assembly;
+        if (assembly.GetType("Aprillz.MewUI.MewDock.Controls.FlexTabSetView") is not { } viewType)
+        {
+            return;
+        }
+
+        var buttonField = viewType.GetField("_maximizeButton", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (buttonField is null || docking.Children.FirstOrDefault() is not Panel root)
+        {
+            return;
+        }
+
+        var stack = new Stack<Panel>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var panel = stack.Pop();
+            foreach (var child in panel.Children)
+            {
+                if (viewType.IsInstanceOfType(child))
+                {
+                    if (buttonField.GetValue(child) is FrameworkElement { IsVisible: true } button)
+                    {
+                        button.IsVisible = false;
+                    }
+                }
+                else if (child is Panel nested)
+                {
+                    stack.Push(nested);
+                }
+            }
+        }
     }
 
     /// <summary>设置状态栏项文本颜色(启动失败红色醒目用);null 恢复区前景色。</summary>
