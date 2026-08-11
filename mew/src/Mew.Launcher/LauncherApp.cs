@@ -1173,7 +1173,7 @@ internal sealed class LauncherApp
     private static string CardBottomText(LauncherItem item) =>
         string.IsNullOrWhiteSpace(item.Description) ? "暂无简介" : item.Description;
 
-    /// <summary>卡片:图标跨两行(左侧)+ 名称(加粗稍大)一行 + 命令行一行,下方第三行见 <see cref="CardBottomText"/>;单击启动,悬停浮现「编辑」图标按钮。</summary>
+    /// <summary>卡片:图标(左侧)+ 名称(加粗稍大,与图标垂直居中)+ 底部第三行见 <see cref="CardBottomText"/>;单击启动,悬停浮现「编辑」图标按钮。</summary>
     private (UIElement Container, Button Main) Card(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
@@ -1185,7 +1185,6 @@ internal sealed class LauncherApp
                 .Children(
                     IconElement(icon, 48),
                     new StackPanel()
-                        .Spacing(2)
                         .VerticalAlignment(VerticalAlignment.Center)
                         .Column(1)
                         .Children(
@@ -1193,8 +1192,6 @@ internal sealed class LauncherApp
                                 .Bold()
                                 .FontSize(14)
                                 .TextWrapping(TextWrapping.Wrap)
-                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
-                            new Label().Text(item.Command).FontSize(11)
                                 .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
                         )
                 )
@@ -1211,6 +1208,7 @@ internal sealed class LauncherApp
             .Content(new StackPanel()
                 .Orientation(Orientation.Vertical)
                 .Spacing(6)
+                .VerticalAlignment(VerticalAlignment.Center) // 内容块在卡内垂直居中,上下留白均衡(配合 CardItemHeight=100)
                 .Children(content.ToArray()))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
@@ -1291,7 +1289,7 @@ internal sealed class LauncherApp
 
     /// <summary>卡片布局常量:卡宽/卡高/间距,ShowNav 与列数推算共用。</summary>
     private const double CardItemWidth = 170;
-    private const double CardItemHeight = 120;
+    private const double CardItemHeight = 100; // 内容约 69px,垂直居中后上下留白均衡(原 120 底部空 ~43px)
     private const double CardSpacing = 8;
 
     /// <summary>切换卡片/列表形态并持久化,立即重绘列表。</summary>
