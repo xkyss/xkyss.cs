@@ -24,8 +24,8 @@ public sealed class Workbench
     private string? _activeActivityId;
     private readonly Dictionary<string, DocumentReveal> _documentReveals = [];
 
-    /// <summary>工作台呈现状态变更通知(WorkbenchView 订阅后应用区域显隐与活动栏上下文)。</summary>
-    internal event Action? PresentationChanged;
+    /// <summary>工作台呈现状态变更通知;订阅方据此同步区域外观与 View 菜单文案。</summary>
+    public event Action? PresentationChanged;
 
     public bool IsActivityBarVisible => _activityBarVisible;
     public bool IsSideBarVisible => _sideBarVisible;
@@ -41,6 +41,28 @@ public sealed class Workbench
     public void ToggleSideBar() { _sideBarVisible = !_sideBarVisible; PresentationChanged?.Invoke(); }
     public void TogglePanel() { _panelVisible = !_panelVisible; PresentationChanged?.Invoke(); }
     public void ToggleStatusBar() { _statusBarVisible = !_statusBarVisible; PresentationChanged?.Invoke(); }
+
+    /// <summary>将 MewDock 工具窗格被用户关闭后的实际存在状态回写到 View 菜单的区域状态。</summary>
+    internal void SynchronizeToolPaneVisibility(bool? sideBarVisible, bool? panelVisible)
+    {
+        var changed = false;
+        if (sideBarVisible is { } sideBar && _sideBarVisible != sideBar)
+        {
+            _sideBarVisible = sideBar;
+            changed = true;
+        }
+
+        if (panelVisible is { } panel && _panelVisible != panel)
+        {
+            _panelVisible = panel;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            PresentationChanged?.Invoke();
+        }
+    }
 
     /// <summary>在宿主窗口挂载后重新应用当前工作台展示状态。</summary>
     public void RefreshPresentation() => PresentationChanged?.Invoke();
@@ -219,7 +241,11 @@ public sealed class Workbench
         _activeActivityId = _activityBar.Items.Any(item => item.Id == state.ActiveActivityId)
             ? state.ActiveActivityId
             : _activityBar.Items.FirstOrDefault()?.Id;
-        _sideBarVisible = state.IsSideBarVisible;
+        // 旧 presentation.json 仅记录侧边栏;缺失的新字段必须保持历史默认值「显示」。
+        _activityBarVisible = state.IsActivityBarVisible ?? true;
+        _sideBarVisible = state.IsSideBarVisible ?? true;
+        _panelVisible = state.IsPanelVisible ?? true;
+        _statusBarVisible = state.IsStatusBarVisible ?? true;
     }
 
     private void ValidateActivityContexts()

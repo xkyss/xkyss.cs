@@ -15,11 +15,11 @@ internal sealed class WorkbenchView
     private UIElement? _statusBar;
     private readonly Dictionary<string, Button> _activityButtons = [];
     private readonly Dictionary<string, Label> _statusLabels = [];
+    private bool _applyingChromeVisibility;
     // 每个停靠组件的主题化内容单一实例:布局恢复(ContentFactory)、默认面板与运行时打开(OpenDocument)
     // 必须解析到同一个实例。MewDock 的 SyncContent 在显式内容与 factory 内容实例不一致时会分离旧内容,
     // 而共享子元素(如设置文档的 StackPanel)的 Parent 仍指向已分离的旧包装,导致其无法重新挂接、tab 空白。
     private readonly Dictionary<string, UIElement> _paneContents = [];
-    private bool _panelPinned = true; // 底部面板 Pin/Unpin 状态跟踪(初始假设固定显示)
     // 已接线「悬浮显示关闭按钮」的 tab 实例:布局变更重扫时去重,避免重复订阅鼠标事件。
     private readonly HashSet<object> _configuredTabClose = [];
 
@@ -57,6 +57,7 @@ internal sealed class WorkbenchView
         // TabSetEnableMaximize 决定是否创建按钮,而模型在首次布局时才创建,故在每次布局变更后
         // 重新断言该 flag(首次启动的 AddDocumentPane 路径也覆盖到)。
         DisableTabSetMaximize(docking);
+        ThinDockSplitters(docking); // 侧边栏/编辑器区、编辑器区/底部面板之间的拖动分隔条做到最细
 
         if (layoutStore.TryLoadPresentation() is { } presentation)
         {
@@ -69,7 +70,15 @@ internal sealed class WorkbenchView
             DisableTabSetMaximize(docking);
             HideMaximizeButtons(docking);
             ConfigureTabCloseHover(docking);
+            WireSplitterCursors(docking);
             layoutStore.Save(docking.SaveLayout());
+        };
+        docking.Changed += (_, _) =>
+        {
+            if (!_applyingChromeVisibility)
+            {
+                SynchronizeToolPaneVisibility(docking);
+            }
         };
         docking.TabMenuOpening += (_, args) =>
         {
@@ -80,35 +89,50 @@ internal sealed class WorkbenchView
         };
         _workbench.PresentationChanged += ApplyChromeVisibility;
         _workbench.PresentationChanged += () => layoutStore.SavePresentation(
-            new WorkbenchPresentationState(_workbench.ActiveActivityId, _workbench.IsSideBarVisible));
+            new WorkbenchPresentationState
+            {
+                ActiveActivityId = _workbench.ActiveActivityId,
+                IsActivityBarVisible = _workbench.IsActivityBarVisible,
+                IsSideBarVisible = _workbench.IsSideBarVisible,
+                IsPanelVisible = _workbench.IsPanelVisible,
+                IsStatusBarVisible = _workbench.IsStatusBarVisible,
+            });
         var shell = BuildShell(docking);
         ApplyChromeVisibility();
         DisableDockZoneBorders(docking);
         HideMaximizeButtons(docking); // 初始 tabset 视图已就绪,视图层隐藏最大化按钮
         ConfigureTabCloseHover(docking); // 初始 tab 的关闭按钮默认隐藏,悬浮时显示
+        WireSplitterCursors(docking); // 拖动分隔条时鼠标样式变为缩放指针
         return shell;
     }
 
     /// <summary>应用外壳区域显隐:活动栏/状态栏直接控制;侧边栏/底部面板按 id 查找并 Close/重建 tool pane。</summary>
     private void ApplyChromeVisibility()
     {
-        if (_activityBar is not null)
+        _applyingChromeVisibility = true;
+        try
         {
-            _activityBar.IsVisible = _workbench.IsActivityBarVisible;
+            if (_activityBar is not null)
+            {
+                _activityBar.IsVisible = _workbench.IsActivityBarVisible;
+            }
+
+            if (_statusBar is not null)
+            {
+                _statusBar.IsVisible = _workbench.IsStatusBarVisible;
+            }
+
+            ApplySideBarVisibility();
+            ApplyActivitySelection();
+
+            foreach (var panel in _workbench.PanelModel.Views)
+            {
+                ApplyToolPane(panel.Id, panel.Title, panel.Content, DockEdge.Bottom, WorkbenchZone.Panel, _workbench.IsPanelVisible);
+            }
         }
-
-        if (_statusBar is not null)
+        finally
         {
-            _statusBar.IsVisible = _workbench.IsStatusBarVisible;
-        }
-
-        ApplySideBarVisibility();
-        ApplyActivitySelection();
-
-        var panel = _workbench.PanelModel.Views.FirstOrDefault();
-        if (panel is not null)
-        {
-            ApplyPanelPin(panel.Id, _workbench.IsPanelVisible);
+            _applyingChromeVisibility = false;
         }
     }
 
@@ -147,6 +171,22 @@ internal sealed class WorkbenchView
         }
     }
 
+    /// <summary>
+    /// MewDock 的工具窗格关闭按钮直接修改停靠树,不会经过 Workbench.Toggle*。
+    /// 因此布局变更后按当前存在的窗格回写区域状态,使 View 菜单、持久化状态与实际界面一致。
+    /// </summary>
+    private void SynchronizeToolPaneVisibility(DockingManager docking)
+    {
+        bool? sideBarVisible = _workbench.ActiveSideBarView is { } sideBar
+            ? docking.Panes.Any(pane => pane.Component == sideBar.Id)
+            : null;
+        bool? panelVisible = _workbench.PanelModel.Views.Count > 0
+            ? _workbench.PanelModel.Views.Any(view => docking.Panes.Any(pane => pane.Component == view.Id))
+            : null;
+
+        _workbench.SynchronizeToolPaneVisibility(sideBarVisible, panelVisible);
+    }
+
     /// <summary>活动栏按钮背景:选中项为 accent 与区背景按 2:8 回混的低调选中色,其余为区背景。随主题与选中态重算。</summary>
     private Color ActivityButtonBackground(string id) =>
         id == _workbench.ActiveActivityId ? ActivityBarSelectedBackground : _theme!.ActivityBar.Background;
@@ -154,27 +194,6 @@ internal sealed class WorkbenchView
     /// <summary>活动栏选中背景:accent 与区背景按 2:8 回混的低调选中色(替代整块鲜艳 accent),与启动项列表选中一致。</summary>
     private Color ActivityBarSelectedBackground =>
         _theme!.ActivityBar.Accent.Lerp(_theme.ActivityBar.Background, 0.8);
-
-    /// <summary>底部面板显隐:与 MewDock 的 Auto Hide 行为一致——隐藏 = Unpin(收起成边缘条,悬停滑出),显示 = Pin(固定)。</summary>
-    private void ApplyPanelPin(string id, bool visible)
-    {
-        var pane = _docking!.Panes.FirstOrDefault(p => p.Component == id);
-        if (pane is null || _panelPinned == visible)
-        {
-            return;
-        }
-
-        if (visible)
-        {
-            pane.Pin();
-        }
-        else
-        {
-            pane.Unpin();
-        }
-
-        _panelPinned = visible;
-    }
 
     /// <summary>显示时按 id 查找(布局持久化路径下 pane 由 factory 创建,不依赖 AddDefaultPanes 缓存);隐藏时 Close。</summary>
     private void ApplyToolPane(string id, string title, UIElement content, DockEdge edge, WorkbenchZone zone, bool visible)
@@ -243,7 +262,35 @@ internal sealed class WorkbenchView
         OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Controls.FlexTabSetView", CreateBorderlessTabSetStyle);
         OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Extended.ExtendedBorderBar", CreateBorderlessBorderBarStyle);
         OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Controls.FlexTabButton", CreateBorderlessTabButtonStyle);
+        OverrideStyle(assembly, sheet, "Aprillz.MewUI.MewDock.Controls.FlexSplitter", CreateThinSplitterStyle);
     }
+
+    /// <summary>
+    /// 拖动分隔条(FlexSplitter)做到最细:常驻 grip 线去掉(平时不可见),悬停/拖动时仅显示
+    /// 细的 accent 高亮;与 SplitterSize=1 配合,避免细尺寸下 grip 线(长度按宽度-8 计算)溢出。
+    /// </summary>
+    private static Style CreateThinSplitterStyle(Type type) => new(type)
+    {
+        Transitions = [Transition.Create(Control.BackgroundProperty, 200, t => t)],
+        Setters =
+        [
+            Setter.Create(Control.BackgroundProperty, Color.Transparent),
+            Setter.Create(Control.BorderBrushProperty, Color.Transparent),
+        ],
+        Triggers =
+        [
+            new StateTrigger
+            {
+                Match = VisualStateFlags.Hot,
+                Setters = [Setter.Create(Control.BackgroundProperty, t => t.Palette.Accent.WithAlpha(26))],
+            },
+            new StateTrigger
+            {
+                Match = VisualStateFlags.Pressed,
+                Setters = [Setter.Create(Control.BackgroundProperty, t => t.Palette.Accent.WithAlpha(48))],
+            },
+        ],
+    };
 
     /// <summary>
     /// 编辑器区/侧边栏/底部面板的 tabset:无边框。BorderThickness 置 0 后 FlexTabSetView 的 body
@@ -426,7 +473,6 @@ internal sealed class WorkbenchView
                             .Spacing(4)
                             .Children(mainButtons)
                             .Row(0),
-                        // 底部按钮与顶部同宽同留白,保证视觉对齐
                         new StackPanel()
                             .Width(48)
                             .Padding(6, 8)
@@ -473,6 +519,52 @@ internal sealed class WorkbenchView
         model?.GetType()
             .GetProperty("TabSetEnableMaximize")
             ?.SetValue(model, false);
+    }
+
+    /// <summary>
+    /// 侧边栏/编辑器区、编辑器区/底部面板之间的拖动分隔条做到最细:把 MewDock 模型的
+    /// SplitterSize 设为 3(分隔条仅 3px,平时透明不可见,悬停/拖动时显示细高亮)。
+    /// 模型经 DockingManager._model 反射获取,首次布局后的 arrange 即按新值收窄;
+    /// 布局持久化会保存新值,后续启动直接生效。与 DisableTabSetMaximize 同类适配。
+    /// </summary>
+    private static void ThinDockSplitters(DockingManager docking)
+    {
+        var model = typeof(DockingManager)
+            .GetField("_model", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?.GetValue(docking);
+        model?.GetType()
+            .GetProperty("SplitterSize")
+            ?.SetValue(model, 3.0);
+    }
+
+    /// <summary>
+    /// 拖动分隔条时鼠标样式按方向变为缩放指针(仿 VS Code):垂直分隔条(侧边栏/编辑器)→
+    /// 左右缩放(SizeWE),水平分隔条(编辑器/底部面板)→ 上下缩放(SizeNS)。设置 UIElement.Cursor
+    /// 后悬浮该分隔条即自动生效;新分隔条在布局变更重扫时按 IsColumnAxis 重新接线。
+    /// </summary>
+    private static void WireSplitterCursors(DockingManager docking)
+    {
+        var assembly = typeof(DockingManager).Assembly;
+        if (assembly.GetType("Aprillz.MewUI.MewDock.Controls.FlexSplitter") is not { } splitterType)
+        {
+            return;
+        }
+
+        var columnAxisProp = splitterType.GetProperty("IsColumnAxis");
+        if (columnAxisProp is null || docking.Children.FirstOrDefault() is not UIElement root)
+        {
+            return;
+        }
+
+        VisitDockElements(root, element =>
+        {
+            if (splitterType.IsInstanceOfType(element) && element is Control splitter)
+            {
+                splitter.Cursor = columnAxisProp.GetValue(element) is true
+                    ? CursorType.SizeNS
+                    : CursorType.SizeWE;
+            }
+        });
     }
 
     /// <summary>

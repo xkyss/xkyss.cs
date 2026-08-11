@@ -87,7 +87,17 @@ internal sealed class WorkbenchLayoutStore
     }
 }
 
-internal sealed record WorkbenchPresentationState(string? ActiveActivityId, bool IsSideBarVisible);
+/// <summary>
+/// View 菜单控制的区域显隐状态。可空字段用于识别旧 presentation.json 中不存在的新区域字段。
+/// </summary>
+internal sealed record WorkbenchPresentationState
+{
+    public string? ActiveActivityId { get; init; }
+    public bool? IsActivityBarVisible { get; init; }
+    public bool? IsSideBarVisible { get; init; }
+    public bool? IsPanelVisible { get; init; }
+    public bool? IsStatusBarVisible { get; init; }
+}
 
 [JsonSerializable(typeof(WorkbenchPresentationState))]
 internal sealed partial class WorkbenchJsonContext : JsonSerializerContext;

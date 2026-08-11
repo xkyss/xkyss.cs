@@ -1,6 +1,7 @@
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.MewDock;
+using Mew.Launcher;
 using Mew.Workbench;
 using Xunit;
 using WorkbenchType = Mew.Workbench.Workbench;
@@ -9,6 +10,124 @@ namespace Mew.Launcher.Tests;
 
 public class WorkbenchConfigurationTests
 {
+    /// <summary>回归:点击工具窗格的关闭按钮后,View 菜单与持久化使用的 Workbench 显隐状态必须同步。</summary>
+    [Fact]
+    public void CloseToolPane_关闭侧边栏和底部面板_View菜单同步为显示()
+    {
+        using var _ = IsolateUserLayoutFiles();
+
+        var workbench = CreateWorkbenchWithAllZones();
+        var shell = workbench.Build();
+        var dock = FindByType(shell, typeof(DockingManager)) as DockingManager
+            ?? throw new InvalidOperationException("未找到 DockingManager。");
+        var menu = typeof(LauncherApp)
+            .GetMethod("BuildViewMenu", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+            ?.Invoke(null, [workbench]) as Menu
+            ?? throw new InvalidOperationException("未找到 View 菜单构造方法。");
+        var sideBarItem = Assert.IsType<MenuItem>(menu.Items[0]);
+        var panelItem = Assert.IsType<MenuItem>(menu.Items[1]);
+        var sideBarPane = dock.Panes.Single(pane => pane.Component == "launch");
+        var panelPane = dock.Panes.Single(pane => pane.Component == "output");
+
+        sideBarPane.Close();
+        panelPane.Close();
+
+        Assert.False(workbench.IsSideBarVisible);
+        Assert.False(workbench.IsPanelVisible);
+        Assert.Equal("显示侧边栏", sideBarItem.Text);
+        Assert.Equal("显示底部面板", panelItem.Text);
+    }
+
+    /// <summary>回归:活动栏切换侧边栏后,View 菜单必须同步反映实际状态。</summary>
+    [Fact]
+    public void ViewMenu_活动栏隐藏侧边栏后_菜单项同步显示状态()
+    {
+        using var _ = IsolateUserLayoutFiles();
+
+        var workbench = new WorkbenchType()
+            .ActivityBar(bar => bar.Item("launch", "启动", GlyphKind.Hamburger))
+            .SideBar(side => side.View("launch", "启动", new StackPanel()));
+        workbench.Build();
+        var menu = typeof(LauncherApp)
+            .GetMethod("BuildViewMenu", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+            ?.Invoke(null, [workbench]) as Menu
+            ?? throw new InvalidOperationException("未找到 View 菜单构造方法。");
+        var sideBarItem = Assert.IsType<MenuItem>(menu.Items[0]);
+
+        Assert.Equal("隐藏侧边栏", sideBarItem.Text);
+
+        workbench.SelectActivity("launch");
+
+        Assert.Equal("显示侧边栏", sideBarItem.Text);
+    }
+
+    /// <summary>回归:View 菜单切换的四个区域在下次构建时必须恢复,否则菜单文案与实际界面会脱节。</summary>
+    [Fact]
+    public void Presentation_所有区域隐藏后重建_恢复相同显隐状态()
+    {
+        using var _ = IsolateUserLayoutFiles();
+
+        var first = CreateWorkbenchWithAllZones();
+        first.Build();
+        first.ToggleActivityBar();
+        first.ToggleSideBar();
+        first.TogglePanel();
+        first.ToggleStatusBar();
+
+        var restored = CreateWorkbenchWithAllZones();
+        restored.Build();
+
+        Assert.False(restored.IsActivityBarVisible);
+        Assert.False(restored.IsSideBarVisible);
+        Assert.False(restored.IsPanelVisible);
+        Assert.False(restored.IsStatusBarVisible);
+    }
+
+    [Fact]
+    public void Presentation_旧文件仅记录侧边栏_新增区域保持默认显示()
+    {
+        using var _ = IsolateUserLayoutFiles();
+        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mew");
+        Directory.CreateDirectory(appData);
+        File.WriteAllText(Path.Combine(appData, "presentation.json"), """{ "ActiveActivityId": "launch", "IsSideBarVisible": false }""");
+
+        var workbench = CreateWorkbenchWithAllZones();
+        workbench.Build();
+
+        Assert.True(workbench.IsActivityBarVisible);
+        Assert.False(workbench.IsSideBarVisible);
+        Assert.True(workbench.IsPanelVisible);
+        Assert.True(workbench.IsStatusBarVisible);
+    }
+
+    /// <summary>回归:View 菜单的「隐藏底部面板」必须关闭窗格,而非仅切换为悬浮可见的自动隐藏状态。</summary>
+    [Fact]
+    public void TogglePanel_隐藏后关闭窗格_再次切换恢复窗格()
+    {
+        using var _ = IsolateUserLayoutFiles();
+
+        var workbench = new WorkbenchType()
+            .ActivityBar(bar => bar.Item("launch", "启动", GlyphKind.Hamburger))
+            .SideBar(side => side.View("launch", "启动", new StackPanel()))
+            .Panel(panel => panel.View("output", "输出", new StackPanel()));
+
+        var shell = workbench.Build();
+        var dock = FindByType(shell, typeof(DockingManager)) as DockingManager
+            ?? throw new InvalidOperationException("未找到 DockingManager。");
+
+        Assert.Contains(dock.Panes, pane => pane.Component == "output");
+
+        workbench.TogglePanel();
+
+        Assert.False(workbench.IsPanelVisible);
+        Assert.DoesNotContain(dock.Panes, pane => pane.Component == "output");
+
+        workbench.TogglePanel();
+
+        Assert.True(workbench.IsPanelVisible);
+        Assert.Contains(dock.Panes, pane => pane.Component == "output");
+    }
+
     [Fact]
     public void Build_停靠组件跨区域重名_拒绝配置()
     {
@@ -213,6 +332,13 @@ public class WorkbenchConfigurationTests
             }
         });
     }
+
+    private static WorkbenchType CreateWorkbenchWithAllZones() => new WorkbenchType()
+        .ActivityBar(bar => bar.Item("launch", "启动", GlyphKind.Hamburger))
+        .SideBar(side => side.View("launch", "启动", new StackPanel()))
+        .EditorArea(editor => editor.Document("items", "启动项", new StackPanel()))
+        .Panel(panel => panel.View("output", "输出", new StackPanel()))
+        .StatusBar(status => status.Item("launch", "就绪"));
 
     private sealed class Disposable(Action dispose) : IDisposable
     {

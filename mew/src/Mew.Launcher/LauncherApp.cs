@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using Icon = System.Drawing.Icon;
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
+using Aprillz.MewUI.Rendering;
 using Mew.Workbench;
 using WorkbenchType = Mew.Workbench.Workbench;
 
@@ -47,7 +48,6 @@ internal sealed class LauncherApp
     private readonly StackPanel _listPanel = new();
     private readonly SelectionModel _listSelection = new();
     private readonly List<Button> _listButtons = [];
-    private readonly List<Border> _listBars = [];
     private List<LauncherItem> _listItems = [];
     private int _styledSelection = -1;
     private int _hoveredIndex = -1;
@@ -102,8 +102,8 @@ internal sealed class LauncherApp
                 .SetAccent(Accent.Blue))
             .ActivityBar(bar =>
             {
-                bar.Item("launch", "启动", GlyphKind.Hamburger);
-                bar.Item("settings", "设置", SettingsGlyph());
+                bar.Item("launch", "启动", ActivityGlyph(RocketIconData));
+                bar.Item("settings", "设置", ActivityGlyph(SettingsIconData));
             })
             .SideBar(side => side
                 .View("launch", "启动", BuildCategoryTree())
@@ -251,12 +251,14 @@ internal sealed class LauncherApp
     private static MenuItem ViewToggleItem(WorkbenchType workbench, Action toggle, Func<bool> isVisible, string label)
     {
         var item = new MenuItem("");
-        item.Click = () =>
+        void UpdateText()
         {
-            toggle();
             item.Text = isVisible() ? $"隐藏{label}" : $"显示{label}";
-        };
-        item.Text = isVisible() ? $"隐藏{label}" : $"显示{label}";
+        }
+
+        item.Click = toggle;
+        workbench.PresentationChanged += UpdateText;
+        UpdateText();
         return item;
     }
 
@@ -337,16 +339,18 @@ internal sealed class LauncherApp
         }
     }
 
-    /// <summary>设置活动栏图标:Label 撑满按钮内容区(Padding 已清零),文本居中。</summary>
-    private UIElement SettingsGlyph() => new Label
+    /// <summary>活动栏图标按钮:PathShape 图标,填充随活动栏前景主题色(仿 Gallery SegmentIconShape)。</summary>
+    private UIElement ActivityGlyph(string pathData)
     {
-        Text = "⚙",
-        FontSize = 18,
-        TextAlignment = TextAlignment.Center,
-        HorizontalAlignment = HorizontalAlignment.Stretch,
-        VerticalAlignment = VerticalAlignment.Stretch,
+        var shape = new PathShape()
+            .Stretch(Stretch.Uniform)
+            .Width(18)
+            .Height(18)
+            .Center();
+        shape.Data = PathGeometry.Parse(pathData);
+        shape.WithTheme((_, s) => s.Fill = new SolidColorBrush(_theme.ActivityBar.Foreground));
+        return shape;
     }
-    .WithTheme((_, label) => label.Foreground(_theme.ActivityBar.Foreground));
 
     /// <summary>列表/卡片悬停「编辑」按钮的铅笔字形。</summary>
     private const string EditGlyph = "✏️";
@@ -1075,7 +1079,6 @@ internal sealed class LauncherApp
         _listPanel.Clear();
         _listItems = [];
         _listButtons.Clear();
-        _listBars.Clear();
         _styledSelection = -1;
         _hoveredIndex = -1;
 
@@ -1102,11 +1105,10 @@ internal sealed class LauncherApp
         {
             for (var i = 0; i < shown.Count; i++)
             {
-                var (container, main, bar) = ListRow(shown[i], i);
+                var (container, main) = ListRow(shown[i], i);
                 _listPanel.Add(container);
                 _listItems.Add(shown[i]);
                 _listButtons.Add(main);
-                _listBars.Add(bar);
             }
         }
         else
@@ -1115,11 +1117,10 @@ internal sealed class LauncherApp
             var wrap = _cardPanel;
             for (var i = 0; i < shown.Count; i++)
             {
-                var (container, main, bar) = Card(shown[i], i);
+                var (container, main) = Card(shown[i], i);
                 wrap.Add(container);
                 _listItems.Add(shown[i]);
                 _listButtons.Add(main);
-                _listBars.Add(bar);
             }
 
             _listPanel.Add(wrap);
@@ -1130,7 +1131,7 @@ internal sealed class LauncherApp
     }
 
     /// <summary>编辑器区列表行:三列布局(图标 / 名称+命令行 / 简介),单击启动,悬停浮现「编辑」图标按钮,右键菜单(编辑/删除)。</summary>
-    private (UIElement Container, Button Main, Border Bar) ListRow(LauncherItem item, int index)
+    private (UIElement Container, Button Main) ListRow(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
         var main = new Button()
@@ -1172,7 +1173,7 @@ internal sealed class LauncherApp
         string.IsNullOrWhiteSpace(item.Description) ? "暂无简介" : item.Description;
 
     /// <summary>卡片:图标跨两行(左侧)+ 名称(加粗稍大)一行 + 命令行一行,下方第三行见 <see cref="CardBottomText"/>;单击启动,悬停浮现「编辑」图标按钮。</summary>
-    private (UIElement Container, Button Main, Border Bar) Card(LauncherItem item, int index)
+    private (UIElement Container, Button Main) Card(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
         var content = new List<UIElement>
@@ -1218,10 +1219,10 @@ internal sealed class LauncherApp
     }
 
     /// <summary>
-    /// 组装列表项容器:主按钮(单击启动)+ 悬停浮现的「编辑」图标按钮 + 选中左缘条,三者兄弟叠加
+    /// 组装列表项容器:主按钮(单击启动)+ 悬停浮现的「编辑」图标按钮,两者兄弟叠加
     /// (不嵌套按钮,避免点击冲突);主按钮与编辑按钮共用悬停计数,悬停态在两者间移动不丢失。
     /// </summary>
-    private (UIElement Container, Button Main, Border Bar) BuildItemShell(LauncherItem item, Button main, int index, bool editAtCorner)
+    private (UIElement Container, Button Main) BuildItemShell(LauncherItem item, Button main, int index, bool editAtCorner)
     {
         var edit = new Button()
             .Content(new Label().Text(EditGlyph).FontSize(14)
@@ -1235,13 +1236,6 @@ internal sealed class LauncherApp
         edit.HorizontalAlignment = HorizontalAlignment.Right;
         edit.VerticalAlignment = editAtCorner ? VerticalAlignment.Top : VerticalAlignment.Center;
 
-        var bar = new Border()
-            .Width(3)
-            .WithTheme((_, border) => border.Background(AccentBarColor));
-        bar.IsVisible = false; // 选中时显示左缘条
-        bar.HorizontalAlignment = HorizontalAlignment.Left;
-        bar.VerticalAlignment = VerticalAlignment.Stretch;
-
         var hover = new HoverRefCount();
         hover.RaisedChanged += () =>
         {
@@ -1253,7 +1247,7 @@ internal sealed class LauncherApp
         edit.MouseEnter += () => hover.Enter();
         edit.MouseLeave += () => hover.Leave();
 
-        return (new Grid().Children(main, edit, bar), main, bar);
+        return (new Grid().Children(main, edit), main);
     }
 
     /// <summary>挂右键菜单(编辑 / 删除),右键时在鼠标位置弹出。</summary>
@@ -1295,8 +1289,6 @@ internal sealed class LauncherApp
     private const double CardItemHeight = 120;
     private const double CardSpacing = 8;
 
-    private string ViewModeLabel() => _viewMode == "card" ? "卡片" : "列表";
-
     /// <summary>切换卡片/列表形态并持久化,立即重绘列表。</summary>
     private void ToggleViewMode()
     {
@@ -1304,7 +1296,7 @@ internal sealed class LauncherApp
         var settings = _settings.Load();
         settings.ItemsViewMode = _viewMode;
         _settings.Save(settings);
-        _modeToggleButton!.Content(new Label().Text(ViewModeLabel()));
+        _modeToggleButton!.Content(ViewModeGlyph());
         ShowNav(_navId);
     }
 
@@ -1316,6 +1308,7 @@ internal sealed class LauncherApp
             Placeholder = "搜索启动项",
             CanDrag = false,
         };
+        searchBox.MinWidth(320); // MewUI 布局限制下搜索框不随窗口自动拉伸,给合理最小宽度
         _itemsSearchBox = searchBox;
         searchBox.TextChanged += text =>
         {
@@ -1323,11 +1316,29 @@ internal sealed class LauncherApp
             ShowNav(_navId);
         };
 
+        var addButton = new Button()
+            .Size(30, 30)
+            .MinWidth(30)
+            .MinHeight(30)
+            .Padding(0)
+            .Content(IconShape(AddIconData, 18))
+            .ToolTip("新增启动项(归入当前分类)")
+            .OnClick(CreateItem)
+            .CanDrag(false)
+            .BorderThickness(0)
+            .CornerRadius(0);
+
         _modeToggleButton = new Button()
-            .Content(new Label().Text(ViewModeLabel()))
+            .Size(30, 30)
+            .MinWidth(30)
+            .MinHeight(30)
+            .Padding(0)
+            .Content(ViewModeGlyph())
             .ToolTip("切换卡片 / 列表")
             .OnClick(ToggleViewMode)
-            .CanDrag(false);
+            .CanDrag(false)
+            .BorderThickness(0)
+            .CornerRadius(0);
 
         var scrollViewer = new ScrollViewer
         {
@@ -1336,25 +1347,64 @@ internal sealed class LauncherApp
         };
         _listScrollViewer = scrollViewer;
 
+        // 工具栏:搜索框在左,两个等大小图标按钮紧贴其右(MewUI 0.19.1 布局限制:DockPanel
+        // 末子元素填充会盖住停靠子元素、星号列右侧元素会被丢弃,故按钮位于搜索框右侧)
         return new StackPanel()
             .Padding(12)
             .Spacing(8)
             .Children(
-                new StackPanel()
-                    .Orientation(Orientation.Horizontal)
+                new Grid()
+                    .Columns("Auto,*")
                     .Spacing(8)
                     .Children(
-                        searchBox,
-                        new Button()
-                            .Content(new Label().Text("＋ 新增"))
-                            .ToolTip("新增启动项(归入当前分类)")
-                            .OnClick(CreateItem)
-                            .CanDrag(false),
-                        _modeToggleButton
+                        searchBox.Column(0),
+                        new StackPanel()
+                            .Orientation(Orientation.Horizontal)
+                            .Spacing(4)
+                            .Children(addButton, _modeToggleButton)
+                            .Column(1)
                     ),
                 scrollViewer
             );
     }
+
+    /// <summary>形态切换按钮图标:卡片视图显示 2×2 卡片格(grid),列表视图显示列表(list)图标。</summary>
+    private UIElement ViewModeGlyph() => IconShape(
+        _viewMode == "card" ? GridIconData : ListIconData, 18);
+
+    /// <summary>
+    /// 图标按钮的 PathShape:填充绑定到继承前景色,随主题/悬停/禁用自动变色
+    /// (仿 MewUI.Gallery 的 SegmentIconShape 做法,图标取自 Fluent 图标集)。
+    /// </summary>
+    private static PathShape IconShape(string pathData, double size)
+    {
+        var shape = new PathShape()
+            .Stretch(Stretch.Uniform)
+            .Width(size)
+            .Height(size)
+            .Center();
+        shape.Data = PathGeometry.Parse(pathData);
+        shape.Bind(Shape.FillProperty, shape, TextElement.ForegroundProperty,
+            (Color color) => new SolidColorBrush(color));
+        return shape;
+    }
+
+    // Fluent 图标路径数据(取自 MewUI.Gallery 的 Resources/Icons.xaml):新增(add_regular)、
+    // 卡片视图(grid_regular)、列表视图(apps_list_regular)、启动(rocket_regular)、设置(settings_regular)。
+    private const string AddIconData =
+        "M14.5,13 L14.5,3.75378577 C14.5,3.33978577 14.164,3.00378577 13.75,3.00378577 C13.336,3.00378577 13,3.33978577 13,3.75378577 L13,13 L3.75387573,13 C3.33987573,13 3.00387573,13.336 3.00387573,13.75 C3.00387573,14.164 3.33987573,14.5 3.75387573,14.5 L13,14.5 L13,23.7523651 C13,24.1663651 13.336,24.5023651 13.75,24.5023651 C14.164,24.5023651 14.5,24.1663651 14.5,23.7523651 L14.5,14.5 L23.7498262,14.5030754 C24.1638262,14.5030754 24.4998262,14.1670754 24.4998262,13.7530754 C24.4998262,13.3390754 24.1638262,13.0030754 23.7498262,13.0030754 L14.5,13 Z";
+
+    private const string GridIconData =
+        "M10.75,15 C11.9926407,15 13,16.0073593 13,17.25 L13,22.75 C13,23.9926407 11.9926407,25 10.75,25 L5.25,25 C4.00735931,25 3,23.9926407 3,22.75 L3,17.25 C3,16.0073593 4.00735931,15 5.25,15 L10.75,15 Z M22.75,15 C23.9926407,15 25,16.0073593 25,17.25 L25,22.75 C25,23.9926407 23.9926407,25 22.75,25 L17.25,25 C16.0073593,25 15,23.9926407 15,22.75 L15,17.25 C15,16.0073593 16.0073593,15 17.25,15 L22.75,15 Z M10.75,16.5 L5.25,16.5 C4.83578644,16.5 4.5,16.8357864 4.5,17.25 L4.5,22.75 C4.5,23.1642136 4.83578644,23.5 5.25,23.5 L10.75,23.5 C11.1642136,23.5 11.5,23.1642136 11.5,22.75 L11.5,17.25 C11.5,16.8357864 11.1642136,16.5 10.75,16.5 Z M22.75,16.5 L17.25,16.5 C16.8357864,16.5 16.5,16.8357864 16.5,17.25 L16.5,22.75 C16.5,23.1642136 16.8357864,23.5 17.25,23.5 L22.75,23.5 C23.1642136,23.5 23.5,23.1642136 23.5,22.75 L23.5,17.25 C23.5,16.8357864 23.1642136,16.5 22.75,16.5 Z M10.75,3 C11.9926407,3 13,4.00735931 13,5.25 L13,10.75 C13,11.9926407 11.9926407,13 10.75,13 L5.25,13 C4.00735931,13 3,11.9926407 3,10.75 L3,5.25 C3,4.00735931 4.00735931,3 5.25,3 L10.75,3 Z M22.75,3 C23.9926407,3 25,4.00735931 25,5.25 L25,10.75 C25,11.9926407 23.9926407,13 22.75,13 L17.25,13 C16.0073593,13 15,11.9926407 15,10.75 L15,5.25 C15,4.00735931 16.0073593,3 17.25,3 L22.75,3 Z M10.75,4.5 L5.25,4.5 C4.83578644,4.5 4.5,4.83578644 4.5,5.25 L4.5,10.75 C4.5,11.1642136 4.83578644,11.5 5.25,11.5 L10.75,11.5 C11.1642136,11.5 11.5,11.1642136 11.5,10.75 L11.5,5.25 C11.5,4.83578644 11.1642136,4.5 10.75,4.5 Z M22.75,4.5 L17.25,4.5 C16.8357864,4.5 16.5,4.83578644 16.5,5.25 L16.5,10.75 C16.5,11.1642136 16.8357864,11.5 17.25,11.5 L22.75,11.5 C23.1642136,11.5 23.5,11.1642136 23.5,10.75 L23.5,5.25 C23.5,4.83578644 23.1642136,4.5 22.75,4.5 Z";
+
+    private const string ListIconData =
+        "M6.24787561,16.0021244 C7.21437393,16.0021244 7.99787561,16.7856261 7.99787561,17.7521244 L7.99787561,20.25 C7.99787561,21.2164983 7.21437393,22 6.24787561,22 L3.75,22 C2.78350169,22 2,21.2164983 2,20.25 L2,17.7521244 C2,16.7856261 2.78350169,16.0021244 3.75,16.0021244 L6.24787561,16.0021244 Z M6.24787561,17.5021244 L3.75,17.5021244 C3.61192881,17.5021244 3.5,17.6140532 3.5,17.7521244 L3.5,20.25 C3.5,20.3880712 3.61192881,20.5 3.75,20.5 L6.24787561,20.5 C6.3859468,20.5 6.49787561,20.3880712 6.49787561,20.25 L6.49787561,17.7521244 C6.49787561,17.6140532 6.3859468,17.5021244 6.24787561,17.5021244 Z M9.74809326,18 L21.2528964,18 C21.66711,18 22.0028964,18.3357864 22.0028964,18.75 C22.0028964,19.1296958 21.7207425,19.443491 21.354667,19.4931534 L21.2528964,19.5 L9.74809326,19.5 C9.3338797,19.5 8.99809326,19.1642136 8.99809326,18.75 C8.99809326,18.3703042 9.28024715,18.056509 9.64632271,18.0068466 L9.74809326,18 L21.2528964,18 L9.74809326,18 Z M6.24787561,9.00106219 C7.21437393,9.00106219 7.99787561,9.78456388 7.99787561,10.7510622 L7.99787561,13.2489378 C7.99787561,14.2154361 7.21437393,14.9989378 6.24787561,14.9989378 L3.75,14.9989378 C2.78350169,14.9989378 2,14.2154361 2,13.2489378 L2,10.7510622 C2,9.78456388 2.78350169,9.00106219 3.75,9.00106219 L6.24787561,9.00106219 Z M6.24787561,10.5010622 L3.75,10.5010622 C3.61192881,10.5010622 3.5,10.612991 3.5,10.7510622 L3.5,13.2489378 C3.5,13.387009 3.61192881,13.4989378 3.75,13.4989378 L6.24787561,13.4989378 C6.3859468,13.4989378 6.49787561,13.387009 6.49787561,13.2489378 L6.49787561,10.7510622 C6.49787561,10.612991 6.3859468,10.5010622 6.24787561,10.5010622 Z M9.74809326,11 L21.2528964,11 C21.66711,11 22.0028964,11.3357864 22.0028964,11.75 C22.0028964,12.1296958 21.7207425,12.443491 21.354667,12.4931534 L21.2528964,12.5 L9.74809326,12.5 C9.3338797,12.5 8.99809326,12.1642136 8.99809326,11.75 C8.99809326,11.3703042 9.28024715,11.056509 9.64632271,11.0068466 L9.74809326,11 L21.2528964,11 L9.74809326,11 Z M6.24787561,2 C7.21437393,2 7.99787561,2.78350169 7.99787561,3.75 L7.99787561,6.24787561 C7.99787561,7.21437393 7.21437393,7.99787561 6.24787561,7.99787561 L3.75,7.99787561 C2.78350169,7.99787561 2,7.21437393 2,6.24787561 L2,3.75 C2,2.78350169 2.78350169,2 3.75,2 L6.24787561,2 Z M6.24787561,3.5 L3.75,3.5 C3.61192881,3.5 3.5,3.61192881 3.5,3.75 L3.5,6.24787561 C3.5,6.3859468 3.61192881,6.49787561 3.75,6.49787561 L6.24787561,6.49787561 C6.3859468,6.49787561 6.49787561,6.3859468 6.49787561,6.24787561 L6.49787561,3.75 C6.49787561,3.61192881 6.3859468,3.5 6.24787561,3.5 Z M9.74809326,4 L21.2528964,4 C21.66711,4 22.0028964,4.33578644 22.0028964,4.75 C22.0028964,5.12969577 21.7207425,5.44349096 21.354667,5.49315338 L21.2528964,5.5 L9.74809326,5.5 C9.3338797,5.5 8.99809326,5.16421356 8.99809326,4.75 C8.99809326,4.37030423 9.28024715,4.05650904 9.64632271,4.00684662 L9.74809326,4 L21.2528964,4 L9.74809326,4 Z";
+
+    private const string RocketIconData =
+        "M8.63237,19.2805 C8.89863364,19.5467727 8.92283116,19.9634587 8.70497759,20.2570793 L8.63236,20.3412 L7.57375,21.3997 C7.28086,21.6926 6.80598,21.6926 6.51309,21.3997 C6.24682636,21.1334273 6.22262884,20.7167413 6.44048992,20.4231959 L6.51311,20.3391 L7.57171,19.2805 C7.86461,18.9876 8.33948,18.9876 8.63237,19.2805 Z M6.68984,17.3339 C6.95611273,17.6001727 6.98031934,18.016776 6.76245983,18.3103816 L6.68984,18.3945 L4.21497,20.8694 C3.92208,21.1623 3.4472,21.1623 3.15431,20.8694 C2.88804636,20.6031273 2.86384058,20.1864413 3.08169264,19.8928207 L3.15431,19.8087 L5.62918,17.3339 C5.92208,17.041 6.39695,17.041 6.68984,17.3339 Z M18.7782803,2.2324576 L19.0355,2.30675 L19.6976,2.51222 C20.5007214,2.76146714 21.1420857,3.3630448 21.444828,4.14012008 L21.5086,4.32248 L21.715,4.98679 C22.432525,7.29543464 21.8591435,9.80415445 20.2277124,11.5699999 L20.0421,11.7631 L19.0442,12.761 C20.030408,14.075912 19.9692176,15.9274717 18.8605403,17.1756967 L18.7165,17.3285 L17.4739,18.5711 C17.2077182,18.8373727 16.7910405,18.8615793 16.4974207,18.6437198 L16.4133,18.5711 L14.8237,16.9815 L14.6469,17.1583 C14.0037,17.8015 12.9842952,17.8393353 12.2968358,17.2718059 L12.172,17.1583 L11.6749,16.6611 L10.8769,18.056 C10.7609,18.2588 10.5569,18.396 10.3253,18.427 C10.1323,18.45275 9.938425,18.4023889 9.78353611,18.2892269 L9.6956,18.2139 L5.80649,14.3248 C5.64112,14.1594 5.56236,13.9264 5.59349,13.6946 C5.62018143,13.496 5.72499286,13.317751 5.88231915,13.1978892 L5.96524,13.143 L7.3608,12.347 L6.86546,11.8517 C6.22224118,11.2085 6.18440478,10.1890952 6.7519508,9.50165244 L6.86546,9.37682 L7.04527,9.19701 L5.45429,7.60604 C5.18802636,7.33977636 5.16382058,6.92310777 5.38167264,6.62949778 L5.45429,6.54538 L6.69682,5.30285 C7.8932872,4.1063828 9.74107677,3.95821717 11.0988173,4.8583531 L11.2659,4.97633 L12.2618,3.98045 C13.9706107,2.27162964 16.4567735,1.61138838 18.7782803,2.2324576 Z M4.74526,15.3893 C5.03816,15.6822 5.03816,16.1571 4.74526,16.45 L3.6846,17.5106 C3.39171,17.8035 2.91684,17.8035 2.62394,17.5106 C2.33105,17.2177 2.33105,16.7429 2.62394,16.45 L3.6846,15.3893 C3.9775,15.0964 4.45237,15.0964 4.74526,15.3893 Z M17.9641,13.8411 L15.8843,15.9208 L16.9436,16.9801 L17.6558,16.2679 C18.3138,15.6099 18.4166,14.6069 17.9641,13.8411 Z M8.46045,13.4467 L7.56207,13.9591 L10.0622,16.4593 L10.5756,15.5618 L8.46045,13.4467 Z M13.4981149,4.87341403 L13.3225,5.04112 L7.92612,10.4375 C7.84476167,10.5188333 7.831195,10.6423194 7.88543736,10.7377037 L7.92612,10.791 L13.2327,16.0976 C13.3140333,16.1789333 13.4375194,16.1924889 13.5329037,16.1382667 L13.5862,16.0976 L18.9814,10.7024 C20.3028458,9.38101167 20.8180259,7.46208293 20.3493287,5.66554744 L20.2826,5.43197 L20.0761,4.76766 C19.9675667,4.41824667 19.7122284,4.13626247 19.3807398,3.99222154 L19.253,3.94481 L18.5909,3.73934 C16.8068667,3.18566292 14.8695519,3.62291488 13.4981149,4.87341403 Z M16.5927,7.43109 C17.569,8.4074 17.569,9.99031 16.5927,10.9666 C15.6164,11.9429 14.0335,11.9429 13.0572,10.9666 C12.0808,9.99031 12.0808,8.4074 13.0572,7.43109 C14.0335,6.45478 15.6164,6.45478 16.5927,7.43109 Z M14.1178,8.49175 C13.7273,8.88227 13.7273,9.51544 14.1178,9.90596 C14.5083,10.2965 15.1415,10.2965 15.532,9.90596 C15.9226,9.51544 15.9226,8.88227 15.532,8.49175 C15.1415,8.10123 14.5083,8.10123 14.1178,8.49175 Z M7.88485721,6.24655617 L7.75748,6.36351 L7.04528,7.07571 L8.10593,8.13635 L10.186,6.05628 C9.46789375,5.63094563 8.54056387,5.69437102 7.88485721,6.24655617 Z";
+
+    private const string SettingsIconData =
+        "M14 9.50006C11.5147 9.50006 9.5 11.5148 9.5 14.0001C9.5 16.4853 11.5147 18.5001 14 18.5001C15.3488 18.5001 16.559 17.9066 17.3838 16.9666C18.0787 16.1746 18.5 15.1365 18.5 14.0001C18.5 13.5401 18.431 13.0963 18.3028 12.6784C17.7382 10.8381 16.0253 9.50006 14 9.50006ZM11 14.0001C11 12.3432 12.3431 11.0001 14 11.0001C15.6569 11.0001 17 12.3432 17 14.0001C17 15.6569 15.6569 17.0001 14 17.0001C12.3431 17.0001 11 15.6569 11 14.0001Z M21.7093 22.3948L19.9818 21.6364C19.4876 21.4197 18.9071 21.4515 18.44 21.7219C17.9729 21.9924 17.675 22.4693 17.6157 23.0066L17.408 24.8855C17.3651 25.273 17.084 25.5917 16.7055 25.682C14.9263 26.1061 13.0725 26.1061 11.2933 25.682C10.9148 25.5917 10.6336 25.273 10.5908 24.8855L10.3834 23.0093C10.3225 22.4731 10.0112 21.9976 9.54452 21.7281C9.07783 21.4586 8.51117 21.4269 8.01859 21.6424L6.29071 22.4009C5.93281 22.558 5.51493 22.4718 5.24806 22.1859C4.00474 20.8536 3.07924 19.2561 2.54122 17.5137C2.42533 17.1384 2.55922 16.7307 2.8749 16.4977L4.40219 15.3703C4.83721 15.0501 5.09414 14.5415 5.09414 14.0007C5.09414 13.4598 4.83721 12.9512 4.40162 12.6306L2.87529 11.5051C2.55914 11.272 2.42513 10.8638 2.54142 10.4882C3.08038 8.74734 4.00637 7.15163 5.24971 5.82114C5.51684 5.53528 5.93492 5.44941 6.29276 5.60691L8.01296 6.36404C8.50793 6.58168 9.07696 6.54881 9.54617 6.27415C10.0133 6.00264 10.3244 5.52527 10.3844 4.98794L10.5933 3.11017C10.637 2.71803 10.9245 2.39704 11.3089 2.31138C12.19 2.11504 13.0891 2.01071 14.0131 2.00006C14.9147 2.01047 15.8128 2.11485 16.6928 2.31149C17.077 2.39734 17.3643 2.71823 17.4079 3.11017L17.617 4.98937C17.7116 5.85221 18.4387 6.50572 19.3055 6.50663C19.5385 6.507 19.769 6.45838 19.9843 6.36294L21.7048 5.60568C22.0626 5.44818 22.4807 5.53405 22.7478 5.81991C23.9912 7.1504 24.9172 8.74611 25.4561 10.487C25.5723 10.8623 25.4386 11.2703 25.1228 11.5035L23.5978 12.6297C23.1628 12.95 22.9 13.4586 22.9 13.9994C22.9 14.5403 23.1628 15.0489 23.5988 15.3698L25.1251 16.4965C25.441 16.7296 25.5748 17.1376 25.4586 17.5131C24.9198 19.2536 23.9944 20.8492 22.7517 22.1799C22.4849 22.4657 22.0671 22.5518 21.7093 22.3948ZM16.263 22.1966C16.4982 21.4685 16.9889 20.8288 17.6884 20.4238C18.5702 19.9132 19.6536 19.8547 20.5841 20.2627L21.9281 20.8526C22.791 19.8538 23.4593 18.7013 23.8981 17.4552L22.7095 16.5778L22.7086 16.5771C21.898 15.98 21.4 15.0277 21.4 13.9994C21.4 12.9719 21.8974 12.0195 22.7073 11.4227L22.7085 11.4218L23.8957 10.545C23.4567 9.2988 22.7881 8.14636 21.9248 7.1477L20.5922 7.73425L20.5899 7.73527C20.1844 7.91463 19.7472 8.00722 19.3039 8.00663C17.6715 8.00453 16.3046 6.77431 16.1261 5.15465L16.1259 5.15291L15.9635 3.69304C15.3202 3.57328 14.6677 3.50872 14.013 3.50017C13.3389 3.50891 12.6821 3.57367 12.0377 3.69328L11.8751 5.15452C11.7625 6.16272 11.1793 7.05909 10.3019 7.56986C9.41937 8.0856 8.34453 8.14844 7.40869 7.73694L6.07273 7.14893C5.20949 8.14751 4.54092 9.29983 4.10196 10.5459L5.29181 11.4233C6.11115 12.0269 6.59414 12.9837 6.59414 14.0007C6.59414 15.0173 6.11142 15.9742 5.29237 16.5776L4.10161 17.4566C4.54002 18.7044 5.2085 19.8585 6.07205 20.8587L7.41742 20.2682C8.34745 19.8613 9.41573 19.9215 10.2947 20.4292C11.174 20.937 11.7593 21.832 11.8738 22.84L11.8744 22.8445L12.0362 24.3088C13.3326 24.5638 14.6662 24.5638 15.9626 24.3088L16.1247 22.8418C16.1491 22.6217 16.1955 22.4055 16.263 22.1966Z";
 
     /// <summary>新建启动项:自动归入当前导航节点对应的分类(「全部」/「未分类」下新建归未分类)。</summary>
     private void CreateItem()
@@ -1458,7 +1508,7 @@ internal sealed class LauncherApp
         _styledSelection = selected;
     }
 
-    /// <summary>按「选中 &gt; 悬停 &gt; 常态」优先级重涂列表项:选中 = 低调 accent 背景 + 左缘条;悬停 = 背景微亮。</summary>
+    /// <summary>按「选中 &gt; 悬停 &gt; 常态」优先级重涂列表项:选中 = 低调 accent 背景;悬停 = 背景微亮。</summary>
     private void StyleListItem(int index, bool hovered)
     {
         if (index < 0 || index >= _listButtons.Count)
@@ -1471,11 +1521,6 @@ internal sealed class LauncherApp
         button.Background(selected
             ? SelectedBackground
             : hovered ? HoverBackground : _theme.EditorArea.Background);
-
-        if (index < _listBars.Count)
-        {
-            _listBars[index].IsVisible = selected; // 左缘条仅选中时显示
-        }
     }
 
     /// <summary>悬停背景:暗主题向白微亮、亮主题向黑微暗(等效「升一层」)。</summary>
@@ -1487,9 +1532,6 @@ internal sealed class LauncherApp
     /// <summary>选中背景:accent 与区背景按 2:8 回混的低调选中色(替代整块鲜艳 accent)。</summary>
     private Color SelectedBackground =>
         _theme.EditorArea.Accent.Lerp(_theme.EditorArea.Background, 0.8);
-
-    /// <summary>选中左缘条:accent 向白提亮,保证 accent 背景上可见。</summary>
-    private Color AccentBarColor => _theme.EditorArea.Accent.Lerp(Color.FromRgb(255, 255, 255), 0.45);
 
     /// <summary>记录当前悬停项并重涂:进入时替换旧悬停项,离开时仅当是当前悬停项才清除(事件顺序无关)。</summary>
     private void SetItemHovered(int index, bool raised)
