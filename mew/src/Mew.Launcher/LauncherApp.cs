@@ -352,8 +352,9 @@ internal sealed class LauncherApp
         return shape;
     }
 
-    /// <summary>列表/卡片悬停「编辑」按钮的铅笔字形。</summary>
-    private const string EditGlyph = "✏️";
+    /// <summary>列表/卡片悬浮「编辑」按钮的单色铅笔图标。</summary>
+    private const string EditIconData =
+        "M3,17.25 L3,21 L6.75,21 L17.81,9.94 L14.06,6.19 L3,17.25 Z M20.71,7.04 C21.1,6.65 21.1,6.02 20.71,5.63 L18.37,3.29 C17.98,2.9 17.35,2.9 16.96,3.29 L15.13,5.12 L18.88,8.87 L20.71,7.04 Z";
 
     /// <summary>标题栏齿轮与 File→设置:选择设置上下文并显式打开设置文档。</summary>
     private void OpenSettings()
@@ -1221,17 +1222,21 @@ internal sealed class LauncherApp
     /// <summary>
     /// 组装列表项容器:主按钮(单击启动)+ 悬停浮现的「编辑」图标按钮,两者兄弟叠加
     /// (不嵌套按钮,避免点击冲突);主按钮与编辑按钮共用悬停计数,悬停态在两者间移动不丢失。
+    /// 编辑按钮带 4px 内缩,悬浮时不压卡片/行边框。
     /// </summary>
     private (UIElement Container, Button Main) BuildItemShell(LauncherItem item, Button main, int index, bool editAtCorner)
     {
         var edit = new Button()
-            .Content(new Label().Text(EditGlyph).FontSize(14)
-                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)))
+            .Size(28, 28)
+            .Padding(0)
+            .BorderThickness(0)
+            .CornerRadius(0)
+            .Margin(new Thickness(4)) // 内缩 4px:避开卡片默认 ControlBorder 边框与圆角,悬浮时不遮挡右上角
+            .Content(EditorGlyph(EditIconData, 16))
             .ToolTip("编辑")
             .OnClick(() => EditItem(item))
             .CanDrag(false)
-            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background))
-            .Padding(new Thickness(6, 2, 6, 2));
+            .WithTheme((_, button) => button.Background(_theme.EditorArea.Background));
         edit.IsVisible = false; // 悬停时浮现
         edit.HorizontalAlignment = HorizontalAlignment.Right;
         edit.VerticalAlignment = editAtCorner ? VerticalAlignment.Top : VerticalAlignment.Center;
@@ -1321,7 +1326,7 @@ internal sealed class LauncherApp
             .MinWidth(30)
             .MinHeight(30)
             .Padding(0)
-            .Content(IconShape(AddIconData, 18))
+            .Content(EditorGlyph(AddIconData, 18))
             .ToolTip("新增启动项(归入当前分类)")
             .OnClick(CreateItem)
             .CanDrag(false)
@@ -1369,7 +1374,7 @@ internal sealed class LauncherApp
     }
 
     /// <summary>形态切换按钮图标:卡片视图显示 2×2 卡片格(grid),列表视图显示列表(list)图标。</summary>
-    private UIElement ViewModeGlyph() => IconShape(
+    private UIElement ViewModeGlyph() => EditorGlyph(
         _viewMode == "card" ? GridIconData : ListIconData, 18);
 
     /// <summary>
@@ -1386,6 +1391,19 @@ internal sealed class LauncherApp
         shape.Data = PathGeometry.Parse(pathData);
         shape.Bind(Shape.FillProperty, shape, TextElement.ForegroundProperty,
             (Color color) => new SolidColorBrush(color));
+        return shape;
+    }
+
+    /// <summary>编辑区内固定使用编辑器前景主题色的图标。</summary>
+    private UIElement EditorGlyph(string pathData, double size)
+    {
+        var shape = new PathShape()
+            .Stretch(Stretch.Uniform)
+            .Width(size)
+            .Height(size)
+            .Center();
+        shape.Data = PathGeometry.Parse(pathData);
+        shape.WithTheme((_, s) => s.Fill = new SolidColorBrush(_theme.EditorArea.Foreground));
         return shape;
     }
 
