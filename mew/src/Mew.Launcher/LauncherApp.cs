@@ -1353,14 +1353,21 @@ internal sealed class LauncherApp
         _listScrollViewer = scrollViewer;
 
         // 工具栏:搜索框在左,两个等大小图标按钮紧贴其右(MewUI 0.19.1 布局限制:DockPanel
-        // 末子元素填充会盖住停靠子元素、星号列右侧元素会被丢弃,故按钮位于搜索框右侧)
-        return new StackPanel()
-            .Padding(12)
+        // 末子元素填充会盖住停靠子元素、星号列右侧元素会被丢弃,故按钮位于搜索框右侧)。
+        // 根布局用 Grid(Auto,*):工具栏占 Auto 行、列表占星号行。垂直 StackPanel 会给子元素
+        // 无限高度,ScrollViewer 会按内容全高上报 desired、被视口裁剪且不产生滚动条;
+        // 星号行把剩余受限高度传给 ScrollViewer,内容溢出时才出现竖向滚动条。
+        // 内边距分布:根 Grid 不加水平内边距,工具栏行自行加(12,12,12,0);ScrollViewer
+        // 横贯到右缘,竖向滚动条因此贴编辑器区右边缘;列表内容左/下内边距由 ScrollViewer
+        // 的 Padding 提供(滚动条位于命中区内,与内容内边距互不挤占)。
+        return new Grid()
+            .Rows("Auto,*")
             .Spacing(8)
             .Children(
                 new Grid()
                     .Columns("Auto,*")
                     .Spacing(8)
+                    .Padding(new Thickness(12, 12, 12, 0))
                     .Children(
                         searchBox.Column(0),
                         new StackPanel()
@@ -1368,8 +1375,11 @@ internal sealed class LauncherApp
                             .Spacing(4)
                             .Children(addButton, _modeToggleButton)
                             .Column(1)
-                    ),
+                    )
+                    .Row(0),
                 scrollViewer
+                    .Padding(new Thickness(12, 0, 0, 12))
+                    .Row(1)
             );
     }
 
