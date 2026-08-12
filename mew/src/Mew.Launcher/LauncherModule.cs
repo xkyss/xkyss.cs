@@ -1,9 +1,5 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using Icon = System.Drawing.Icon;
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.Rendering;
@@ -14,20 +10,18 @@ using WorkbenchType = Mew.Workbench.Workbench;
 namespace Mew.Launcher;
 
 /// <summary>
-/// Launcher 工具模块(临时应用本体):实现 <see cref="IMewToolModule"/>,经 ToolModuleContext
-/// 贡献五区、浮层搜索源与模块设置;窗口/托盘/热键等宿主职责在票据 06 移交 Mew.Host 前,
-/// 以 <see cref="Run"/> 临时引导继续跑通(入口不变)。
+/// Launcher 工具模块(由 exe 应用本体转 Library):实现 <see cref="IMewToolModule"/>,经 ToolModuleContext
+/// 贡献五区(启动上下文)、浮层搜索源与设置节;窗口/托盘/标题栏/主题/设置文档等宿主职责
+/// 在票据 06 移交 Mew.Host(启动入口为 Mew.Host.exe,本模块为 Mew.Launcher.dll)。
 /// </summary>
-internal sealed class LauncherApp : IMewToolModule
+public sealed class LauncherModule : IMewToolModule
 {
     public string Id => "launcher";
 
     public string DisplayName => "启动项";
 
-    private const string AppVersion = "v0.2.0";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private const string RevealDocumentHotkey = "Ctrl+Alt+R";
-    private const string SettingsDocumentId = "settings-document";
     private const string DetailDocumentId = "detail";
     private const string ItemsDocumentId = "items";
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
@@ -36,12 +30,9 @@ internal sealed class LauncherApp : IMewToolModule
     private SettingsService _settings = null!;
     private string _overlayHotkey = null!;
     private Window? _window;
-    private Icon? _windowIcon;
-    private IntPtr _windowLargeIcon;
-    private IntPtr _windowSmallIcon;
+    private IntPtr _windowHandle;
     private bool _capturingHotkey;
     private Button? _hotkeyChangeButton;
-    private Button? _titleThemeButton;
     private Label? _hotkeyDisplay;
     private Label? _hotkeyHint;
     private readonly LauncherRunner _runner = new();
@@ -77,302 +68,76 @@ internal sealed class LauncherApp : IMewToolModule
     private Button? _modeToggleButton;
     private readonly Dictionary<string, string> _sideBarFilters = [];
     private TreeItemsView<CategoryTreeNode>? _treeItems;
-    private const string SettingsAppearance = "appearance";
     private const string SettingsHotkey = "hotkey";
     private const string SettingsData = "data";
     private const string LauncherSectionId = "launcher"; // settings.json 中 Launcher 模块设置节
-    private string _settingsNav = SettingsAppearance; // 设置上下文当前分类
-    private StackPanel? _settingsContent;
 
-    internal LauncherApp()
+    public LauncherModule()
     {
     }
 
     /// <summary>
-    /// 模块贡献入口:绑定宿主上下文(Workbench/设置/浮层),加载启动项数据与设置,
-    /// 贡献五区(分类树、列表/卡片、详情表单、设置节、输出、状态栏)与浮层搜索源。
-    /// 窗口/托盘/热键等宿主职责仍由 <see cref="Run"/> 临时引导,票据 06 移交 Mew.Host。
+    /// 模块贡献入口:绑定宿主上下文(Workbench/设置/浮层/窗口),加载启动项数据与设置,
+    /// 贡献五区(分类树、列表/卡片、详情表单、输出、状态栏)、浮层搜索源与设置节(热键/数据);
+    /// 宿主在全部模块贡献完后统一 Build()。窗口/托盘/标题栏/主题/设置文档等宿主职责归 Mew.Host。
     /// </summary>
     public void Configure(ToolModuleContext context)
     {
         _workbench = context.Workbench;
         _theme = context.Workbench.ThemeContext;
-        _settings = (SettingsService)context.Settings; // 临时:宿主未建,模块暂持根节设置;票据 06/07 后根节设置归宿主
+        _settings = (SettingsService)context.Settings; // 模块按 launcher 节读写;根节(themeMode/overlayHotkey)归宿主
         _overlay = context.Overlay;
+        _window = context.Window;
+        _windowHandle = context.WindowHandle;
 
         _items = _store.Load();
         _itemHotkeys = new ItemHotkeys(_items, LaunchItem, Feedback);
-        _settings.Load();
         _overlayHotkey = string.IsNullOrWhiteSpace(_settings.OverlayHotkey) ? DefaultOverlayHotkey : _settings.OverlayHotkey!;
         _viewMode = string.IsNullOrWhiteSpace(LauncherItemsViewMode) ? "card" : LauncherItemsViewMode!;
 
         _workbench
-            .Theme(theme => theme
-                .SetMode(LoadThemeMode())
-                .SetAccent(Accent.Blue))
             .ActivityBar(bar =>
             {
                 bar.Item("launch", "启动", ActivityGlyph(RocketIconData));
-                bar.Item("settings", "设置", ActivityGlyph(SettingsIconData));
             })
             .SideBar(side => side
-                .View("launch", "启动", BuildCategoryTree())
-                .View("settings", "设置", BuildSettingsSideBar()))
+                .View("launch", "启动", BuildCategoryTree()))
             .EditorArea(editor => editor
                 .Document(ItemsDocumentId, "启动项", BuildItemsDocument())
-                .Document(DetailDocumentId, "启动项详情", _detailPanel)
-                .Document(SettingsDocumentId, "设置", BuildSettingsDocument()))
+                .Document(DetailDocumentId, "启动项详情", _detailPanel))
             .Panel(panel => panel.View("output", "输出", BuildOutputPanel()))
             .StatusBar(status => status
                 .Item("launch", _launchStatus));
 
         ShowNav(_navId);
         ShowEmptyDetail();
-        MigrateLegacySettingsDocumentLayout();
+
+        // 设置节:热键(冲突检测需本模块启动项数据,票据 07 起归宿主中央热键服务)、数据(数据文件路径)
+        context.SettingsSections.Add(SettingsHotkey, "热键", BuildHotkeyPanel);
+        context.SettingsSections.Add(SettingsData, "数据", BuildDataPanel);
 
         _overlay.AddSearchSource(new LauncherSearchSource(_items, _runner, _icons));
+
+        // 宿主转发的事件:主窗口按键(键盘导航 + 浮层热键捕获)与 WM_HOTKEY 非浮层 id(每项热键)
+        _workbench.WindowKeyDown += OnWindowKeyDown;
+        _workbench.HotkeyMessage += id => _itemHotkeys.TryLaunch(id);
+
+        // 主题模式变更(宿主标题栏/设置页切换)后重涂列表选中/悬停态
+        context.Theme.ThemeModeChanged += ReapplyListSelection;
+
+        // 全局热键:浮层呼出键由本模块注册(失败反馈进本模块输出面板),每项热键由 ItemHotkeys 注册
+        _itemHotkeys.Attach(_windowHandle);
+        if (!GlobalHotkey.Register(_windowHandle, _overlayHotkey))
+        {
+            AppendLog($"⚠ 呼出热键 {_overlayHotkey} 注册失败(可能已被其他程序占用)");
+        }
+
+        _itemHotkeys.RegisterAll();
     }
 
     /// <summary>Launcher 模块设置节中的列表形态(settings.json "launcher" 节)。</summary>
     private string? LauncherItemsViewMode =>
         _settings.ReadSection<LauncherSettings>(LauncherSectionId, LauncherSettingsJsonContext.Default.LauncherSettings)?.ItemsViewMode;
-
-    internal void Run()
-    {
-        var window = new NativeChromeWindow()
-            .Title($"Mew Launcher — {AppVersion}")
-            .Resizable(1080, 720);
-
-        TrayIcon? tray = null;
-        _window = window;
-        window.PreviewKeyDown += OnWindowKeyDown;
-
-        // 临时引导:宿主(Mew.Host)未建,LauncherApp 自组工作台/服务/上下文后自我 Configure;票据 06 起此段归宿主
-        var workbench = new WorkbenchType();
-        var theme = workbench.ThemeContext;
-        var overlay = new OverlayWindow(window, theme);
-        var settings = new SettingsService();
-        var context = new ToolModuleContext(workbench, window.Handle, new ScaffoldHotkeyService(), settings, overlay, theme);
-        Configure(context);
-
-        _titleThemeButton = BuildTitleBar(window, Quit, OpenSettings, CycleTheme, workbench);
-        UpdateThemeButton(); // 初始图标/提示跟随已加载的主题模式
-
-        window.Content = workbench.Build();
-
-        window.Closing += e =>
-        {
-            e.Cancel = true;
-            window.Hide();
-        };
-
-        window.Loaded += () =>
-        {
-            _workbench.RefreshPresentation();
-            ApplyWindowIcon(window);
-
-            if (!GlobalHotkey.Register(window.Handle, _overlayHotkey))
-            {
-                AppendLog($"⚠ 呼出热键 {_overlayHotkey} 注册失败(可能已被其他程序占用)");
-            }
-
-            _itemHotkeys.Attach(window.Handle);
-            _itemHotkeys.RegisterAll();
-            tray = new TrayIcon(window.Handle, ShowMain, Quit);
-            tray.Add();
-
-            // 主题模式变更(设置页 / 标题栏)统一持久化并同步各处显示
-            if (Application.Current is { } app)
-            {
-                app.ThemeModeChanged += PersistThemeMode;
-                app.ThemeModeChanged += SyncThemeRadios;
-                app.ThemeModeChanged += UpdateThemeButton;
-                app.ThemeModeChanged += ReapplyListSelection;
-            }
-
-        };
-
-        window.NativeMessage += args =>
-        {
-            if (args is not Win32NativeMessageEventArgs e)
-            {
-                return;
-            }
-
-            if (e.Msg == GlobalHotkey.WmHotkey)
-            {
-                var id = (int)e.WParam;
-                if (id == GlobalHotkey.OverlayHotkeyId)
-                {
-                    overlay.ShowOverlay();
-                }
-                else
-                {
-                    _itemHotkeys.TryLaunch(id);
-                }
-                args.Handled = true;
-            }
-            else if (e.Msg == TrayIcon.WmCallback && tray is not null)
-            {
-                tray.HandleCallback((uint)e.WParam, (uint)e.LParam);
-                args.Handled = true;
-            }
-        };
-
-        Application.Run(window);
-        _windowIcon?.Dispose();
-        DestroyWindowIcons();
-
-        void ShowMain()
-        {
-            window.Show(null!);
-            window.Activate();
-        }
-
-        void Quit()
-        {
-            tray?.Dispose();
-            Application.Quit();
-        }
-    }
-
-    /// <summary>标题栏:左区图标 + 菜单栏(File=设置/退出、View=区域显隐、Help=关于)、右区「切换主题」图标按钮。</summary>
-    private static Button BuildTitleBar(NativeChromeWindow window, Action quit, Action openSettings, Action cycleTheme, WorkbenchType workbench)
-    {
-        var appIcon = IconResolver.ExtractIcon(Environment.ProcessPath!);
-        if (appIcon is not null)
-        {
-            window.TitleBarLeft.Add(new Image()
-                .Source(appIcon)
-                .Size(24, 24)
-                .Margin(new Thickness(6, 0, 6, 0)));
-        }
-
-        var menuBar = new MenuBar()
-            .Height(28)
-            .DrawBottomSeparator(false)
-            .Background(Color.Transparent)
-            .Items(
-                new MenuItem("_File").Menu(
-                    new Menu()
-                        .Item("设置", openSettings)
-                        .Separator()
-                        .Item("退出", quit)),
-                new MenuItem("_View").Menu(BuildViewMenu(workbench)),
-                new MenuItem("_Help").Menu(
-                    new Menu().Item("关于", () => ShowAbout(window)))
-            );
-
-        window.TitleBarLeft.Add(menuBar);
-
-        // 右区:切换主题图标按钮(图标与提示由 UpdateThemeButton 随模式刷新)
-        var themeButton = new Button()
-            .Content(new Label().Text(""))
-            .ToolTip("切换主题")
-            .OnClick(cycleTheme)
-            .CanDrag(false)
-            .Size(36, 28);
-        window.TitleBarRight.Add(themeButton);
-        return themeButton;
-    }
-
-    /// <summary>查看菜单:显示/隐藏 侧边栏、底部面板、活动栏、状态栏;菜单项文本随当前显隐状态反转。</summary>
-    private static Menu BuildViewMenu(WorkbenchType workbench) => new Menu()
-        .Add(ViewToggleItem(workbench, workbench.ToggleSideBar, () => workbench.IsSideBarVisible, "侧边栏"))
-        .Add(ViewToggleItem(workbench, workbench.TogglePanel, () => workbench.IsPanelVisible, "底部面板"))
-        .Add(ViewToggleItem(workbench, workbench.ToggleActivityBar, () => workbench.IsActivityBarVisible, "活动栏"))
-        .Add(ViewToggleItem(workbench, workbench.ToggleStatusBar, () => workbench.IsStatusBarVisible, "状态栏"));
-
-    /// <summary>构造「(显示/隐藏)xx」菜单项:文本反映当前状态,点击切换后文本反转。</summary>
-    private static MenuItem ViewToggleItem(WorkbenchType workbench, Action toggle, Func<bool> isVisible, string label)
-    {
-        var item = new MenuItem("");
-        void UpdateText()
-        {
-            item.Text = isVisible() ? $"隐藏{label}" : $"显示{label}";
-        }
-
-        item.Click = toggle;
-        workbench.PresentationChanged += UpdateText;
-        UpdateText();
-        return item;
-    }
-
-    /// <summary>循环切换主题模式(跟随系统 → 亮 → 暗),持久化与标题栏图标由 ThemeModeChanged 统一处理。</summary>
-    private void CycleTheme()
-    {
-        var next = _theme.Mode switch
-        {
-            ThemeVariant.System => ThemeVariant.Light,
-            ThemeVariant.Light => ThemeVariant.Dark,
-            _ => ThemeVariant.System,
-        };
-        _theme.SetMode(next);
-    }
-
-    /// <summary>标题栏主题按钮:图标/提示跟随当前模式(☀ 浅色 / ☾ 暗色 / 🌓 跟随系统)。</summary>
-    private void UpdateThemeButton()
-    {
-        if (_titleThemeButton is not { } button)
-        {
-            return;
-        }
-
-        var mode = _theme.Mode;
-        button.Content(new Label().Text(ThemeIcon(mode)).FontSize(14));
-        button.ToolTip(ThemeToolTip(mode));
-    }
-
-    private static string ThemeIcon(ThemeVariant mode) => mode switch
-    {
-        ThemeVariant.Light => "☀",
-        ThemeVariant.Dark => "☾",
-        _ => "🌓",
-    };
-
-    private static string ThemeToolTip(ThemeVariant mode) => mode switch
-    {
-        ThemeVariant.Light => "浅色 · 点击切换",
-        ThemeVariant.Dark => "暗色 · 点击切换",
-        _ => "跟随系统 · 点击切换",
-    };
-
-    private static void ShowAbout(NativeChromeWindow window)
-    {
-        MessageBox.Notify(
-            $"Mew Launcher {AppVersion}\n基于 MewUI 与 Workbench 的应用启动管理器。",
-            PromptIconKind.Info,
-            "关于 Mew Launcher",
-            window);
-    }
-
-    /// <summary>从 settings.json 读取主题模式,缺省/无效回退跟随系统。</summary>
-    private ThemeVariant LoadThemeMode()
-    {
-        var stored = _settings.ThemeMode;
-        return Enum.TryParse<ThemeVariant>(stored, out var mode) ? mode : ThemeVariant.System;
-    }
-
-    /// <summary>将当前主题模式持久化到 settings.json(保留其他设置字段)。</summary>
-    private void PersistThemeMode()
-    {
-        _settings.ThemeMode = _theme.Mode.ToString();
-        _settings.Save();
-    }
-
-    /// <summary>设置页单选跟随当前主题模式(状态栏按钮等外部切换时同步)。</summary>
-    private void SyncThemeRadios()
-    {
-        if (_themeRadios is not { } radios)
-        {
-            return;
-        }
-
-        foreach (var (radio, mode) in radios.Zip(_themeModes))
-        {
-            radio.IsChecked = _theme.Mode == mode.Mode;
-        }
-    }
 
     /// <summary>活动栏图标按钮:PathShape 图标,填充随活动栏前景主题色(仿 Gallery SegmentIconShape)。</summary>
     private UIElement ActivityGlyph(string pathData)
@@ -391,133 +156,12 @@ internal sealed class LauncherApp : IMewToolModule
     private const string EditIconData =
         "M3,17.25 L3,21 L6.75,21 L17.81,9.94 L14.06,6.19 L3,17.25 Z M20.71,7.04 C21.1,6.65 21.1,6.02 20.71,5.63 L18.37,3.29 C17.98,2.9 17.35,2.9 16.96,3.29 L15.13,5.12 L18.88,8.87 L20.71,7.04 Z";
 
-    /// <summary>标题栏齿轮与 File→设置:选择设置上下文并显式打开设置文档。</summary>
-    private void OpenSettings()
-    {
-        _workbench.SelectActivity("settings");
-        _workbench.OpenDocument(SettingsDocumentId);
-    }
-
-    /// <summary>
-    /// 将旧布局中央区域里与设置侧边栏共用的 <c>settings</c> 组件迁移为独立的设置文档 ID。
-    /// 仅修改中央布局树，侧边栏边框中的同名组件保持不变。
-    /// </summary>
-    private static void MigrateLegacySettingsDocumentLayout()
-    {
-        var layoutPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mew", "layout.json");
-
-        try
-        {
-            if (!File.Exists(layoutPath))
-            {
-                return;
-            }
-
-            var root = JsonNode.Parse(File.ReadAllText(layoutPath))?.AsObject();
-            if (root is null || !MigrateLegacySettingsDocumentComponent(root["layout"]))
-            {
-                return;
-            }
-
-            File.WriteAllText(layoutPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-        catch (JsonException)
-        {
-        }
-    }
-
-    private static bool MigrateLegacySettingsDocumentComponent(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            var changed = obj["component"]?.GetValue<string>() == "settings";
-            if (changed)
-            {
-                obj["component"] = SettingsDocumentId;
-            }
-
-            foreach (var child in obj)
-            {
-                changed |= MigrateLegacySettingsDocumentComponent(child.Value);
-            }
-
-            return changed;
-        }
-
-        if (node is JsonArray array)
-        {
-            return array.Any(MigrateLegacySettingsDocumentComponent);
-        }
-
-        return false;
-    }
-
-    /// <summary>设置窗口系统图标:大图标(任务栏/Alt+Tab)与小图标(标题栏/窗口切换)分别从 exe 图标资源提取,
-    /// 避免 ExtractAssociatedIcon 只返回 32px 小图标导致任务栏放大后显小/模糊。</summary>
-    private void ApplyWindowIcon(Window window)
-    {
-        var path = Environment.ProcessPath!;
-        if (ExtractIconEx(path, 0, out var largeIcon, out var smallIcon, 1) > 0)
-        {
-            _windowLargeIcon = largeIcon;
-            _windowSmallIcon = smallIcon;
-            SendMessage(window.Handle, WmSetIcon, IconSmall, smallIcon);
-            SendMessage(window.Handle, WmSetIcon, IconBig, largeIcon);
-            return;
-        }
-
-        // 回退:资源提取失败时退回 ExtractAssociatedIcon
-        _windowIcon = Icon.ExtractAssociatedIcon(path);
-        if (_windowIcon is null)
-        {
-            return;
-        }
-
-        SendMessage(window.Handle, WmSetIcon, IconSmall, _windowIcon.Handle);
-        SendMessage(window.Handle, WmSetIcon, IconBig, _windowIcon.Handle);
-    }
-
-    /// <summary>释放 ExtractIconEx 提取的窗口大/小图标句柄(WM_SETICON 不接管句柄所有权)。</summary>
-    private void DestroyWindowIcons()
-    {
-        if (_windowLargeIcon != IntPtr.Zero)
-        {
-            DestroyIcon(_windowLargeIcon);
-            _windowLargeIcon = IntPtr.Zero;
-        }
-
-        if (_windowSmallIcon != IntPtr.Zero)
-        {
-            DestroyIcon(_windowSmallIcon);
-            _windowSmallIcon = IntPtr.Zero;
-        }
-    }
-
-    private const uint WmSetIcon = 0x0080;
-    private static readonly IntPtr IconSmall = IntPtr.Zero;
-    private static readonly IntPtr IconBig = new(1);
-
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-    private static extern uint ExtractIconEx(string szFile, int nIconIndex, out IntPtr phiconLarge, out IntPtr phiconSmall, uint nIcons);
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyIcon(IntPtr hIcon);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-
     /// <summary>窗口内快捷键:定位当前启动项详情所属的侧边栏分类;启动项列表激活时提供键盘导航。</summary>
     private void OnWindowKeyDown(KeyEventArgs e)
     {
         if (_capturingHotkey)
         {
+            HandleCaptureKeyDown(e);
             return;
         }
 
@@ -570,98 +214,6 @@ internal sealed class LauncherApp : IMewToolModule
                     break;
             }
         }
-    }
-
-    /// <summary>设置页主题单选(跟随系统/亮/暗),状态栏外部切换时保持同步。</summary>
-    private List<RadioButton>? _themeRadios;
-    private (ThemeVariant Mode, string Label)[] _themeModes =
-    [
-        (ThemeVariant.System, "跟随系统"),
-        (ThemeVariant.Light, "亮色"),
-        (ThemeVariant.Dark, "暗色"),
-    ];
-
-    /// <summary>编辑器区「设置」文档:内容容器,随侧边栏设置分类切换(外观/热键/数据)。</summary>
-    private UIElement BuildSettingsDocument()
-    {
-        var content = new StackPanel();
-        _settingsContent = content;
-        ShowSettingsNav(_settingsNav);
-        return content;
-    }
-
-    /// <summary>侧边栏「设置」上下文:三个设置分类(外观/热键/数据)。</summary>
-    private UIElement BuildSettingsSideBar() => new StackPanel()
-        .Padding(12)
-        .Spacing(4)
-        .Children(
-            SettingsNavButton("外观", SettingsAppearance),
-            SettingsNavButton("热键", SettingsHotkey),
-            SettingsNavButton("数据", SettingsData)
-        );
-
-    private UIElement SettingsNavButton(string label, string id) => new Button()
-        .Content(new Label().Text(label)
-            .WithTheme((_, l) => l.Foreground(_theme.SideBar.Foreground)))
-        .OnClick(() => ShowSettingsNav(id))
-        .CanDrag(false)
-        .WithTheme((_, button) => button.Background(_theme.SideBar.Background));
-
-    /// <summary>切换设置分类并刷新编辑器区设置内容。</summary>
-    private void ShowSettingsNav(string id)
-    {
-        _settingsNav = id;
-        // 设置分类是侧边栏到编辑器区的导航，选择时确保对应文档可见。
-        _workbench.OpenDocument(SettingsDocumentId);
-        if (_settingsContent is not { } content)
-        {
-            return;
-        }
-
-        content.Clear();
-        content.Add(id switch
-        {
-            SettingsHotkey => BuildHotkeyPanel(),
-            SettingsData => BuildDataPanel(),
-            _ => BuildAppearancePanel(),
-        });
-    }
-
-    /// <summary>设置分类内容:外观(主题三选一,即时生效并持久化)。</summary>
-    private UIElement BuildAppearancePanel()
-    {
-        var theme = _theme;
-        var radios = _themeModes
-            .Select(m => new RadioButton()
-                .GroupName("theme")
-                .IsChecked(theme.Mode == m.Mode)
-                .Content(new Label().Text(m.Label)))
-            .ToList();
-        _themeRadios = radios;
-
-        foreach (var (radio, mode) in radios.Zip(_themeModes))
-        {
-            radio.OnCheckedChanged(isChecked =>
-            {
-                if (isChecked)
-                {
-                    theme.SetMode(mode.Mode);
-                }
-            });
-        }
-
-        return new StackPanel()
-            .Padding(24)
-            .Spacing(12)
-            .Children(
-                new Label().Text("外观").FontSize(20).Bold()
-                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
-                new Label().Text("主题").FontSize(14)
-                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
-                new StackPanel()
-                    .Spacing(6)
-                    .Children(radios.Cast<Element>().ToArray())
-            );
     }
 
     /// <summary>设置分类内容:热键(呼出热键捕获改绑、冲突与格式提示)。</summary>
@@ -742,10 +294,10 @@ internal sealed class LauncherApp : IMewToolModule
         }
     }
 
-    /// <summary>进入热键捕获模式:下一次按键组合作为新呼出热键(Esc 取消)。</summary>
+    /// <summary>进入热键捕获模式:下一次按键组合作为新呼出热键(Esc 取消);捕获经 Workbench.WindowKeyDown 统一分发。</summary>
     private void StartCaptureHotkey()
     {
-        if (_window is null || _capturingHotkey)
+        if (_capturingHotkey)
         {
             return;
         }
@@ -753,16 +305,10 @@ internal sealed class LauncherApp : IMewToolModule
         _capturingHotkey = true;
         _hotkeyChangeButton!.Content(new Label().Text("请按下新热键…"));
         _hotkeyHint!.Text = "按 Esc 取消";
-        _window.PreviewKeyDown += OnCaptureKeyDown;
     }
 
-    private void OnCaptureKeyDown(KeyEventArgs e)
+    private void HandleCaptureKeyDown(KeyEventArgs e)
     {
-        if (!_capturingHotkey)
-        {
-            return;
-        }
-
         e.Handled = true;
 
         if (e.Key == Key.Escape)
@@ -814,7 +360,6 @@ internal sealed class LauncherApp : IMewToolModule
         }
 
         _capturingHotkey = false;
-        _window!.PreviewKeyDown -= OnCaptureKeyDown;
         _hotkeyChangeButton!.Content(new Label().Text("更改"));
     }
 
@@ -838,7 +383,7 @@ internal sealed class LauncherApp : IMewToolModule
             return;
         }
 
-        var handle = _window!.Handle;
+        var handle = _windowHandle;
         GlobalHotkey.Unregister(handle);
         if (!GlobalHotkey.Register(handle, hotkey))
         {

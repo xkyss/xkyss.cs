@@ -1,7 +1,7 @@
 using Aprillz.MewUI;
-using Mew.Launcher;
+using Mew.Host;
 
 Win32Platform.Register();
 Direct2DBackend.Register();
 
-new LauncherApp().Run();
+new MewHost().Run();

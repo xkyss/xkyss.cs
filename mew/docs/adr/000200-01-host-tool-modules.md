@@ -13,8 +13,9 @@ Launcher 长期是 Workbench 的唯一消费者,`LauncherApp.cs`(1954 行)一人
 
 ```
 IMewToolModule { Id, DisplayName, Configure(ToolModuleContext) }
-ToolModuleContext: Workbench(裸对象,宿主独占 Build())/ WindowHandle / IHotkeyService
-                  / ISettingsService(模块分节)/ IOverlayService(搜索源)/ IThemeService
+ToolModuleContext: Workbench(裸对象,宿主独占 Build())/ WindowHandle / Window(宿主主窗口,模态/Toast/焦点)
+                  / IHotkeyService / ISettingsService(模块分节)/ IOverlayService(搜索源)/ IThemeService
+                  / SettingsSectionRegistry(设置节注册表)
 ISearchSource { Id, DisplayName, Search(query, maxResults) → SearchResult(Title, Subtitle, Icon, Activate) }
 ```
 

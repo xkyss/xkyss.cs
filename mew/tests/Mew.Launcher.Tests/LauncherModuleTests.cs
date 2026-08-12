@@ -1,12 +1,15 @@
+using Aprillz.MewUI.Controls;
 using Mew.Workbench;
 using Xunit;
+using OverlayServiceContract = Mew.Workbench.IOverlayService;
 using WorkbenchType = Mew.Workbench.Workbench;
 
 namespace Mew.Launcher.Tests;
 
 /// <summary>
-/// Launcher 模块化(票据 05):LauncherApp 实现 IMewToolModule,Configure 经 ToolModuleContext
-/// 贡献五区与浮层搜索源;临时引导(宿主未建)下仍可组装运行。
+/// Launcher 模块化(票据 05/06):LauncherModule 实现 IMewToolModule,Configure 经 ToolModuleContext
+/// 贡献五区(启动上下文)、浮层搜索源与设置节;窗口/设置文档等宿主职责归 Mew.Host,
+/// 本测试以宿主姿态补上设置上下文后验证组装可运行。
 /// 与 WorkbenchConfigurationTests 同集合串行:两者都操作真实 %APPDATA%\Mew 布局文件,
 /// 且 MewDock 在 Build 后持有文件句柄,并行会互相踩文件。
 /// </summary>
@@ -14,7 +17,7 @@ namespace Mew.Launcher.Tests;
 public class LauncherModuleTests
 {
     /// <summary>记录注册的搜索源的浮层契约替身(测试环境不建 MewUI 窗口)。</summary>
-    private sealed class RecordingOverlay : IOverlayService
+    private sealed class RecordingOverlay : OverlayServiceContract
     {
         public List<ISearchSource> Sources { get; } = [];
 
@@ -22,24 +25,40 @@ public class LauncherModuleTests
     }
 
     [Fact]
-    public void Configure_贡献五区_注册搜索源_Build通过()
+    public void Configure_贡献五区与设置节_注册搜索源_Build通过()
     {
         using var _ = IsolateUserFiles();
 
         var workbench = new WorkbenchType();
         var settings = new SettingsService(Path.Combine(Path.GetTempPath(), "mew-module-tests", Guid.NewGuid().ToString("N") + ".json"));
         var overlay = new RecordingOverlay();
-        var context = new ToolModuleContext(workbench, IntPtr.Zero, new ScaffoldHotkeyService(), settings, overlay, workbench.ThemeContext);
+        var settingsSections = new SettingsSectionRegistry();
+        var context = new ToolModuleContext(
+            workbench,
+            windowHandle: IntPtr.Zero,
+            window: null,
+            hotkeys: new ScaffoldHotkeyService(),
+            settings: settings,
+            overlay: overlay,
+            theme: workbench.ThemeContext,
+            settingsSections: settingsSections);
 
-        var module = new LauncherApp();
+        var module = new LauncherModule();
         module.Configure(context);
 
-        // 五区配对/ID 唯一校验通过;设置文档可运行时打开(注册生效)
+        // 宿主补上设置上下文(票据 06:设置活动栏/侧边栏/文档归宿主)
+        workbench
+            .ActivityBar(bar => bar.Item("settings", "设置", GlyphKind.Hamburger))
+            .SideBar(side => side.View("settings", "设置", new StackPanel()))
+            .EditorArea(editor => editor.Document("settings-document", "设置", new StackPanel()));
+
+        // 五区配对/ID 唯一校验通过;设置文档可运行时打开(宿主注册生效)
         workbench.Build();
         workbench.OpenDocument("settings-document");
 
         Assert.Equal("launcher", module.Id);
         Assert.Equal("启动项", module.DisplayName);
+        Assert.Equal(["hotkey", "data"], settingsSections.Sections.Select(section => section.Id));
         var source = Assert.Single(overlay.Sources);
         Assert.Equal("launcher", source.Id);
     }

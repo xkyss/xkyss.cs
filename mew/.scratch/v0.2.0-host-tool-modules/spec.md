@@ -51,7 +51,7 @@ v0.2.0 起改为**宿主 + 编译期工具模块**架构:
 
 - **工程结构**:`Mew.Workbench`(主框架,吸收外壳服务)、`Mew.Host`(新薄宿主 exe)、`Mew.Launcher`(WinExe → Library,工具模块)。`Mew.Host` 引用 Workbench 与 Launcher 模块;Launcher 模块引用 Workbench。
 - **模块契约**:`IMewToolModule { Id, DisplayName, Configure(ToolModuleContext) }`;宿主组合根显式列出模块,全部贡献完后统一 `Build()`(宿主独占 Build,与 ADR-000101-03 编译期组合一致)。
-- **ToolModuleContext 表面**:裸 `Workbench`(五区贡献 + 运行时方法)、`WindowHandle`、`IHotkeyService`(注册/注销/冲突检测)、`ISettingsService`(模块分节)、`IOverlayService`(AddSearchSource)、`IThemeService`(读取/切换主题模式 + ThemeModeChanged)。托盘菜单贡献暂缓,不进契约。
+- **ToolModuleContext 表面**:裸 `Workbench`(五区贡献 + 运行时方法)、`WindowHandle`、`Window`(宿主主窗口对象,模块模态/Toast/焦点用)、`IHotkeyService`(注册/注销/冲突检测)、`ISettingsService`(模块分节)、`IOverlayService`(AddSearchSource)、`IThemeService`(读取/切换主题模式 + ThemeModeChanged)、`SettingsSectionRegistry`(设置节注册表,宿主 + 模块贡献设置节)。托盘菜单贡献暂缓,不进契约。
 - **浮层契约**:`ISearchSource { Id, DisplayName, Search(query, maxResults) → SearchResult(Title, Subtitle, Icon, Activate) }`;行渲染框架统一(图标 + 主行 + 副行,沿用现浮层样式);跨源结果**扁平混排 + 来源标记**;每源限 `maxResults`、框架全局设上限;唯一搜索源时行为与今日一致。
 - **设置**:settings.json 结构改为「根节 + 模块节」——根节 `themeMode` / `overlayHotkey`(宿主),模块节按 Id 分(如 `launcher`: `itemsViewMode`);提供一次性旧扁平结构迁移(先例:`MigrateLegacySettingsDocumentLayout`)。设置文档由宿主提供(外观/热键节),模块贡献设置节(Launcher 贡献「数据」节)。
 - **热键**:`IHotkeyService` 为中央注册表,浮层呼出键归宿主;Launcher 每项热键经 `ctx.Hotkeys` 注册,冲突检测集中。

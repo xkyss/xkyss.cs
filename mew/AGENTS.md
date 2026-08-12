@@ -24,13 +24,13 @@ See `docs/agents/domain.md`.
 
 ### Version bump
 
-运行时版本号唯一来源是 `src/Mew.Launcher/LauncherApp.cs` 里的常量:
+运行时版本号唯一来源是 `src/Mew.Host/MewHost.cs` 里的常量:
 
 ```csharp
-private const string AppVersion = "v0.1.4";
+private const string AppVersion = "v0.2.0";
 ```
 
-该常量用于主窗口标题(`Mew Launcher — {AppVersion}`)与关于对话框(`Mew Launcher {AppVersion}`)。
+该常量用于主窗口标题(`Mew Launcher — {AppVersion}`)与关于对话框(`Mew Launcher {AppVersion}`)。v0.2.0 起宿主为 `Mew.Host`(exe),模块 `Mew.Launcher` 不再持有版本号。
 
 提升版本号时:
 

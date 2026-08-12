@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Mew.Host/Mew.Host.csproj" />
     <Project Path="src/Mew.Launcher/Mew.Launcher.csproj" />
     <Project Path="src/Mew.Workbench/Mew.Workbench.csproj" />
   </Folder>

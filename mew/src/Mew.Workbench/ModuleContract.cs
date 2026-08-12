@@ -1,3 +1,5 @@
+using Aprillz.MewUI;
+
 namespace Mew.Workbench;
 
 /// <summary>
@@ -19,25 +21,29 @@ public interface IMewToolModule
 
 /// <summary>
 /// 工具模块的贡献上下文:宿主在模块注册时传入。
-/// 表面 = 裸 Workbench(五区贡献 + 运行时方法)+ 窗口句柄 + 四个服务接口;
-/// 托盘菜单贡献与自定义浮层行渲染按规格暂缓,不进契约。
+/// 表面 = 裸 Workbench(五区贡献 + 运行时方法)+ 窗口(句柄 + 宿主窗口对象)+ 四个服务接口
+/// + 设置节注册表;托盘菜单贡献与自定义浮层行渲染按规格暂缓,不进契约。
 /// </summary>
 public sealed class ToolModuleContext
 {
     public ToolModuleContext(
         Workbench workbench,
         IntPtr windowHandle,
+        Window? window,
         IHotkeyService hotkeys,
         ISettingsService settings,
         IOverlayService overlay,
-        IThemeService theme)
+        IThemeService theme,
+        SettingsSectionRegistry settingsSections)
     {
         Workbench = workbench;
         WindowHandle = windowHandle;
+        Window = window;
         Hotkeys = hotkeys;
         Settings = settings;
         Overlay = overlay;
         Theme = theme;
+        SettingsSections = settingsSections;
     }
 
     /// <summary>五区贡献(Theme/ActivityBar/SideBar/EditorArea/Panel/StatusBar)与运行时方法;Build() 归宿主。</summary>
@@ -45,6 +51,9 @@ public sealed class ToolModuleContext
 
     /// <summary>宿主窗口的原生句柄(全局热键注册等场景)。</summary>
     public IntPtr WindowHandle { get; }
+
+    /// <summary>宿主窗口对象:模态对话框/Toast/焦点判定等 UI 归属场景;无窗口的宿主组装测试中为 null。</summary>
+    public Window? Window { get; }
 
     /// <summary>全局热键中央注册表:注册/注销/冲突检测(含跨模块)。实现接线在票据 07。</summary>
     public IHotkeyService Hotkeys { get; }
@@ -57,4 +66,7 @@ public sealed class ToolModuleContext
 
     /// <summary>主题服务:读取/切换主题模式,订阅模式变更。</summary>
     public IThemeService Theme { get; }
+
+    /// <summary>设置文档的模块设置节注册表:模块按 Id 贡献设置节(如 Launcher 的「数据」),宿主统一呈现。</summary>
+    public SettingsSectionRegistry SettingsSections { get; }
 }

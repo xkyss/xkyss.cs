@@ -27,6 +27,18 @@ public sealed class Workbench
     /// <summary>工作台呈现状态变更通知;订阅方据此同步区域外观与 View 菜单文案。</summary>
     public event Action? PresentationChanged;
 
+    /// <summary>原生 WM_HOTKEY 消息分发(宿主转发):非浮层热键 id(如模块每项热键)交给订阅方处理。</summary>
+    public event Action<int>? HotkeyMessage;
+
+    /// <summary>宿主主窗口的按键事件转发(模块键盘导航、热键捕获等场景)。</summary>
+    public event Action<KeyEventArgs>? WindowKeyDown;
+
+    /// <summary>宿主在原生 WM_HOTKEY 消息中转发非浮层热键 id(浮层热键由宿主自行处理)。</summary>
+    public void NotifyHotkeyMessage(int hotkeyId) => HotkeyMessage?.Invoke(hotkeyId);
+
+    /// <summary>宿主把主窗口按键事件转发给订阅方(模块键盘导航/热键捕获)。</summary>
+    public void NotifyWindowKeyDown(KeyEventArgs e) => WindowKeyDown?.Invoke(e);
+
     public bool IsActivityBarVisible => _activityBarVisible;
     public bool IsSideBarVisible => _sideBarVisible;
     public bool IsPanelVisible => _panelVisible;
