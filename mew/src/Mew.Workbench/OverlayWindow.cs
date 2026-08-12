@@ -1,38 +1,32 @@
 using System.Runtime.InteropServices;
 using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
-using Mew.Workbench;
 
-namespace Mew.Launcher;
+namespace Mew.Workbench;
 
 /// <summary>
-/// 全局热键呼出的悬浮搜索浮层:独立于主窗口,输入即过滤(复用 LauncherSearch)、
-/// 回车启动选中项、上下键切换、Esc/失焦关闭;与窗口内管理共用启动项数据、执行器与图标解析。
+/// 全局热键呼出的悬浮搜索浮层(框架级):跨搜索源结果扁平混排 + 行尾来源标记,
+/// 输入即过滤、回车激活选中项、上下键切换、Esc/失焦关闭。
+/// 行渲染框架统一(图标 + 主行 + 副行),契约不含自定义行渲染。
 /// </summary>
-internal sealed class OverlayWindow
+public sealed class OverlayWindow
 {
-    private const int MaxResults = 8;
     private const int Width = 640;
     private const int Height = 420;
     private static readonly Color White = Color.FromArgb(255, 255, 255, 255);
 
     private readonly Window _window;
     private readonly Window _owner;
-    private readonly List<LauncherItem> _items;
-    private readonly LauncherRunner _runner;
-    private readonly IconResolver _icons;
     private readonly WorkbenchThemeContext _theme;
-    private readonly TextBox _searchBox = new() { Placeholder = "输入以搜索启动项", CanDrag = false };
+    private readonly List<ISearchSource> _sources = [];
+    private readonly TextBox _searchBox = new() { Placeholder = "输入以搜索", CanDrag = false };
     private readonly StackPanel _resultPanel = new();
-    private List<LauncherItem> _results = [];
+    private List<OverlayResultEntry> _results = [];
     private readonly SelectionModel _selection = new();
 
-    internal OverlayWindow(Window owner, List<LauncherItem> items, LauncherRunner runner, IconResolver icons, WorkbenchThemeContext theme)
+    public OverlayWindow(Window owner, WorkbenchThemeContext theme)
     {
         _owner = owner;
-        _items = items;
-        _runner = runner;
-        _icons = icons;
         _theme = theme;
 
         _window = new Window
@@ -48,7 +42,14 @@ internal sealed class OverlayWindow
         _window.Deactivated += () => _window.Hide();
     }
 
-    internal void ShowOverlay()
+    /// <summary>注册搜索源;运行期注册后立即按当前查询刷新结果。</summary>
+    public void AddSource(ISearchSource source)
+    {
+        _sources.Add(source);
+        Refresh(_searchBox.Text);
+    }
+
+    public void ShowOverlay()
     {
         _window.Show(_owner);
         PositionOverlay();
@@ -89,7 +90,7 @@ internal sealed class OverlayWindow
                 break;
 
             case Key.Enter when _results.Count > 0:
-                Launch(_results[_selection.Selected]);
+                Activate(_results[_selection.Selected]);
                 e.Handled = true;
                 break;
 
@@ -109,7 +110,7 @@ internal sealed class OverlayWindow
 
     private void Refresh(string query)
     {
-        _results = _items.Where(item => LauncherSearch.Matches(item, query)).Take(MaxResults).ToList();
+        _results = OverlaySearchAggregator.Aggregate(_sources, query).ToList();
         _selection.Clamp(_results.Count);
 
         _resultPanel.Clear();
@@ -119,34 +120,43 @@ internal sealed class OverlayWindow
         }
     }
 
-    private UIElement Row(LauncherItem item, bool selected)
+    private UIElement Row(OverlayResultEntry entry, bool selected)
     {
-        var icon = _icons.Resolve(item);
+        var result = entry.Result;
+        var children = new List<UIElement>
+        {
+            IconElement(result.Icon),
+            new StackPanel()
+                .Spacing(2)
+                .Children(
+                    new Label().Text(result.Title)
+                        .WithTheme((_, label) => label.Foreground(selected ? White : _theme.EditorArea.Foreground)),
+                    new Label().Text(result.Subtitle).FontSize(11)
+                        .WithTheme((_, label) => label.Foreground(selected ? White : _theme.EditorArea.Foreground))
+                ),
+        };
+
+        // 多搜索源时行尾打来源标记;唯一搜索源时不显示,与单源时代行为一致
+        if (_sources.Count > 1)
+        {
+            children.Add(new Label().Text(entry.Source.DisplayName).FontSize(10)
+                .WithTheme((_, label) => label.Foreground(selected ? White : _theme.EditorArea.Foreground)));
+        }
 
         return new Button()
             .Content(
                 new StackPanel()
                     .Orientation(Orientation.Horizontal)
                     .Spacing(8)
-                    .Children(
-                        IconElement(icon),
-                        new StackPanel()
-                            .Spacing(2)
-                            .Children(
-                                new Label().Text(item.Name)
-                                    .WithTheme((_, label) => label.Foreground(selected ? White : _theme.EditorArea.Foreground)),
-                                new Label().Text(item.Command).FontSize(11)
-                                    .WithTheme((_, label) => label.Foreground(selected ? White : _theme.EditorArea.Foreground))
-                            )
-                    ))
-            .OnClick(() => Launch(item))
+                    .Children(children.ToArray()))
+            .OnClick(() => Activate(entry))
             .CanDrag(false)
             .WithTheme((_, button) => button.Background(selected ? _theme.EditorArea.Accent : _theme.EditorArea.Background));
     }
 
-    private void Launch(LauncherItem item)
+    private void Activate(OverlayResultEntry entry)
     {
-        _runner.Launch(item);
+        entry.Result.Activate();
         _window.Hide();
     }
 

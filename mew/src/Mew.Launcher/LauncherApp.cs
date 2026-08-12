@@ -129,7 +129,8 @@ internal sealed class LauncherApp
 
         window.Content = _workbench.Build();
 
-        var overlay = new OverlayWindow(window, _items, _runner, _icons, _theme);
+        var overlay = new OverlayWindow(window, _theme);
+        overlay.AddSource(new LauncherSearchSource(_items, _runner, _icons));
 
         window.Closing += e =>
         {
