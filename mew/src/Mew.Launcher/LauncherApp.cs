@@ -8,15 +8,22 @@ using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.Rendering;
 using Mew.Workbench;
+using OverlayServiceContract = Mew.Workbench.IOverlayService;
 using WorkbenchType = Mew.Workbench.Workbench;
 
 namespace Mew.Launcher;
 
 /// <summary>
-/// Launcher 应用本体:编译期组装 Workbench 五区,持有启动项数据与全部交互状态。
+/// Launcher 工具模块(临时应用本体):实现 <see cref="IMewToolModule"/>,经 ToolModuleContext
+/// 贡献五区、浮层搜索源与模块设置;窗口/托盘/热键等宿主职责在票据 06 移交 Mew.Host 前,
+/// 以 <see cref="Run"/> 临时引导继续跑通(入口不变)。
 /// </summary>
-internal sealed class LauncherApp
+internal sealed class LauncherApp : IMewToolModule
 {
+    public string Id => "launcher";
+
+    public string DisplayName => "启动项";
+
     private const string AppVersion = "v0.2.0";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private const string RevealDocumentHotkey = "Ctrl+Alt+R";
@@ -26,8 +33,8 @@ internal sealed class LauncherApp
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
-    private readonly SettingsService _settings = new();
-    private string _overlayHotkey;
+    private SettingsService _settings = null!;
+    private string _overlayHotkey = null!;
     private Window? _window;
     private Icon? _windowIcon;
     private IntPtr _windowLargeIcon;
@@ -41,10 +48,11 @@ internal sealed class LauncherApp
     private readonly LaunchDebouncer _launchDebouncer = new(TimeSpan.FromMilliseconds(500));
     private readonly IconResolver _icons = new();
     private readonly ObservableValue<string> _launchStatus = new("就绪");
-    private List<LauncherItem> _items;
-    private readonly ItemHotkeys _itemHotkeys;
-    private readonly WorkbenchType _workbench = new();
-    private readonly WorkbenchThemeContext _theme;
+    private List<LauncherItem> _items = null!;
+    private ItemHotkeys _itemHotkeys = null!;
+    private WorkbenchType _workbench = null!;
+    private WorkbenchThemeContext _theme = null!;
+    private OverlayServiceContract _overlay = null!;
     private readonly StackPanel _listPanel = new();
     private readonly SelectionModel _listSelection = new();
     private readonly List<Button> _listButtons = [];
@@ -78,30 +86,25 @@ internal sealed class LauncherApp
 
     internal LauncherApp()
     {
+    }
+
+    /// <summary>
+    /// 模块贡献入口:绑定宿主上下文(Workbench/设置/浮层),加载启动项数据与设置,
+    /// 贡献五区(分类树、列表/卡片、详情表单、设置节、输出、状态栏)与浮层搜索源。
+    /// 窗口/托盘/热键等宿主职责仍由 <see cref="Run"/> 临时引导,票据 06 移交 Mew.Host。
+    /// </summary>
+    public void Configure(ToolModuleContext context)
+    {
+        _workbench = context.Workbench;
+        _theme = context.Workbench.ThemeContext;
+        _settings = (SettingsService)context.Settings; // 临时:宿主未建,模块暂持根节设置;票据 06/07 后根节设置归宿主
+        _overlay = context.Overlay;
+
         _items = _store.Load();
-        _theme = _workbench.ThemeContext;
         _itemHotkeys = new ItemHotkeys(_items, LaunchItem, Feedback);
         _settings.Load();
         _overlayHotkey = string.IsNullOrWhiteSpace(_settings.OverlayHotkey) ? DefaultOverlayHotkey : _settings.OverlayHotkey!;
         _viewMode = string.IsNullOrWhiteSpace(LauncherItemsViewMode) ? "card" : LauncherItemsViewMode!;
-    }
-
-    /// <summary>Launcher 模块设置节中的列表形态(settings.json "launcher" 节)。</summary>
-    private string? LauncherItemsViewMode =>
-        _settings.ReadSection<LauncherSettings>(LauncherSectionId, LauncherSettingsJsonContext.Default.LauncherSettings)?.ItemsViewMode;
-
-    internal void Run()
-    {
-        var window = new NativeChromeWindow()
-            .Title($"Mew Launcher — {AppVersion}")
-            .Resizable(1080, 720);
-
-        TrayIcon? tray = null;
-        _window = window;
-        window.PreviewKeyDown += OnWindowKeyDown;
-
-        _titleThemeButton = BuildTitleBar(window, Quit, OpenSettings, CycleTheme, _workbench);
-        UpdateThemeButton(); // 初始图标/提示跟随已加载的主题模式
 
         _workbench
             .Theme(theme => theme
@@ -127,10 +130,35 @@ internal sealed class LauncherApp
         ShowEmptyDetail();
         MigrateLegacySettingsDocumentLayout();
 
-        window.Content = _workbench.Build();
+        _overlay.AddSearchSource(new LauncherSearchSource(_items, _runner, _icons));
+    }
 
-        var overlay = new OverlayWindow(window, _theme);
-        overlay.AddSearchSource(new LauncherSearchSource(_items, _runner, _icons));
+    /// <summary>Launcher 模块设置节中的列表形态(settings.json "launcher" 节)。</summary>
+    private string? LauncherItemsViewMode =>
+        _settings.ReadSection<LauncherSettings>(LauncherSectionId, LauncherSettingsJsonContext.Default.LauncherSettings)?.ItemsViewMode;
+
+    internal void Run()
+    {
+        var window = new NativeChromeWindow()
+            .Title($"Mew Launcher — {AppVersion}")
+            .Resizable(1080, 720);
+
+        TrayIcon? tray = null;
+        _window = window;
+        window.PreviewKeyDown += OnWindowKeyDown;
+
+        // 临时引导:宿主(Mew.Host)未建,LauncherApp 自组工作台/服务/上下文后自我 Configure;票据 06 起此段归宿主
+        var workbench = new WorkbenchType();
+        var theme = workbench.ThemeContext;
+        var overlay = new OverlayWindow(window, theme);
+        var settings = new SettingsService();
+        var context = new ToolModuleContext(workbench, window.Handle, new ScaffoldHotkeyService(), settings, overlay, theme);
+        Configure(context);
+
+        _titleThemeButton = BuildTitleBar(window, Quit, OpenSettings, CycleTheme, workbench);
+        UpdateThemeButton(); // 初始图标/提示跟随已加载的主题模式
+
+        window.Content = workbench.Build();
 
         window.Closing += e =>
         {

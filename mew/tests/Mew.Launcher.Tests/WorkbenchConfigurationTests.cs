@@ -8,6 +8,12 @@ using WorkbenchType = Mew.Workbench.Workbench;
 
 namespace Mew.Launcher.Tests;
 
+/// <summary>
+/// Workbench 配置/运行期校验:五区配对、文档标题、呈现状态持久化等。
+/// 与 LauncherModuleTests 同集合串行:两者都操作真实 %APPDATA%\Mew 布局文件,
+/// 且 MewDock 在 Build 后持有文件句柄,并行会互相踩文件。
+/// </summary>
+[Collection("IsolatedUserFiles")]
 public class WorkbenchConfigurationTests
 {
     /// <summary>回归:点击工具窗格的关闭按钮后,View 菜单与持久化使用的 Workbench 显隐状态必须同步。</summary>
