@@ -1164,7 +1164,7 @@ internal sealed class LauncherApp
                                 .Children(
                                     new Label().Text(item.Command).FontSize(11)
                                         .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
-                                    ItemKindTag(item))
+                                    ItemKindTag(item, 11, _theme.EditorArea.Accent))
                         ),
                     new Label()
                         .Text(item.Description ?? "")
@@ -1183,19 +1183,19 @@ internal sealed class LauncherApp
         return BuildItemShell(item, main, index, editAtCorner: false);
     }
 
-    /// <summary>启动类型标记:#URL / #程序,由命令推导(命令是唯一事实来源),置于名称下方或简介行,标签语义不读作名称后缀。</summary>
-    private UIElement ItemKindTag(LauncherItem item) =>
+    /// <summary>启动类型标记:#URL / #程序,由命令推导(命令是唯一事实来源)。卡片:名称下方、10px、普通色;列表:命令行旁、11px、accent 色。</summary>
+    private UIElement ItemKindTag(LauncherItem item, double fontSize = 10, Color? foreground = null) =>
         new Label()
             .Text("#" + ItemKindLabel(LauncherData.KindOf(item.Command)))
-            .FontSize(11)
+            .FontSize(fontSize)
             .VerticalAlignment(VerticalAlignment.Center)
-            .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Accent));
+            .WithTheme((_, label) => label.Foreground(foreground ?? _theme.EditorArea.Foreground));
 
     /// <summary>启动类型展示文案:类型过滤下拉与标记共用的唯一映射。</summary>
     private static string ItemKindLabel(LauncherData.ItemKind kind) =>
         kind == LauncherData.ItemKind.Url ? "URL" : "程序";
 
-    /// <summary>卡片:图标(左侧)+ 名称(加粗稍大,与图标垂直居中)+ 底部第三行(类型标记 + 简介);单击启动,悬停浮现「编辑」图标按钮。</summary>
+    /// <summary>卡片:图标(左侧)+ 名称与类型标记(名称下方小号标签)+ 底部第三行简介;单击启动,悬停浮现「编辑」图标按钮。</summary>
     private (UIElement Container, Button Main) Card(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
@@ -1206,26 +1206,27 @@ internal sealed class LauncherApp
                 .Spacing(8)
                 .Children(
                     IconElement(icon, 48),
-                    new Label().Text(item.Name)
-                        .Bold()
-                        .FontSize(14)
-                        .TextWrapping(TextWrapping.Wrap)
+                    new StackPanel()
+                        .Spacing(2)
                         .VerticalAlignment(VerticalAlignment.Center)
                         .Column(1)
+                        .Children(
+                            new Label().Text(item.Name)
+                                .Bold()
+                                .FontSize(14)
+                                .TextWrapping(TextWrapping.Wrap)
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
+                            ItemKindTag(item)
+                        )
                 )
         };
 
-        // 第三行:类型标记 + 简介(#URL / #程序 在前,简介可换行;无简介时仅显示标记)
-        var bottom = new WrapPanel().Spacing(6).Children(ItemKindTag(item));
-        if (!string.IsNullOrWhiteSpace(item.Description))
-        {
-            bottom.Add(new Label()
-                .Text(item.Description)
-                .FontSize(11)
-                .TextWrapping(TextWrapping.Wrap)
-                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)));
-        }
-        content.Add(bottom);
+        // 第三行:简介(无简介时「暂无简介」占位,避免卡片空洞)
+        content.Add(new Label()
+            .Text(string.IsNullOrWhiteSpace(item.Description) ? "暂无简介" : item.Description)
+            .FontSize(11)
+            .TextWrapping(TextWrapping.Wrap)
+            .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)));
 
         var main = new Button()
             .Content(new StackPanel()

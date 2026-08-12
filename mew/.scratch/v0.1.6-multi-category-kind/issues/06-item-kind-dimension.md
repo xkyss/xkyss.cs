@@ -13,7 +13,7 @@
 
 **Comments**
 
-- 展示形式(用户反馈后调整):名称后跟「URL/程序」文字徽标读起来像名称后缀,改为 `#URL` / `#程序` 标签样式——列表置于名称下方的命令行旁,卡片置于简介行(`#URL` + 简介可换行,无简介时仅显示标记);`#` 前缀自带「标签」语义,与过滤下拉共用 `ItemKindLabel` 文案映射。
+- 展示形式(用户反馈后两轮调整):最终形态——卡片:标签置于名称正下方(10px、普通文字色、无 accent),简介行独立且无简介时恢复「暂无简介」占位;列表:标签在名称下方的命令行旁(11px、accent 色,维持不动)。`#` 前缀自带「标签」语义,与过滤下拉共用 `ItemKindLabel` 文案映射;`ItemKindTag(item, fontSize, foreground)` 两处消费,卡片用默认参数。
 - 顺带统一:原 `LauncherRunner` / `IconResolver` 各自的私有 `IsUrl`(语义完全相同)改为委托 `LauncherData.KindOf`,URL 判定单一来源,与 ADR 000106-02「同一推导函数」一致。
 - 空态:列表空态判定引入 `hasFilter`,`EmptyState.ForList` 增加可选参数;聚合有内容但被搜索或类型过滤排除 → 「无匹配启动项」(过滤导致时按钮为「全部类型」清除过滤);聚合为空 → 「暂无启动项」引导新增。code-review 修正了「空库+过滤被误判为无匹配」的边界。
 - 测试:LauncherDataTests 新增 `KindOf` 推导 Theory(含大小写、.bat/.cmd 脚本并入程序、空命令),EmptyStateTests 新增过滤空态用例,连同既有 44 例通过。
