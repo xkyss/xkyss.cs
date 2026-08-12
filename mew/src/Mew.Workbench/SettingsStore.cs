@@ -3,7 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Mew.Launcher;
+namespace Mew.Workbench;
 
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -15,7 +15,7 @@ internal sealed partial class AppSettingsJsonContext : JsonSerializerContext;
 /// 应用设置(主题模式、呼出热键、列表形态)。
 /// 读写使用源生成序列化,避免运行时反射(AOT/Trim 兼容)。
 /// </summary>
-internal sealed class AppSettings
+public sealed class AppSettings
 {
     /// <summary>主题模式,取值 ThemeVariant 枚举名:System/Light/Dark,缺省 System。</summary>
     public string? ThemeMode { get; set; }
@@ -31,7 +31,7 @@ internal sealed class AppSettings
 /// 设置数据源:%APPDATA%\Mew\settings.json,启动时加载、变更时保存;
 /// 与启动项数据(launcher.json)职责分离。
 /// </summary>
-internal sealed class SettingsStore
+public sealed class SettingsStore
 {
     public SettingsStore(string? filePath = null)
     {

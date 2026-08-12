@@ -1,10 +1,10 @@
-namespace Mew.Launcher;
+namespace Mew.Workbench;
 
 /// <summary>
 /// 列表选中模型:↑/↓ 移动(环绕)、刷新后收敛到可见范围内;空列表保持无选中。
 /// 启动项列表与呼出浮层的循环选择共用。
 /// </summary>
-internal sealed class SelectionModel
+public sealed class SelectionModel
 {
     /// <summary>当前选中索引;空列表时为 0(无可见选中)。</summary>
     public int Selected { get; private set; }

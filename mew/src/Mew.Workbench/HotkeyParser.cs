@@ -1,16 +1,16 @@
-namespace Mew.Launcher;
+namespace Mew.Workbench;
 
 /// <summary>
 /// 每项热键文本(Ctrl+Shift+1 形式)解析为 Win32 修饰键与虚拟键;至少要求一个修饰键,避免裸键劫持普通输入。
 /// </summary>
-internal static class HotkeyParser
+public static class HotkeyParser
 {
-    internal const uint ModAlt = 0x1;
-    internal const uint ModControl = 0x2;
-    internal const uint ModShift = 0x4;
-    internal const uint ModWin = 0x8;
+    public const uint ModAlt = 0x1;
+    public const uint ModControl = 0x2;
+    public const uint ModShift = 0x4;
+    public const uint ModWin = 0x8;
 
-    internal static bool TryParse(string text, out uint modifiers, out uint vk)
+    public static bool TryParse(string text, out uint modifiers, out uint vk)
     {
         modifiers = 0;
         vk = 0;

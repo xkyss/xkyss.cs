@@ -1,5 +1,5 @@
 using System.IO;
-using Mew.Launcher;
+using Mew.Workbench;
 using Xunit;
 
 namespace Mew.Launcher.Tests;

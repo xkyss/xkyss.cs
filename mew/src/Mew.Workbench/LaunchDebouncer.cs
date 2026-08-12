@@ -1,10 +1,10 @@
-namespace Mew.Launcher;
+namespace Mew.Workbench;
 
 /// <summary>
 /// 列表单击启动的双击防重:同一启动项在时间窗内的重复启动请求被忽略(双击只启动一次),
 /// 时间窗结束后重新放行;不同启动项互不影响。时间由调用方注入以便测试。
 /// </summary>
-internal sealed class LaunchDebouncer(TimeSpan window)
+public sealed class LaunchDebouncer(TimeSpan window)
 {
     private readonly Dictionary<string, DateTime> _lastLaunchByItem = [];
 

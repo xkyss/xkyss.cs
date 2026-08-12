@@ -4,25 +4,25 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Aprillz.MewUI;
 
-namespace Mew.Launcher;
+namespace Mew.Workbench;
 
 /// <summary>
-/// 启动项图标解析:自定义图标路径优先,否则提取命令对应可执行文件的图标;结果按路径缓存。
-/// 窗口内列表与呼出浮层共用,保证显示一致。
+/// 图标解析:自定义图标路径优先,否则提取命令对应可执行文件的图标;结果按路径缓存。
+/// 是否视为 URL(不提取图标)由调用方按各自领域规则判定,本类不持有该判定。
 /// </summary>
-internal sealed class IconResolver
+public sealed class IconResolver
 {
     private readonly Dictionary<string, ImageSource?> _cache = new(StringComparer.OrdinalIgnoreCase);
 
-    public ImageSource? Resolve(LauncherItem item)
+    public ImageSource? Resolve(string? iconPath, string command, bool isUrlCommand)
     {
-        if (!string.IsNullOrWhiteSpace(item.Icon))
+        if (!string.IsNullOrWhiteSpace(iconPath))
         {
-            return FromPath(item.Icon!);
+            return FromPath(iconPath);
         }
 
-        var command = item.Command.Trim();
-        if (command.Length == 0 || IsUrl(command))
+        command = command.Trim();
+        if (command.Length == 0 || isUrlCommand)
         {
             return null;
         }
@@ -44,7 +44,7 @@ internal sealed class IconResolver
     }
 
     /// <summary>从文件提取图标:图片文件直接加载,否则取关联可执行文件图标(无缓存)。</summary>
-    internal static ImageSource? ExtractIcon(string path)
+    public static ImageSource? ExtractIcon(string path)
     {
         try
         {
@@ -70,9 +70,6 @@ internal sealed class IconResolver
 
     private static bool IsImageFile(string path) =>
         Path.GetExtension(path).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".ico" or ".webp";
-
-    private static bool IsUrl(string command) =>
-        LauncherData.KindOf(command) == LauncherData.ItemKind.Url;
 
     private static string? ResolveExePath(string command)
     {

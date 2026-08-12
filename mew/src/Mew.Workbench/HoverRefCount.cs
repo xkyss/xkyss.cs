@@ -1,10 +1,10 @@
-namespace Mew.Launcher;
+namespace Mew.Workbench;
 
 /// <summary>
 /// 悬停计数:主按钮与悬停浮现的编辑按钮共用同一计数,进入任一递增、离开任一递减;
 /// 计数在 0↔1 边界变化时回调。保证在两按钮之间移动时悬停态不丢失,且与事件先后顺序无关。
 /// </summary>
-internal sealed class HoverRefCount
+public sealed class HoverRefCount
 {
     private int _count;
 

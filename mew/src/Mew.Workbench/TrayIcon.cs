@@ -1,16 +1,16 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
 
-namespace Mew.Launcher;
+namespace Mew.Workbench;
 
 /// <summary>
 /// 托盘常驻图标:关闭主窗口不退出,隐藏到托盘;左键点击显示主窗口,右键菜单可显示或退出;
 /// 回调消息(WM_APP)经主窗口 NativeMessage 路由,隐藏期间全局热键照常。
 /// </summary>
-internal sealed class TrayIcon : IDisposable
+public sealed class TrayIcon : IDisposable
 {
     private const uint CallbackMessage = 0x8001; // WM_APP + 1
-    internal const uint WmCallback = CallbackMessage;
+    public const uint WmCallback = CallbackMessage;
     private const uint WmLButtonUp = 0x0202;
     private const uint WmRButtonUp = 0x0205;
     private const int MenuShow = 1;
@@ -23,7 +23,7 @@ internal sealed class TrayIcon : IDisposable
     private readonly IntPtr _icon;
     private NotifyIconData _nid;
 
-    internal TrayIcon(IntPtr windowHandle, Action showMain, Action quit)
+    public TrayIcon(IntPtr windowHandle, Action showMain, Action quit)
     {
         _windowHandle = windowHandle;
         _showMain = showMain;
@@ -48,9 +48,9 @@ internal sealed class TrayIcon : IDisposable
         AppendMenu(_menu, 0, (UIntPtr)MenuQuit, "退出");
     }
 
-    internal void Add() => Shell_NotifyIconW(NimAdd, ref _nid);
+    public void Add() => Shell_NotifyIconW(NimAdd, ref _nid);
 
-    internal bool HandleCallback(uint wParam, uint lParam)
+    public bool HandleCallback(uint wParam, uint lParam)
     {
         if (wParam != _nid.uID)
         {
