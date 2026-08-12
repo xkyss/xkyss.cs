@@ -125,7 +125,7 @@ public sealed class OverlayWindow : IOverlayService
         var result = entry.Result;
         var children = new List<UIElement>
         {
-            IconElement(result.Icon),
+            ShellIcons.IconElement(result.Icon),
             new StackPanel()
                 .Spacing(2)
                 .Children(
@@ -158,16 +158,6 @@ public sealed class OverlayWindow : IOverlayService
     {
         entry.Result.Activate();
         _window.Hide();
-    }
-
-    private static UIElement IconElement(ImageSource? icon)
-    {
-        if (icon is null)
-        {
-            return new Border().Size(16, 16);
-        }
-
-        return new Image().Source(icon).Size(16, 16);
     }
 
     private static class User32

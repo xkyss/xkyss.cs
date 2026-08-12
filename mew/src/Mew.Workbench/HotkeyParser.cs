@@ -46,55 +46,6 @@ public static class HotkeyParser
             }
         }
 
-        return TryMapKey(parts[^1].ToLowerInvariant(), out vk);
-    }
-
-    private static bool TryMapKey(string name, out uint vk)
-    {
-        vk = 0;
-        if (name.Length == 1)
-        {
-            var c = name[0];
-            if (c is >= 'a' and <= 'z')
-            {
-                vk = (uint)(c - 'a' + 0x41);
-                return true;
-            }
-            if (c is >= '0' and <= '9')
-            {
-                vk = (uint)(c - '0' + 0x30);
-                return true;
-            }
-            return false;
-        }
-
-        if (name[0] == 'f' && int.TryParse(name[1..], out var f) && f is >= 1 and <= 24)
-        {
-            vk = (uint)(0x70 + f - 1);
-            return true;
-        }
-
-        vk = name switch
-        {
-            "space" => 0x20,
-            "enter" or "return" => 0x0D,
-            "escape" or "esc" => 0x1B,
-            "tab" => 0x09,
-            "up" => 0x26,
-            "down" => 0x28,
-            "left" => 0x25,
-            "right" => 0x27,
-            "home" => 0x24,
-            "end" => 0x23,
-            "pageup" => 0x21,
-            "pagedown" => 0x22,
-            "delete" or "del" => 0x2E,
-            "insert" or "ins" => 0x2D,
-            "backspace" => 0x08,
-            "printscreen" => 0x2C,
-            "pause" => 0x13,
-            _ => 0,
-        };
-        return vk != 0;
+        return HotkeyKeys.TryMapName(parts[^1], out vk);
     }
 }
