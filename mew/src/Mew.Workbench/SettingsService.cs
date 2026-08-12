@@ -11,7 +11,7 @@ namespace Mew.Workbench;
 /// 工具模块设置按模块 Id 分节(如 launcher 节的列表形态);旧扁平结构首次加载自动迁移。
 /// 内部用 JsonObject DOM(无反射,AOT/Trim 兼容),模块节经调用方源生成类型往返。
 /// </summary>
-public sealed class SettingsService
+public sealed class SettingsService : ISettingsService
 {
     private JsonObject _root = [];
 

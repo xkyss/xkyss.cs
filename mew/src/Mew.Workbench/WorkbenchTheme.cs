@@ -37,8 +37,9 @@ public sealed record ZonePalette(Color Background, Color Foreground, Color Accen
 
 /// <summary>
 /// Theme context that maps the active MewUI theme to Workbench zone palettes.
+/// 实现 <see cref="IThemeService"/>:模式读取/切换 + <see cref="ThemeModeChanged"/> 变更通知。
 /// </summary>
-public sealed class WorkbenchThemeContext
+public sealed class WorkbenchThemeContext : IThemeService
 {
     // 五个区各自的背景色覆盖:未设置的区取主题色板默认背景(亮暗主题自动适配)。
     private readonly Dictionary<WorkbenchZone, Color> _zoneBackgrounds = [];
@@ -46,6 +47,9 @@ public sealed class WorkbenchThemeContext
     internal WorkbenchThemeContext()
     {
     }
+
+    /// <summary>主题模式实际变更后触发(标题栏按钮、状态栏等同步)。</summary>
+    public event Action? ThemeModeChanged;
 
     public ThemeVariant Mode => Application.IsRunning ? Application.Current!.ThemeMode : ThemeManager.Default;
 
@@ -80,6 +84,11 @@ public sealed class WorkbenchThemeContext
 
     public WorkbenchThemeContext SetMode(ThemeVariant mode)
     {
+        if (Mode == mode)
+        {
+            return this; // 同模式幂等,不触发变更事件
+        }
+
         if (Application.IsRunning)
         {
             Application.Current!.SetThemeMode(mode);
@@ -89,8 +98,11 @@ public sealed class WorkbenchThemeContext
             ThemeManager.Default = mode;
         }
 
+        ThemeModeChanged?.Invoke();
         return this;
     }
+
+    void IThemeService.SetMode(ThemeVariant mode) => SetMode(mode);
 
     public WorkbenchThemeContext SetAccent(Accent accent)
     {

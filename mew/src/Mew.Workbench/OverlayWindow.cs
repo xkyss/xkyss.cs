@@ -9,7 +9,7 @@ namespace Mew.Workbench;
 /// 输入即过滤、回车激活选中项、上下键切换、Esc/失焦关闭。
 /// 行渲染框架统一(图标 + 主行 + 副行),契约不含自定义行渲染。
 /// </summary>
-public sealed class OverlayWindow
+public sealed class OverlayWindow : IOverlayService
 {
     private const int Width = 640;
     private const int Height = 420;
@@ -43,7 +43,7 @@ public sealed class OverlayWindow
     }
 
     /// <summary>注册搜索源;运行期注册后立即按当前查询刷新结果。</summary>
-    public void AddSource(ISearchSource source)
+    public void AddSearchSource(ISearchSource source)
     {
         _sources.Add(source);
         Refresh(_searchBox.Text);
