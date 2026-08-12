@@ -74,6 +74,20 @@ public static class LauncherData
             .ToList();
     }
 
+    /// <summary>
+    /// 摘除归属:从所有启动项上移除指定分类 id 集合(删除分类时为该分类整棵子树的 id);
+    /// 项还有其他归属则保留,一个归属都不剩则保持空归属(归未分类)。永不删项。
+    /// </summary>
+    public static List<LauncherItem> DetachCategoryIds(List<LauncherItem> items, IEnumerable<string> categoryIds)
+    {
+        var removed = new HashSet<string>(categoryIds, StringComparer.Ordinal);
+        return items
+            .Select(i => i.CategoryIds is { Count: > 0 } && i.CategoryIds.Any(removed.Contains)
+                ? i with { CategoryIds = i.CategoryIds.Where(id => !removed.Contains(id)).ToList() }
+                : i)
+            .ToList();
+    }
+
     /// <summary>分类树中所有节点 id(扁平,含子孙)。</summary>
     public static IEnumerable<string> FlattenIds(List<LauncherCategory> categories)
     {

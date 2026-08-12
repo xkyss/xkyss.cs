@@ -210,6 +210,54 @@ public class LauncherDataTests
         Assert.Equal("games", LauncherData.CategoryIdsForNewItem("games").Single());
     }
 
+    // ── 摘除归属(删除分类) ────────────────────────────────
+
+    [Fact]
+    public void DetachCategoryIds_移除指定id_其他归属保留()
+    {
+        var items = new List<LauncherItem>
+        {
+            new("a", "A", "a", CategoryIds: ["games", "tools"]),
+        };
+
+        var result = LauncherData.DetachCategoryIds(items, ["games"]);
+
+        Assert.Equal("tools", result[0].CategoryIds!.Single());
+    }
+
+    [Fact]
+    public void DetachCategoryIds_一个不剩_归未分类且永不删项()
+    {
+        var items = new List<LauncherItem>
+        {
+            new("a", "A", "a", CategoryIds: ["games"]),
+            new("b", "B", "b", CategoryIds: null),
+        };
+
+        var result = LauncherData.DetachCategoryIds(items, ["games"]);
+
+        Assert.Equal(2, result.Count); // 永不删项
+        Assert.Empty(result[0].CategoryIds!);
+        Assert.Null(result[1].CategoryIds); // 原未分类项不受影响
+    }
+
+    [Fact]
+    public void DetachCategoryIds_子树id集合_一并摘除()
+    {
+        var items = new List<LauncherItem>
+        {
+            new("a", "A", "a", CategoryIds: ["games", "games-steam"]),
+            new("b", "B", "b", CategoryIds: ["games-steam", "tools"]),
+            new("c", "C", "c", CategoryIds: ["tools"]),
+        };
+
+        var result = LauncherData.DetachCategoryIds(items, ["games", "games-steam"]);
+
+        Assert.Empty(result[0].CategoryIds!);
+        Assert.Equal("tools", result[1].CategoryIds!.Single());
+        Assert.Equal("tools", result[2].CategoryIds!.Single());
+    }
+
     // ── 分类搜索过滤 ───────────────────────────────────────
 
     [Fact]

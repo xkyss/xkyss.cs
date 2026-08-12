@@ -41,7 +41,7 @@ internal sealed class LauncherApp
     private readonly LaunchDebouncer _launchDebouncer = new(TimeSpan.FromMilliseconds(500));
     private readonly IconResolver _icons = new();
     private readonly ObservableValue<string> _launchStatus = new("就绪");
-    private readonly List<LauncherItem> _items;
+    private List<LauncherItem> _items;
     private readonly ItemHotkeys _itemHotkeys;
     private readonly WorkbenchType _workbench = new();
     private readonly WorkbenchThemeContext _theme;
@@ -949,7 +949,7 @@ internal sealed class LauncherApp
             .ShowAt(tree, e.ScreenPosition);
     }
 
-    /// <summary>删除分类:确认(提示启动项数量)→ 连根删(子分类与项全删)→ 刷新树与列表。</summary>
+    /// <summary>删除分类:确认(提示将失去该分类的启动项数量)→ 摘除归属(永不删项,子分类整棵子树一并摘除)→ 刷新树与列表。</summary>
     private void DeleteCategory(string categoryId)
     {
         var categories = _store.Categories.ToList();
@@ -957,7 +957,7 @@ internal sealed class LauncherApp
         var name = LauncherData.CategoryName(categories, categoryId) ?? categoryId;
 
         var confirmed = MessageBox.Confirm(
-            $"删除分类「{name}」将连同其子分类一起删除,共 {removed.Count} 个启动项,且不可恢复。",
+            $"删除分类「{name}」将连同其子分类一起删除,{removed.Count} 个启动项将失去此分类,且不可恢复。",
             PromptIconKind.Warning,
             "",
             _window!);
@@ -966,8 +966,7 @@ internal sealed class LauncherApp
             return;
         }
 
-        var removedIds = new HashSet<string>(removed.Select(i => i.Id), StringComparer.Ordinal);
-        _items.RemoveAll(i => removedIds.Contains(i.Id));
+        _items = LauncherData.DetachCategoryIds(_items, LauncherData.SubtreeIds(categories, categoryId));
         _store.UpdateCategories(LauncherData.RemoveCategoryNode(categories, categoryId));
         _store.Save(_items);
         _itemHotkeys.RegisterAll();
