@@ -5,7 +5,7 @@ namespace Mew.Workbench;
 
 /// <summary>
 /// 全局热键中央注册表(宿主):注册/注销 + 冲突检测(含跨模块)。
-/// 完整实现与接线在票据 07(浮层呼出键归宿主、模块每项热键经此注册)。
+/// 实现为 <see cref="HotkeyService"/>:浮层呼出键为宿主热键,模块每项热键经此注册,WM_HOTKEY 按 id 分发回调。
 /// </summary>
 public interface IHotkeyService
 {

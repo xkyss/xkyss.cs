@@ -1,42 +1,44 @@
-using System.Runtime.InteropServices;
 using Mew.Workbench;
 
 namespace Mew.Launcher;
 
 /// <summary>
-/// 每项热键的全局注册与分发:解析文本 → RegisterHotKey;WM_HOTKEY 按 id 分发启动;
-/// 注册失败(已被占用)经回调给出可理解反馈。变更后由调用方触发 RegisterAll 重建。
+/// 每项热键的集中注册(票据 07):经宿主中央热键服务(<see cref="IHotkeyService"/>)注册,
+/// 冲突检测(含跨模块、与浮层呼出键)与 WM_HOTKEY 分发归服务;本类只负责
+/// 「把启动项每项热键全量注销后重建」。变更后由调用方触发 RegisterAll。
 /// </summary>
 internal sealed class ItemHotkeys
 {
     private readonly List<LauncherItem> _items;
     private readonly Action<LauncherItem> _launch;
     private readonly Action<string> _feedback;
-    private readonly Dictionary<int, string> _byHotkeyId = [];
+    private readonly IHotkeyService _hotkeys;
+    private readonly List<string> _registered = [];
     private IntPtr _handle;
-    private int _nextId = 0x1000;
 
-    internal ItemHotkeys(List<LauncherItem> items, Action<LauncherItem> launch, Action<string> feedback)
+    internal ItemHotkeys(List<LauncherItem> items, Action<LauncherItem> launch, Action<string> feedback, IHotkeyService hotkeys)
     {
         _items = items;
         _launch = launch;
         _feedback = feedback;
+        _hotkeys = hotkeys;
     }
 
     internal void Attach(IntPtr windowHandle) => _handle = windowHandle;
 
+    /// <summary>注销上次注册的全部每项热键,再按当前启动项数据重新注册;失败(冲突/被占用)经回调给出反馈。</summary>
     internal void RegisterAll()
     {
         if (_handle == IntPtr.Zero)
         {
-            return;
+            return; // 测试环境无窗口句柄,跳过真实注册
         }
 
-        foreach (var id in _byHotkeyId.Keys)
+        foreach (var hotkey in _registered)
         {
-            UnregisterHotKey(_handle, id);
+            _hotkeys.Unregister(hotkey);
         }
-        _byHotkeyId.Clear();
+        _registered.Clear();
 
         foreach (var item in _items)
         {
@@ -46,19 +48,10 @@ internal sealed class ItemHotkeys
                 continue;
             }
 
-            if (!HotkeyParser.TryParse(hotkey, out var modifiers, out var vk))
+            var itemCopy = item; // 闭包捕获当前项(后续项可被编辑/删除)
+            if (_hotkeys.Register(_handle, hotkey, () => _launch(itemCopy)))
             {
-                continue; // 格式问题由表单实时提示
-            }
-
-            var id = _nextId++;
-            if (id == GlobalHotkey.OverlayHotkeyId)
-            {
-                id = _nextId++; // 避开浮层热键 id
-            }
-            if (RegisterHotKey(_handle, id, modifiers, vk))
-            {
-                _byHotkeyId[id] = item.Id;
+                _registered.Add(hotkey);
             }
             else
             {
@@ -66,27 +59,4 @@ internal sealed class ItemHotkeys
             }
         }
     }
-
-    internal bool TryLaunch(int hotkeyId)
-    {
-        if (!_byHotkeyId.TryGetValue(hotkeyId, out var itemId))
-        {
-            return false;
-        }
-
-        var item = _items.FirstOrDefault(candidate => candidate.Id == itemId);
-        if (item is null)
-        {
-            return false;
-        }
-
-        _launch(item);
-        return true;
-    }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
-    [DllImport("user32.dll")]
-    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 }

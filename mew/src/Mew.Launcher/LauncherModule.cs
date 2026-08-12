@@ -20,21 +20,15 @@ public sealed class LauncherModule : IMewToolModule
 
     public string DisplayName => "启动项";
 
-    private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
     private const string RevealDocumentHotkey = "Ctrl+Alt+R";
     private const string DetailDocumentId = "detail";
     private const string ItemsDocumentId = "items";
-    private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
+    private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60); // 状态栏失败红字 / 每项热键提示
 
     private readonly LauncherStore _store = new();
     private SettingsService _settings = null!;
-    private string _overlayHotkey = null!;
     private Window? _window;
     private IntPtr _windowHandle;
-    private bool _capturingHotkey;
-    private Button? _hotkeyChangeButton;
-    private Label? _hotkeyDisplay;
-    private Label? _hotkeyHint;
     private readonly LauncherRunner _runner = new();
     private readonly LaunchDebouncer _launchDebouncer = new(TimeSpan.FromMilliseconds(500));
     private readonly IconResolver _icons = new();
@@ -68,7 +62,6 @@ public sealed class LauncherModule : IMewToolModule
     private Button? _modeToggleButton;
     private readonly Dictionary<string, string> _sideBarFilters = [];
     private TreeItemsView<CategoryTreeNode>? _treeItems;
-    private const string SettingsHotkey = "hotkey";
     private const string SettingsData = "data";
     private const string LauncherSectionId = "launcher"; // settings.json 中 Launcher 模块设置节
 
@@ -78,8 +71,8 @@ public sealed class LauncherModule : IMewToolModule
 
     /// <summary>
     /// 模块贡献入口:绑定宿主上下文(Workbench/设置/浮层/窗口),加载启动项数据与设置,
-    /// 贡献五区(分类树、列表/卡片、详情表单、输出、状态栏)、浮层搜索源与设置节(热键/数据);
-    /// 宿主在全部模块贡献完后统一 Build()。窗口/托盘/标题栏/主题/设置文档等宿主职责归 Mew.Host。
+    /// 贡献五区(分类树、列表/卡片、详情表单、输出、状态栏)、浮层搜索源与设置节(数据);
+    /// 宿主在全部模块贡献完后统一 Build()。窗口/托盘/标题栏/主题/设置文档/浮层热键等宿主职责归 Mew.Host。
     /// </summary>
     public void Configure(ToolModuleContext context)
     {
@@ -91,8 +84,7 @@ public sealed class LauncherModule : IMewToolModule
         _windowHandle = context.WindowHandle;
 
         _items = _store.Load();
-        _itemHotkeys = new ItemHotkeys(_items, LaunchItem, Feedback);
-        _overlayHotkey = string.IsNullOrWhiteSpace(_settings.OverlayHotkey) ? DefaultOverlayHotkey : _settings.OverlayHotkey!;
+        _itemHotkeys = new ItemHotkeys(_items, LaunchItem, Feedback, context.Hotkeys);
         _viewMode = string.IsNullOrWhiteSpace(LauncherItemsViewMode) ? "card" : LauncherItemsViewMode!;
 
         _workbench
@@ -112,26 +104,19 @@ public sealed class LauncherModule : IMewToolModule
         ShowNav(_navId);
         ShowEmptyDetail();
 
-        // 设置节:热键(冲突检测需本模块启动项数据,票据 07 起归宿主中央热键服务)、数据(数据文件路径)
-        context.SettingsSections.Add(SettingsHotkey, "热键", BuildHotkeyPanel);
+        // 设置节:数据(数据文件路径);「热键」节票据 07 起归宿主中央热键服务
         context.SettingsSections.Add(SettingsData, "数据", BuildDataPanel);
 
         _overlay.AddSearchSource(new LauncherSearchSource(_items, _runner, _icons));
 
-        // 宿主转发的事件:主窗口按键(键盘导航 + 浮层热键捕获)与 WM_HOTKEY 非浮层 id(每项热键)
+        // 宿主转发的事件:主窗口按键(键盘导航 + 详情定位快捷键)
         _workbench.WindowKeyDown += OnWindowKeyDown;
-        _workbench.HotkeyMessage += id => _itemHotkeys.TryLaunch(id);
 
         // 主题模式变更(宿主标题栏/设置页切换)后重涂列表选中/悬停态
         context.Theme.ThemeModeChanged += ReapplyListSelection;
 
-        // 全局热键:浮层呼出键由本模块注册(失败反馈进本模块输出面板),每项热键由 ItemHotkeys 注册
+        // 每项热键经宿主中央热键服务注册(票据 07;浮层呼出键归宿主注册)
         _itemHotkeys.Attach(_windowHandle);
-        if (!GlobalHotkey.Register(_windowHandle, _overlayHotkey))
-        {
-            AppendLog($"⚠ 呼出热键 {_overlayHotkey} 注册失败(可能已被其他程序占用)");
-        }
-
         _itemHotkeys.RegisterAll();
     }
 
@@ -159,12 +144,6 @@ public sealed class LauncherModule : IMewToolModule
     /// <summary>窗口内快捷键:定位当前启动项详情所属的侧边栏分类;启动项列表激活时提供键盘导航。</summary>
     private void OnWindowKeyDown(KeyEventArgs e)
     {
-        if (_capturingHotkey)
-        {
-            HandleCaptureKeyDown(e);
-            return;
-        }
-
         if (e.ControlKey && e.AltKey && e.Key == Key.R)
         {
             if (_workbench.RevealDocument(DetailDocumentId))
@@ -216,39 +195,6 @@ public sealed class LauncherModule : IMewToolModule
         }
     }
 
-    /// <summary>设置分类内容:热键(呼出热键捕获改绑、冲突与格式提示)。</summary>
-    private UIElement BuildHotkeyPanel()
-    {
-        var theme = _theme;
-        _hotkeyDisplay = new Label()
-            .Text(_overlayHotkey)
-            .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground));
-        _hotkeyChangeButton = new Button()
-            .Content(new Label().Text("更改"))
-            .ToolTip("点击后按下新的组合键")
-            .OnClick(StartCaptureHotkey)
-            .CanDrag(false);
-        _hotkeyHint = new Label()
-            .Text("")
-            .FontSize(11)
-            .WithTheme((_, label) => label.Foreground(HotkeyWarning));
-
-        return new StackPanel()
-            .Padding(24)
-            .Spacing(12)
-            .Children(
-                new Label().Text("热键").FontSize(20).Bold()
-                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
-                new Label().Text("呼出热键").FontSize(14)
-                    .WithTheme((_, label) => label.Foreground(theme.EditorArea.Foreground)),
-                new StackPanel()
-                    .Orientation(Orientation.Horizontal)
-                    .Spacing(8)
-                    .Children(_hotkeyDisplay, _hotkeyChangeButton),
-                _hotkeyHint
-            );
-    }
-
     /// <summary>设置分类内容:数据(启动项数据文件路径与打开所在文件夹)。</summary>
     private UIElement BuildDataPanel()
     {
@@ -293,137 +239,6 @@ public sealed class LauncherModule : IMewToolModule
         {
         }
     }
-
-    /// <summary>进入热键捕获模式:下一次按键组合作为新呼出热键(Esc 取消);捕获经 Workbench.WindowKeyDown 统一分发。</summary>
-    private void StartCaptureHotkey()
-    {
-        if (_capturingHotkey)
-        {
-            return;
-        }
-
-        _capturingHotkey = true;
-        _hotkeyChangeButton!.Content(new Label().Text("请按下新热键…"));
-        _hotkeyHint!.Text = "按 Esc 取消";
-    }
-
-    private void HandleCaptureKeyDown(KeyEventArgs e)
-    {
-        e.Handled = true;
-
-        if (e.Key == Key.Escape)
-        {
-            CancelCaptureHotkey();
-            _hotkeyHint!.Text = "";
-            return;
-        }
-
-        var parts = new List<string>();
-        if (e.ControlKey)
-        {
-            parts.Add("Ctrl");
-        }
-        if (e.AltKey)
-        {
-            parts.Add("Alt");
-        }
-        if (e.ShiftKey)
-        {
-            parts.Add("Shift");
-        }
-        if (e.MetaKey)
-        {
-            parts.Add("Win");
-        }
-
-        var keyName = KeyToName(e.Key);
-        if (keyName.Length == 0)
-        {
-            _hotkeyHint!.Text = "请按字母/数字/功能键组合(如 Ctrl+Shift+1)";
-            return;
-        }
-        if (parts.Count == 0)
-        {
-            _hotkeyHint!.Text = "需要至少一个修饰键(Ctrl/Alt/Shift/Win)";
-            return;
-        }
-
-        parts.Add(keyName);
-        ApplyOverlayHotkey(string.Join("+", parts));
-    }
-
-    private void CancelCaptureHotkey()
-    {
-        if (!_capturingHotkey)
-        {
-            return;
-        }
-
-        _capturingHotkey = false;
-        _hotkeyChangeButton!.Content(new Label().Text("更改"));
-    }
-
-    /// <summary>校验、冲突检测、重新注册并持久化新呼出热键;失败时保持原热键并在设置页提示。</summary>
-    private void ApplyOverlayHotkey(string hotkey)
-    {
-        if (!HotkeyParser.TryParse(hotkey, out var modifiers, out var vk))
-        {
-            _hotkeyHint!.Text = "不支持的热键组合";
-            return;
-        }
-
-        // 与每项热键冲突检测
-        var conflict = _items.FirstOrDefault(item =>
-            !string.IsNullOrWhiteSpace(item.Hotkey)
-            && HotkeyParser.TryParse(item.Hotkey, out var m, out var k)
-            && m == modifiers && k == vk);
-        if (conflict is not null)
-        {
-            _hotkeyHint!.Text = $"与启动项「{conflict.Name}」的每项热键冲突";
-            return;
-        }
-
-        var handle = _windowHandle;
-        GlobalHotkey.Unregister(handle);
-        if (!GlobalHotkey.Register(handle, hotkey))
-        {
-            GlobalHotkey.Register(handle, _overlayHotkey); // 恢复旧热键
-            _hotkeyHint!.Text = "注册失败(可能已被其他程序占用)";
-            return;
-        }
-
-        _overlayHotkey = hotkey;
-        _hotkeyDisplay!.Text = hotkey;
-
-        _settings.OverlayHotkey = hotkey;
-        _settings.Save();
-
-        CancelCaptureHotkey();
-        _hotkeyHint!.Text = $"已生效:{hotkey}";
-    }
-
-    private static string KeyToName(Key key) => key switch
-    {
-        Key.Space => "Space",
-        Key.Enter => "Enter",
-        Key.Escape => "Escape",
-        Key.Tab => "Tab",
-        Key.Backspace => "Backspace",
-        Key.Insert => "Insert",
-        Key.Delete => "Delete",
-        Key.Home => "Home",
-        Key.End => "End",
-        Key.PageUp => "PageUp",
-        Key.PageDown => "PageDown",
-        Key.Left => "Left",
-        Key.Right => "Right",
-        Key.Up => "Up",
-        Key.Down => "Down",
-        >= Key.D0 and <= Key.D9 => ((char)(key - Key.D0 + '0')).ToString(),
-        >= Key.A and <= Key.Z => ((char)(key - Key.A + 'A')).ToString(),
-        >= Key.F1 and <= Key.F24 => "F" + (key - Key.F1 + 1),
-        _ => "",
-    };
 
     /// <summary>侧边栏「启动」上下文:分类搜索 + 分类导航树(「全部」置顶、分类树、「未分类」收尾)。</summary>
     private UIElement BuildCategoryTree()

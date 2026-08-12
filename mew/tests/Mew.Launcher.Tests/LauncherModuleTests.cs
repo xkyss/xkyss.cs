@@ -37,7 +37,7 @@ public class LauncherModuleTests
             workbench,
             windowHandle: IntPtr.Zero,
             window: null,
-            hotkeys: new ScaffoldHotkeyService(),
+            hotkeys: new HotkeyService(),
             settings: settings,
             overlay: overlay,
             theme: workbench.ThemeContext,
@@ -58,7 +58,7 @@ public class LauncherModuleTests
 
         Assert.Equal("launcher", module.Id);
         Assert.Equal("启动项", module.DisplayName);
-        Assert.Equal(["hotkey", "data"], settingsSections.Sections.Select(section => section.Id));
+        Assert.Equal(["data"], settingsSections.Sections.Select(section => section.Id)); // 「热键」节票据 07 起归宿主
         var source = Assert.Single(overlay.Sources);
         Assert.Equal("launcher", source.Id);
     }
