@@ -1155,16 +1155,16 @@ internal sealed class LauncherApp
                         .VerticalAlignment(VerticalAlignment.Center)
                         .Column(1)
                         .Children(
+                            new Label().Text(item.Name)
+                                .Bold()
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
                             new StackPanel()
                                 .Orientation(Orientation.Horizontal)
                                 .Spacing(6)
                                 .Children(
-                                    new Label().Text(item.Name)
-                                        .Bold()
+                                    new Label().Text(item.Command).FontSize(11)
                                         .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
-                                    ItemKindBadge(item)),
-                            new Label().Text(item.Command).FontSize(11)
-                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
+                                    ItemKindTag(item))
                         ),
                     new Label()
                         .Text(item.Description ?? "")
@@ -1183,23 +1183,19 @@ internal sealed class LauncherApp
         return BuildItemShell(item, main, index, editAtCorner: false);
     }
 
-    /// <summary>卡片第三行文案:简介,无简介时显示「暂无简介」占位,避免卡片空洞。</summary>
-    private static string CardBottomText(LauncherItem item) =>
-        string.IsNullOrWhiteSpace(item.Description) ? "暂无简介" : item.Description;
-
-    /// <summary>启动类型徽标:URL / 程序,由命令推导(命令是唯一事实来源),卡片与列表共用。</summary>
-    private UIElement ItemKindBadge(LauncherItem item) =>
+    /// <summary>启动类型标记:#URL / #程序,由命令推导(命令是唯一事实来源),置于名称下方或简介行,标签语义不读作名称后缀。</summary>
+    private UIElement ItemKindTag(LauncherItem item) =>
         new Label()
-            .Text(ItemKindLabel(LauncherData.KindOf(item.Command)))
-            .FontSize(10)
+            .Text("#" + ItemKindLabel(LauncherData.KindOf(item.Command)))
+            .FontSize(11)
             .VerticalAlignment(VerticalAlignment.Center)
             .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Accent));
 
-    /// <summary>启动类型展示文案:类型过滤下拉与徽标共用的唯一映射。</summary>
+    /// <summary>启动类型展示文案:类型过滤下拉与标记共用的唯一映射。</summary>
     private static string ItemKindLabel(LauncherData.ItemKind kind) =>
         kind == LauncherData.ItemKind.Url ? "URL" : "程序";
 
-    /// <summary>卡片:图标(左侧)+ 名称(加粗稍大,与图标垂直居中)+ 底部第三行见 <see cref="CardBottomText"/>;单击启动,悬停浮现「编辑」图标按钮。</summary>
+    /// <summary>卡片:图标(左侧)+ 名称(加粗稍大,与图标垂直居中)+ 底部第三行(类型标记 + 简介);单击启动,悬停浮现「编辑」图标按钮。</summary>
     private (UIElement Container, Button Main) Card(LauncherItem item, int index)
     {
         var icon = _icons.Resolve(item);
@@ -1210,30 +1206,26 @@ internal sealed class LauncherApp
                 .Spacing(8)
                 .Children(
                     IconElement(icon, 48),
-                    new StackPanel()
+                    new Label().Text(item.Name)
+                        .Bold()
+                        .FontSize(14)
+                        .TextWrapping(TextWrapping.Wrap)
                         .VerticalAlignment(VerticalAlignment.Center)
                         .Column(1)
-                        .Children(
-                            new StackPanel()
-                                .Orientation(Orientation.Horizontal)
-                                .Spacing(6)
-                                .Children(
-                                    new Label().Text(item.Name)
-                                        .Bold()
-                                        .FontSize(14)
-                                        .TextWrapping(TextWrapping.Wrap)
-                                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
-                                    ItemKindBadge(item))
-                        )
                 )
         };
 
-        // 第三行:简介/快捷键/参数/分类(始终有内容)
-        content.Add(new Label()
-            .Text(CardBottomText(item))
-            .FontSize(11)
-            .TextWrapping(TextWrapping.Wrap)
-            .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)));
+        // 第三行:类型标记 + 简介(#URL / #程序 在前,简介可换行;无简介时仅显示标记)
+        var bottom = new WrapPanel().Spacing(6).Children(ItemKindTag(item));
+        if (!string.IsNullOrWhiteSpace(item.Description))
+        {
+            bottom.Add(new Label()
+                .Text(item.Description)
+                .FontSize(11)
+                .TextWrapping(TextWrapping.Wrap)
+                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)));
+        }
+        content.Add(bottom);
 
         var main = new Button()
             .Content(new StackPanel()
