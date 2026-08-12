@@ -64,6 +64,8 @@ internal sealed class LauncherApp
     private StackPanel? _categoryTreePanel;
     private string _viewMode = "card"; // 启动项列表形态:card(卡片,默认)/ list(列表),持久化于 settings.json
     private string _query = "";
+    private LauncherData.ItemKind? _kindFilter; // 列表类型过滤:null = 全部
+    private ComboBox? _kindCombo;
     private Button? _modeToggleButton;
     private readonly Dictionary<string, string> _sideBarFilters = [];
     private TreeItemsView<CategoryTreeNode>? _treeItems;
@@ -1085,17 +1087,24 @@ internal sealed class LauncherApp
         var aggregated = LauncherData.AggregateForNav(_store.Categories.ToList(), _items, navId);
         var shown = aggregated
             .Where(item => LauncherSearch.Matches(item, _query))
+            .Where(item => _kindFilter is null || LauncherData.KindOf(item.Command) == _kindFilter)
             .ToList();
 
         if (shown.Count == 0)
         {
             _listSelection.Clamp(0);
+            var hasQuery = !string.IsNullOrWhiteSpace(_query);
+            var hasFilter = _kindFilter is not null;
             var kind = EmptyState.ForList(
-                hasItems: aggregated.Count > 0,
-                hasQuery: !string.IsNullOrWhiteSpace(_query));
+                hasItems: aggregated.Count > 0 && !hasQuery && !hasFilter,
+                hasQuery: hasQuery,
+                hasFilter: hasFilter);
             _listPanel.Add(kind == EmptyStateKind.NoMatch
-                ? EmptyStateView("无匹配启动项", "清空搜索", ClearItemsSearch,
-                    _theme.EditorArea.Foreground, _theme.EditorArea.Background)
+                ? hasFilter
+                    ? EmptyStateView("无匹配启动项", "全部类型", ClearKindFilter,
+                        _theme.EditorArea.Foreground, _theme.EditorArea.Background)
+                    : EmptyStateView("无匹配启动项", "清空搜索", ClearItemsSearch,
+                        _theme.EditorArea.Foreground, _theme.EditorArea.Background)
                 : EmptyStateView("暂无启动项", "＋ 新增启动项", CreateItem,
                     _theme.EditorArea.Foreground, _theme.EditorArea.Background));
             return;
@@ -1145,9 +1154,14 @@ internal sealed class LauncherApp
                         .VerticalAlignment(VerticalAlignment.Center)
                         .Column(1)
                         .Children(
-                            new Label().Text(item.Name)
-                                .Bold()
-                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
+                            new StackPanel()
+                                .Orientation(Orientation.Horizontal)
+                                .Spacing(6)
+                                .Children(
+                                    new Label().Text(item.Name)
+                                        .Bold()
+                                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
+                                    ItemKindBadge(item)),
                             new Label().Text(item.Command).FontSize(11)
                                 .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
                         ),
@@ -1172,6 +1186,14 @@ internal sealed class LauncherApp
     private static string CardBottomText(LauncherItem item) =>
         string.IsNullOrWhiteSpace(item.Description) ? "暂无简介" : item.Description;
 
+    /// <summary>启动类型徽标:URL / 程序,由命令推导(命令是唯一事实来源),卡片与列表共用。</summary>
+    private UIElement ItemKindBadge(LauncherItem item) =>
+        new Label()
+            .Text(LauncherData.KindOf(item.Command) == LauncherData.ItemKind.Url ? "URL" : "程序")
+            .FontSize(10)
+            .VerticalAlignment(VerticalAlignment.Center)
+            .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Accent));
+
     /// <summary>卡片:图标(左侧)+ 名称(加粗稍大,与图标垂直居中)+ 底部第三行见 <see cref="CardBottomText"/>;单击启动,悬停浮现「编辑」图标按钮。</summary>
     private (UIElement Container, Button Main) Card(LauncherItem item, int index)
     {
@@ -1187,11 +1209,16 @@ internal sealed class LauncherApp
                         .VerticalAlignment(VerticalAlignment.Center)
                         .Column(1)
                         .Children(
-                            new Label().Text(item.Name)
-                                .Bold()
-                                .FontSize(14)
-                                .TextWrapping(TextWrapping.Wrap)
-                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
+                            new StackPanel()
+                                .Orientation(Orientation.Horizontal)
+                                .Spacing(6)
+                                .Children(
+                                    new Label().Text(item.Name)
+                                        .Bold()
+                                        .FontSize(14)
+                                        .TextWrapping(TextWrapping.Wrap)
+                                        .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
+                                    ItemKindBadge(item))
                         )
                 )
         };
@@ -1318,6 +1345,30 @@ internal sealed class LauncherApp
             ShowNav(_navId);
         };
 
+        // 类型过滤下拉:全部 / URL / 程序,由命令推导,切换即时生效
+        var kindOptions = new List<KindFilterOption>
+        {
+            new(null, "全部"),
+            new(LauncherData.ItemKind.Url, "URL"),
+            new(LauncherData.ItemKind.Program, "程序"),
+        };
+        var kindCombo = new ComboBox
+        {
+            ItemsSource = new ItemsView<KindFilterOption>(kindOptions, o => o.Label, o => o.Label),
+            SelectedIndex = 0,
+            ChangeOnWheel = false,
+            CanDrag = false,
+        };
+        _kindCombo = kindCombo;
+        kindCombo.SelectionChanged += selected =>
+        {
+            if (selected is KindFilterOption option)
+            {
+                _kindFilter = option.Kind;
+                ShowNav(_navId);
+            }
+        };
+
         var addButton = new Button()
             .Size(30, 30)
             .MinWidth(30)
@@ -1370,7 +1421,7 @@ internal sealed class LauncherApp
                         new StackPanel()
                             .Orientation(Orientation.Horizontal)
                             .Spacing(4)
-                            .Children(addButton, _modeToggleButton)
+                            .Children(kindCombo, addButton, _modeToggleButton)
                             .Column(1)
                     )
                     .Row(0),
@@ -1678,6 +1729,18 @@ internal sealed class LauncherApp
         ShowNav(_navId);
     }
 
+    /// <summary>清除启动类型过滤(回到「全部」)并刷新列表。</summary>
+    private void ClearKindFilter()
+    {
+        _kindFilter = null;
+        if (_kindCombo is { } combo)
+        {
+            combo.SelectedIndex = 0;
+        }
+
+        ShowNav(_navId);
+    }
+
     /// <summary>清空分类树搜索词并刷新树。</summary>
     private void ClearCategorySearch()
     {
@@ -1889,3 +1952,6 @@ internal sealed class LauncherApp
         ShowNav(_navId);
     }
 }
+
+/// <summary>列表工具行类型过滤下拉选项:Kind 为 null 表示「全部」。</summary>
+internal sealed record KindFilterOption(LauncherData.ItemKind? Kind, string Label);

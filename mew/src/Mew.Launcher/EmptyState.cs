@@ -16,9 +16,9 @@ internal enum EmptyStateKind
 /// <summary>空状态判定纯逻辑:启动项列表与分类树共用。</summary>
 internal static class EmptyState
 {
-    /// <summary>列表空态:有内容 → 无空态;无内容且有搜索词 → 无匹配;无内容且无搜索词 → 无数据。</summary>
-    public static EmptyStateKind ForList(bool hasItems, bool hasQuery) =>
-        hasItems ? EmptyStateKind.None : hasQuery ? EmptyStateKind.NoMatch : EmptyStateKind.NoData;
+    /// <summary>列表空态:有内容 → 无空态;无内容且有搜索词或类型过滤 → 无匹配;否则 → 无数据。</summary>
+    public static EmptyStateKind ForList(bool hasItems, bool hasQuery, bool hasFilter = false) =>
+        hasItems ? EmptyStateKind.None : hasQuery || hasFilter ? EmptyStateKind.NoMatch : EmptyStateKind.NoData;
 
     /// <summary>分类树空态:树恒有固定节点(「全部」「未分类」),只有搜索过滤后才可能为空,故空态恒为「无匹配」。</summary>
     public static EmptyStateKind ForCategoryTree(bool hasNodes) =>

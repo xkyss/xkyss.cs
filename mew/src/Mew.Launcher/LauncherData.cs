@@ -219,6 +219,20 @@ public static class LauncherData
         return null;
     }
 
+    /// <summary>启动类型维度:URL / 程序,由命令推导,不落盘存储;命令是唯一事实来源。</summary>
+    public enum ItemKind
+    {
+        Url,
+        Program,
+    }
+
+    /// <summary>推导启动类型:http(s):// 开头的命令为 URL,其余(含 .bat/.cmd 脚本)为程序。</summary>
+    public static ItemKind KindOf(string command) =>
+        command.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+        || command.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? ItemKind.Url
+            : ItemKind.Program;
+
     /// <summary>分类搜索过滤:空查询返回原树;非空时隐藏固定节点(「全部」「未分类」),保留匹配节点(整棵子树)及其父链。</summary>
     public static List<CategoryTreeNode> FilterNavTree(List<CategoryTreeNode> nav, string query)
     {

@@ -28,6 +28,13 @@ public class EmptyStateTests
     }
 
     [Fact]
+    public void ForList_无内容但有类型过滤_无匹配()
+    {
+        Assert.Equal(EmptyStateKind.NoMatch, EmptyState.ForList(hasItems: false, hasQuery: false, hasFilter: true));
+        Assert.Equal(EmptyStateKind.NoMatch, EmptyState.ForList(hasItems: false, hasQuery: true, hasFilter: true));
+    }
+
+    [Fact]
     public void ForCategoryTree_有节点_无空态()
     {
         Assert.Equal(EmptyStateKind.None, EmptyState.ForCategoryTree(hasNodes: true));

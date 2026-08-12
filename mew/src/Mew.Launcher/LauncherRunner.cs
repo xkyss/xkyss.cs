@@ -40,6 +40,5 @@ internal sealed class LauncherRunner
     }
 
     private static bool IsUrl(string command) =>
-        command.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-        || command.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        LauncherData.KindOf(command) == LauncherData.ItemKind.Url;
 }

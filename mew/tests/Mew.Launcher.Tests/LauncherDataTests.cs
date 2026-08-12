@@ -235,6 +235,21 @@ public class LauncherDataTests
         Assert.Null(LauncherData.FirstCategoryIdInTreeOrder(categories, ["ghost"]));
     }
 
+    // ── 启动类型推导 ───────────────────────────────────────
+
+    [Theory]
+    [InlineData("https://github.com", LauncherData.ItemKind.Url)]
+    [InlineData("http://example.com", LauncherData.ItemKind.Url)]
+    [InlineData("HTTP://EXAMPLE.COM", LauncherData.ItemKind.Url)]
+    [InlineData("code", LauncherData.ItemKind.Program)]
+    [InlineData("C:\\tools\\run.bat", LauncherData.ItemKind.Program)] // 脚本并入程序
+    [InlineData("C:\\tools\\run.cmd", LauncherData.ItemKind.Program)]
+    [InlineData("", LauncherData.ItemKind.Program)]
+    public void KindOf_命令推导类型(string command, LauncherData.ItemKind expected)
+    {
+        Assert.Equal(expected, LauncherData.KindOf(command));
+    }
+
     // ── 摘除归属(删除分类) ────────────────────────────────
 
     [Fact]

@@ -4,9 +4,16 @@
 
 **Blocked by:** None — can start immediately(与分类链正交;前提是 v0.1.5 的卡片/列表形态已落地)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 卡片/列表按命令区分显示类型徽标(URL / 程序)
-- [ ] 列表工具行类型过滤下拉:全部 / URL / 程序,切换即时生效
-- [ ] 脚本(.bat/.cmd)命令显示为「程序」
-- [ ] 类型由命令推导、不落盘;修改命令后徽标与过滤结果跟随变化
+- [x] 卡片/列表按命令区分显示类型徽标(URL / 程序)
+- [x] 列表工具行类型过滤下拉:全部 / URL / 程序,切换即时生效
+- [x] 脚本(.bat/.cmd)命令显示为「程序」
+- [x] 类型由命令推导、不落盘;修改命令后徽标与过滤结果跟随变化
+
+**Comments**
+
+- 实现:`LauncherData.ItemKind`(URL / 程序)+ `LauncherData.KindOf(command)` 单一推导函数(http(s):// 前缀为 URL,其余含 .bat/.cmd 脚本为程序);卡片与列表徽标(`ItemKindBadge`,accent 色小标签)、类型过滤下拉(「全部 / URL / 程序」,`_kindFilter` 状态)消费同一函数;列表渲染/过滤均即时调用 `KindOf`,改命令即变,零落盘。
+- 顺带统一:原 `LauncherRunner` / `IconResolver` 各自的私有 `IsUrl`(语义完全相同)改为委托 `LauncherData.KindOf`,URL 判定单一来源,与 ADR 000106-02「同一推导函数」一致。
+- 空态修正:列表空态判定引入 `hasFilter`,`EmptyState.ForList` 增加可选参数;搜索或类型过滤导致零结果时显示「无匹配启动项」(过滤导致时按钮为「全部类型」清除过滤),不再误显「暂无启动项」。
+- 测试:LauncherDataTests 新增 `KindOf` 推导 Theory(含大小写、.bat/.cmd 脚本并入程序、空命令),EmptyStateTests 新增过滤空态用例,连同既有 44 例通过。

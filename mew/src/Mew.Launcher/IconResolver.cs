@@ -72,8 +72,7 @@ internal sealed class IconResolver
         Path.GetExtension(path).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".ico" or ".webp";
 
     private static bool IsUrl(string command) =>
-        command.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-        || command.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        LauncherData.KindOf(command) == LauncherData.ItemKind.Url;
 
     private static string? ResolveExePath(string command)
     {
