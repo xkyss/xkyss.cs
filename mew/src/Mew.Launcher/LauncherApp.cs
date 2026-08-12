@@ -1726,25 +1726,7 @@ internal sealed class LauncherApp
         var args = TextField(item.Args ?? "", "可选参数");
         var workingDirectory = TextField(item.WorkingDirectory ?? "", "可选工作目录");
         var categoryOptions = LauncherData.FlattenCategoryOptions(_store.Categories.ToList());
-        var categorySource = new ItemsView<CategoryOption>(
-            categoryOptions, option => option.Path, option => option.Id ?? "");
-        // 单选行为不变:多归属暂取第一个;ticket 03 改为平铺多选
-        var currentCategoryId = item.CategoryIds is { Count: > 0 } ? item.CategoryIds[0] : null;
-        var categoryIndex = categoryOptions.FindIndex(option => option.Id == currentCategoryId);
-        var categoryCombo = new ComboBox
-        {
-            ItemsSource = categorySource,
-            SelectedIndex = categoryIndex >= 0 ? categoryIndex : 0, // 0 = 未分类
-            ChangeOnWheel = false,
-            CanDrag = false,
-        };
-        categoryCombo.SelectionChanged += selected =>
-        {
-            if (selected is CategoryOption option)
-            {
-                UpdateCurrent(i => i with { CategoryIds = option.Id is null ? [] : [option.Id] });
-            }
-        };
+        var categoryChecks = BuildCategoryChecks(categoryOptions, item.CategoryIds ?? []);
         var icon = TextField(item.Icon ?? "", "可选图标路径");
         var hotkey = TextField(item.Hotkey ?? "", "可选每项热键,如 Ctrl+Shift+1");
         var hotkeyHint = new Label()
@@ -1759,13 +1741,6 @@ internal sealed class LauncherApp
         command.TextChanged += text => UpdateCurrent(i => i with { Command = text });
         args.TextChanged += text => UpdateCurrent(i => i with { Args = string.IsNullOrWhiteSpace(text) ? null : text });
         workingDirectory.TextChanged += text => UpdateCurrent(i => i with { WorkingDirectory = string.IsNullOrWhiteSpace(text) ? null : text });
-        categoryCombo.SelectionChanged += selected =>
-        {
-            if (selected is CategoryOption option)
-            {
-                UpdateCurrent(i => i with { CategoryIds = option.Id is null ? [] : [option.Id] });
-            }
-        };
         icon.TextChanged += text => UpdateCurrent(i => i with { Icon = string.IsNullOrWhiteSpace(text) ? null : text });
         hotkey.TextChanged += text =>
         {
@@ -1799,12 +1774,42 @@ internal sealed class LauncherApp
                 FieldRow("命令", command),
                 FieldRow("参数", args),
                 FieldRow("工作目录", workingDirectory),
-                FieldRow("分类", categoryCombo),
+                FieldRow("分类", categoryChecks),
                 SectionTitle("高级", _theme.EditorArea.Foreground),
                 FieldRow("图标", icon),
                 FieldRow("每项热键", hotkey),
                 hotkeyHint
             );
+    }
+
+    /// <summary>分类平铺多选:未分类置顶为隐式状态(全不勾选),分类按「父 / 子」路径平铺为 checkbox,勾选互不联动(父不连带子)。</summary>
+    private UIElement BuildCategoryChecks(List<CategoryOption> options, List<string> selectedIds)
+    {
+        var selected = new HashSet<string>(selectedIds, StringComparer.Ordinal);
+        var panel = new StackPanel().Spacing(6);
+        panel.Add(new Label().Text("未分类(全不勾选)").FontSize(12)
+            .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)));
+        foreach (var option in options)
+        {
+            if (option.Id is not { } categoryId)
+            {
+                continue; // 未分类已置顶为非可勾选项
+            }
+
+            var check = new CheckBox()
+                .IsChecked(selected.Contains(categoryId))
+                .Content(option.Path, false)
+                .CanDrag(false);
+            check.OnCheckedChanged(isChecked => UpdateCurrent(i => i with
+            {
+                CategoryIds = isChecked
+                    ? [.. (i.CategoryIds ?? []), categoryId]
+                    : (i.CategoryIds ?? []).Where(id => id != categoryId).ToList()
+            }));
+            panel.Add(check);
+        }
+
+        return panel;
     }
 
     private UIElement FieldRow(string label, UIElement input) => new StackPanel()
