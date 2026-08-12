@@ -210,6 +210,31 @@ public class LauncherDataTests
         Assert.Equal("games", LauncherData.CategoryIdsForNewItem("games").Single());
     }
 
+    // ── 侧边栏定位(树序首个归属) ──────────────────────────
+
+    [Fact]
+    public void FirstCategoryIdInTreeOrder_按树序取首个而非数组序()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+            new("tools", "工具", []),
+        };
+
+        // 数组序 tools 在前,但树序 games 在前 → 取 games
+        Assert.Equal("games", LauncherData.FirstCategoryIdInTreeOrder(categories, ["tools", "games"]));
+        Assert.Equal("games-steam", LauncherData.FirstCategoryIdInTreeOrder(categories, ["tools", "games-steam"]));
+    }
+
+    [Fact]
+    public void FirstCategoryIdInTreeOrder_无有效归属_返回null()
+    {
+        var categories = new List<LauncherCategory> { new("games", "游戏", []) };
+
+        Assert.Null(LauncherData.FirstCategoryIdInTreeOrder(categories, []));
+        Assert.Null(LauncherData.FirstCategoryIdInTreeOrder(categories, ["ghost"]));
+    }
+
     // ── 摘除归属(删除分类) ────────────────────────────────
 
     [Fact]

@@ -1694,10 +1694,36 @@ internal sealed class LauncherApp
     {
         _current = item;
         ShowItemDetail(item);
-        _workbench.SetDocumentReveal(DetailDocumentId, "launch", () =>
-            ShowNav(item.CategoryIds is { Count: > 0 } ? item.CategoryIds[0] : LauncherData.UncategorizedNavId));
+        _workbench.SetDocumentReveal(DetailDocumentId, "launch", () => RevealInSidebar(item));
         _workbench.OpenDocument(DetailDocumentId); // 编辑器区激活「启动项详情」文档
         _workbench.SetDocumentTitle(DetailDocumentId, item.Name); // 标签随当前对象显示项名
+    }
+
+    /// <summary>「在侧边栏定位」:按树序取首个所属分类节点并切到该节点、选中它;无归属定位「未分类」。行为确定、可重复。</summary>
+    private void RevealInSidebar(LauncherItem item)
+    {
+        var navId = LauncherData.FirstCategoryIdInTreeOrder(_store.Categories.ToList(), item.CategoryIds ?? [])
+            ?? LauncherData.UncategorizedNavId;
+        ShowNav(navId);
+        SelectNavNode(navId);
+    }
+
+    /// <summary>侧边栏树中选中指定导航节点;节点被搜索过滤隐藏时保持现状。</summary>
+    private void SelectNavNode(string navId)
+    {
+        if (_treeItems is not { } items)
+        {
+            return;
+        }
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (items.GetItem(i) is CategoryTreeNode node && node.Id == navId)
+            {
+                items.SelectSingle(i);
+                return;
+            }
+        }
     }
 
     private void ShowEmptyDetail()

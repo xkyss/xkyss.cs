@@ -186,6 +186,39 @@ public static class LauncherData
     public static List<string> CategoryIdsForNewItem(string navId) =>
         navId is AllNavId or UncategorizedNavId ? [] : [navId];
 
+    /// <summary>「在侧边栏定位」的归属决策:按树序(深度优先先序)取启动项所属的第一个分类节点 id;无有效归属返回 null(定位「未分类」)。</summary>
+    public static string? FirstCategoryIdInTreeOrder(List<LauncherCategory> categories, IEnumerable<string> categoryIds)
+    {
+        var owned = new HashSet<string>(categoryIds, StringComparer.Ordinal);
+        foreach (var category in categories)
+        {
+            if (FirstInSubtree(category, owned) is { } id)
+            {
+                return id;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? FirstInSubtree(LauncherCategory category, HashSet<string> owned)
+    {
+        if (owned.Contains(category.Id))
+        {
+            return category.Id;
+        }
+
+        foreach (var child in category.Children ?? [])
+        {
+            if (FirstInSubtree(child, owned) is { } id)
+            {
+                return id;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>分类搜索过滤:空查询返回原树;非空时隐藏固定节点(「全部」「未分类」),保留匹配节点(整棵子树)及其父链。</summary>
     public static List<CategoryTreeNode> FilterNavTree(List<CategoryTreeNode> nav, string query)
     {
