@@ -12,14 +12,15 @@ namespace Mew.Launcher;
 [JsonSerializable(typeof(List<LegacyItem>))] // 旧格式迁移时反序列化
 internal sealed partial class LauncherJsonContext : JsonSerializerContext;
 
-/// <summary>磁盘上的启动项 DTO:新结构字段(不含兼容字段 category)。</summary>
+/// <summary>磁盘上的启动项 DTO:新结构字段(categoryIds 数组);categoryId 为旧字段,仅读取用于单值 → 数组迁移,写入时省略。</summary>
 internal sealed record LauncherItemDto(
     string? Id,
     string? Name,
     string? Command,
     string? Args = null,
     string? WorkingDirectory = null,
-    string? CategoryId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? CategoryId = null,
+    List<string>? CategoryIds = null,
     string? Icon = null,
     string? Hotkey = null,
     string? Description = null);
@@ -69,11 +70,15 @@ internal sealed class LauncherStore
 
             var file = JsonSerializer.Deserialize(json, LauncherJsonContext.Default.LauncherDataFileDto)
                 ?? new LauncherDataFileDto(null, null);
+            var hasLegacyMembership = file.Items?.Any(d => d.CategoryId is not null) == true;
             _categories = LauncherData.NormalizeTree(file.Categories ?? []);
-            var items = (file.Items ?? [])
-                .Select(FromDto)
-                .ToList();
-            return LauncherData.NormalizeCategoryRefs(_categories, items);
+            var items = LauncherData.NormalizeCategoryRefs(
+                _categories, (file.Items ?? []).Select(FromDto).ToList());
+            if (hasLegacyMembership)
+            {
+                Save(items); // 单值归属迁移后立即写回,与旧平铺格式迁移一致
+            }
+            return items;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -130,14 +135,14 @@ internal sealed class LauncherStore
         return items;
     }
 
-    /// <summary>DTO → 内存模型。</summary>
+    /// <summary>DTO → 内存模型;旧字段 categoryId 单值迁移为数组,categoryIds 优先。</summary>
     private static LauncherItem FromDto(LauncherItemDto dto) => new(
         dto.Id ?? "item-" + Guid.NewGuid().ToString("N")[..8],
         dto.Name ?? "",
         dto.Command ?? "",
         Args: dto.Args,
         WorkingDirectory: dto.WorkingDirectory,
-        CategoryId: dto.CategoryId,
+        CategoryIds: dto.CategoryIds ?? (dto.CategoryId is not null ? [dto.CategoryId] : []),
         Icon: dto.Icon,
         Hotkey: dto.Hotkey,
         Description: dto.Description);
@@ -148,10 +153,10 @@ internal sealed class LauncherStore
         item.Command,
         item.Args,
         item.WorkingDirectory,
-        item.CategoryId,
-        item.Icon,
-        item.Hotkey,
-        item.Description);
+        CategoryIds: item.CategoryIds ?? [],
+        Icon: item.Icon,
+        Hotkey: item.Hotkey,
+        Description: item.Description);
 
     private static List<LegacyItem> DefaultItems() =>
     [

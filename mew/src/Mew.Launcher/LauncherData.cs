@@ -41,7 +41,7 @@ public static class LauncherData
                     item.Command ?? "",
                     item.Args,
                     item.WorkingDirectory,
-                    categoryId,
+                    categoryId is not null ? [categoryId] : [],
                     item.Icon,
                     item.Hotkey);
             })
@@ -51,28 +51,26 @@ public static class LauncherData
     }
 
     /// <summary>
-    /// 子树聚合:返回归属指定分类及其所有子孙分类的启动项(不含未分类)。
+    /// 子树聚合:返回归属指定分类或其任一子孙分类的启动项(不含未分类)。
     /// </summary>
     public static List<LauncherItem> AggregateSubtree(
         List<LauncherCategory> categories, List<LauncherItem> items, string categoryId)
     {
         var ids = SubtreeIds(categories, categoryId);
-        return items.Where(i => i.CategoryId is not null && ids.Contains(i.CategoryId)).ToList();
+        return items.Where(i => i.CategoryIds is { Count: > 0 } && ids.Overlaps(i.CategoryIds)).ToList();
     }
 
-    /// <summary>未分类聚合:返回所有 categoryId 为空的启动项。</summary>
+    /// <summary>未分类聚合:返回归属列表为空(null / 空数组 / 全空白)的启动项。</summary>
     public static List<LauncherItem> Uncategorized(List<LauncherItem> items) =>
-        items.Where(i => string.IsNullOrWhiteSpace(i.CategoryId)).ToList();
+        items.Where(i => i.CategoryIds is not { Count: > 0 } || i.CategoryIds.All(string.IsNullOrWhiteSpace)).ToList();
 
-    /// <summary>归一悬空引用:categoryId 指向不存在的分类 → null(归未分类)。</summary>
+    /// <summary>归一悬空引用:剔除指向不存在的分类的 id;null / 空 / 全部悬空 → 空数组(归未分类)。</summary>
     public static List<LauncherItem> NormalizeCategoryRefs(
         List<LauncherCategory> categories, List<LauncherItem> items)
     {
         var known = new HashSet<string>(FlattenIds(categories), StringComparer.Ordinal);
         return items
-            .Select(i => i.CategoryId is not null && !known.Contains(i.CategoryId)
-                ? i with { CategoryId = null }
-                : i)
+            .Select(i => i with { CategoryIds = (i.CategoryIds ?? []).Where(known.Contains).ToList() })
             .ToList();
     }
 
@@ -170,9 +168,9 @@ public static class LauncherData
             : AggregateSubtree(categories, items, navId);
     }
 
-    /// <summary>新建启动项的归属决策:在「全部」/「未分类」下新建 → 未分类(null);在分类节点下新建 → 该分类 id。</summary>
-    public static string? CategoryIdForNewItem(string navId) =>
-        navId is AllNavId or UncategorizedNavId ? null : navId;
+    /// <summary>新建启动项的归属决策:在「全部」/「未分类」下新建 → 空数组(未分类);在分类节点下新建 → 该分类 id。</summary>
+    public static List<string> CategoryIdsForNewItem(string navId) =>
+        navId is AllNavId or UncategorizedNavId ? [] : [navId];
 
     /// <summary>分类搜索过滤:空查询返回原树;非空时隐藏固定节点(「全部」「未分类」),保留匹配节点(整棵子树)及其父链。</summary>
     public static List<CategoryTreeNode> FilterNavTree(List<CategoryTreeNode> nav, string query)

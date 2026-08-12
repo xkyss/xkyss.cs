@@ -1439,7 +1439,7 @@ internal sealed class LauncherApp
             "item-" + Guid.NewGuid().ToString("N")[..8],
             "新建启动项",
             "",
-            CategoryId: LauncherData.CategoryIdForNewItem(_navId));
+            CategoryIds: LauncherData.CategoryIdsForNewItem(_navId));
 
         _items.Add(item);
         _store.Save(_items);
@@ -1695,7 +1695,8 @@ internal sealed class LauncherApp
     {
         _current = item;
         ShowItemDetail(item);
-        _workbench.SetDocumentReveal(DetailDocumentId, "launch", () => ShowNav(item.CategoryId ?? LauncherData.UncategorizedNavId));
+        _workbench.SetDocumentReveal(DetailDocumentId, "launch", () =>
+            ShowNav(item.CategoryIds is { Count: > 0 } ? item.CategoryIds[0] : LauncherData.UncategorizedNavId));
         _workbench.OpenDocument(DetailDocumentId); // 编辑器区激活「启动项详情」文档
         _workbench.SetDocumentTitle(DetailDocumentId, item.Name); // 标签随当前对象显示项名
     }
@@ -1728,7 +1729,9 @@ internal sealed class LauncherApp
         var categoryOptions = LauncherData.FlattenCategoryOptions(_store.Categories.ToList());
         var categorySource = new ItemsView<CategoryOption>(
             categoryOptions, option => option.Path, option => option.Id ?? "");
-        var categoryIndex = categoryOptions.FindIndex(option => option.Id == item.CategoryId);
+        // 单选行为不变:多归属暂取第一个;ticket 03 改为平铺多选
+        var currentCategoryId = item.CategoryIds is { Count: > 0 } ? item.CategoryIds[0] : null;
+        var categoryIndex = categoryOptions.FindIndex(option => option.Id == currentCategoryId);
         var categoryCombo = new ComboBox
         {
             ItemsSource = categorySource,
@@ -1740,7 +1743,7 @@ internal sealed class LauncherApp
         {
             if (selected is CategoryOption option)
             {
-                UpdateCurrent(i => i with { CategoryId = option.Id });
+                UpdateCurrent(i => i with { CategoryIds = option.Id is null ? [] : [option.Id] });
             }
         };
         var icon = TextField(item.Icon ?? "", "可选图标路径");
@@ -1761,7 +1764,7 @@ internal sealed class LauncherApp
         {
             if (selected is CategoryOption option)
             {
-                UpdateCurrent(i => i with { CategoryId = option.Id });
+                UpdateCurrent(i => i with { CategoryIds = option.Id is null ? [] : [option.Id] });
             }
         };
         icon.TextChanged += text => UpdateCurrent(i => i with { Icon = string.IsNullOrWhiteSpace(text) ? null : text });

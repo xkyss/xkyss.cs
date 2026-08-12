@@ -27,9 +27,9 @@ public class LauncherDataTests
         Assert.Equal("游戏", categories[1].Name);
         Assert.Equal("工具", categories[2].Name);
         Assert.All(categories, c => Assert.Matches("^[a-z0-9-]+$", c.Id)); // 唯一 slug
-        Assert.Equal(categories[0].Id, items[0].CategoryId);
-        Assert.Equal(categories[1].Id, items[1].CategoryId);
-        Assert.Equal(categories[2].Id, items[2].CategoryId);
+        Assert.Equal(categories[0].Id, items[0].CategoryIds!.Single());
+        Assert.Equal(categories[1].Id, items[1].CategoryIds!.Single());
+        Assert.Equal(categories[2].Id, items[2].CategoryIds!.Single());
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class LauncherDataTests
         var (categories, items) = LauncherData.MigrateLegacy(legacy);
 
         Assert.Empty(categories);
-        Assert.All(items, i => Assert.Null(i.CategoryId));
+        Assert.All(items, i => Assert.Empty(i.CategoryIds!));
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class LauncherDataTests
         Assert.False(string.IsNullOrEmpty(items[0].Id));
         Assert.Equal("", items[0].Name);
         Assert.Equal("", items[0].Command);
-        Assert.Null(items[0].CategoryId);
+        Assert.Empty(items[0].CategoryIds!);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class LauncherDataTests
         var (categories, items) = LauncherData.MigrateLegacy(legacy);
 
         Assert.Single(categories);
-        Assert.All(items, i => Assert.Equal(categories[0].Id, i.CategoryId));
+        Assert.All(items, i => Assert.Equal(categories[0].Id, i.CategoryIds!.Single()));
     }
 
     // ── 聚合 ──────────────────────────────────────────────
@@ -96,9 +96,9 @@ public class LauncherDataTests
         };
         var items = new List<LauncherItem>
         {
-            new("launcher", "启动器", "mew", CategoryId: "games"),
-            new("steam", "Steam", "steam", CategoryId: "games-steam"),
-            new("github", "GitHub", "https://github.com", CategoryId: null),
+            new("launcher", "启动器", "mew", CategoryIds: ["games"]),
+            new("steam", "Steam", "steam", CategoryIds: ["games-steam"]),
+            new("github", "GitHub", "https://github.com", CategoryIds: null),
         };
 
         var result = LauncherData.AggregateSubtree(categories, items, "games");
@@ -117,8 +117,8 @@ public class LauncherDataTests
         };
         var items = new List<LauncherItem>
         {
-            new("launcher", "启动器", "mew", CategoryId: "games"),
-            new("steam", "Steam", "steam", CategoryId: "games-steam"),
+            new("launcher", "启动器", "mew", CategoryIds: ["games"]),
+            new("steam", "Steam", "steam", CategoryIds: ["games-steam"]),
         };
 
         var result = LauncherData.AggregateSubtree(categories, items, "games-steam");
@@ -128,18 +128,38 @@ public class LauncherDataTests
     }
 
     [Fact]
-    public void Uncategorized_返回categoryId为空的项()
+    public void AggregateSubtree_多归属_命中任一所属节点()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", [new LauncherCategory("games-steam", "Steam", [])]),
+            new("tools", "工具", []),
+        };
+        var items = new List<LauncherItem>
+        {
+            new("steam", "Steam", "steam", CategoryIds: ["games-steam", "tools"]),
+        };
+
+        Assert.Contains(LauncherData.AggregateSubtree(categories, items, "games"), i => i.Id == "steam");
+        Assert.Contains(LauncherData.AggregateSubtree(categories, items, "tools"), i => i.Id == "steam");
+        Assert.DoesNotContain(LauncherData.AggregateSubtree(categories, items, "games-epic"), i => i.Id == "steam");
+    }
+
+    [Fact]
+    public void Uncategorized_返回归属为空的项()
     {
         var items = new List<LauncherItem>
         {
-            new("a", "A", "a", CategoryId: null),
-            new("b", "B", "b", CategoryId: "games"),
+            new("a", "A", "a", CategoryIds: null),
+            new("b", "B", "b", CategoryIds: ["games"]),
+            new("c", "C", "c", CategoryIds: [" "]),
         };
 
         var result = LauncherData.Uncategorized(items);
 
-        Assert.Single(result);
-        Assert.Equal("a", result[0].Id);
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, i => i.Id == "a");
+        Assert.Contains(result, i => i.Id == "c");
     }
 
     // ── 悬空归一 ──────────────────────────────────────────
@@ -153,24 +173,41 @@ public class LauncherDataTests
         };
         var items = new List<LauncherItem>
         {
-            new("a", "A", "a", CategoryId: "games"),
-            new("b", "B", "b", CategoryId: "ghost"),
+            new("a", "A", "a", CategoryIds: ["games"]),
+            new("b", "B", "b", CategoryIds: ["ghost"]),
         };
 
         var result = LauncherData.NormalizeCategoryRefs(categories, items);
 
-        Assert.Equal("games", result[0].CategoryId);
-        Assert.Null(result[1].CategoryId);
+        Assert.Equal("games", result[0].CategoryIds!.Single());
+        Assert.Empty(result[1].CategoryIds!);
+    }
+
+    [Fact]
+    public void NormalizeCategoryRefs_部分悬空_剔除保留其余()
+    {
+        var categories = new List<LauncherCategory>
+        {
+            new("games", "游戏", []),
+        };
+        var items = new List<LauncherItem>
+        {
+            new("a", "A", "a", CategoryIds: ["games", "ghost"]),
+        };
+
+        var result = LauncherData.NormalizeCategoryRefs(categories, items);
+
+        Assert.Equal("games", result[0].CategoryIds!.Single());
     }
 
     // ── 新建启动项归属 ─────────────────────────────────────
 
     [Fact]
-    public void CategoryIdForNewItem_固定节点归未分类_分类节点保持()
+    public void CategoryIdsForNewItem_固定节点归未分类_分类节点保持()
     {
-        Assert.Null(LauncherData.CategoryIdForNewItem(LauncherData.AllNavId));
-        Assert.Null(LauncherData.CategoryIdForNewItem(LauncherData.UncategorizedNavId));
-        Assert.Equal("games", LauncherData.CategoryIdForNewItem("games"));
+        Assert.Empty(LauncherData.CategoryIdsForNewItem(LauncherData.AllNavId));
+        Assert.Empty(LauncherData.CategoryIdsForNewItem(LauncherData.UncategorizedNavId));
+        Assert.Equal("games", LauncherData.CategoryIdsForNewItem("games").Single());
     }
 
     // ── 分类搜索过滤 ───────────────────────────────────────
@@ -381,9 +418,9 @@ public class LauncherDataTests
         };
         var items = new List<LauncherItem>
         {
-            new("launcher", "启动器", "mew", CategoryId: "games"),
-            new("steam", "Steam", "steam", CategoryId: "games-steam"),
-            new("github", "GitHub", "https://github.com", CategoryId: null),
+            new("launcher", "启动器", "mew", CategoryIds: ["games"]),
+            new("steam", "Steam", "steam", CategoryIds: ["games-steam"]),
+            new("github", "GitHub", "https://github.com", CategoryIds: null),
         };
 
         Assert.Equal(3, LauncherData.AggregateForNav(categories, items, null).Count);
