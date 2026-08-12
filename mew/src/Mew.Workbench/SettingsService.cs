@@ -30,9 +30,23 @@ public sealed class SettingsService : ISettingsService
     /// <summary>宿主级设置:浮层呼出热键,形如 Ctrl+Alt+Space。</summary>
     public string? OverlayHotkey { get => GetString("overlayHotkey"); set => SetString("overlayHotkey", value); }
 
-    /// <summary>读取工具模块设置节:无该节或节类型不匹配时返回 null。</summary>
+    /// <summary>读取工具模块设置节:无该节、节类型不匹配或反序列化失败时返回 null(损坏的模块节不阻塞启动)。</summary>
     public T? ReadSection<T>(string moduleId, JsonTypeInfo<T> typeInfo) where T : class
-        => _root[moduleId] is JsonObject section ? JsonSerializer.Deserialize(section, typeInfo) : null;
+    {
+        if (_root[moduleId] is not JsonObject section)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(section, typeInfo);
+        }
+        catch (JsonException)
+        {
+            return null; // 模块节字段类型不符(如 itemsViewMode 为数字)时静默回退默认值
+        }
+    }
 
     /// <summary>写入工具模块设置节(覆盖该模块整节)。</summary>
     public void WriteSection<T>(string moduleId, T value, JsonTypeInfo<T> typeInfo)
@@ -87,7 +101,22 @@ public sealed class SettingsService : ISettingsService
         }
     }
 
-    private string? GetString(string key) => _root[key]?.GetValue<string>();
+    private string? GetString(string key)
+    {
+        if (!_root.TryGetPropertyValue(key, out var node) || node is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return node.GetValue<string>();
+        }
+        catch (InvalidOperationException)
+        {
+            return null; // 根值类型与字符串不符(如 "overlayHotkey": 123)时静默回退默认值
+        }
+    }
 
     private void SetString(string key, string? value)
     {

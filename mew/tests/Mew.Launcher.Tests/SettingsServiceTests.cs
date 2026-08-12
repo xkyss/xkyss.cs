@@ -109,4 +109,29 @@ public class SettingsServiceTests : IDisposable
         Assert.Null(loaded.ThemeMode);
         Assert.Null(loaded.OverlayHotkey);
     }
+
+    [Fact]
+    public void Load_根值类型不符_静默回退缺省_不抛()
+    {
+        // 评审修复:根值类型与字符串不符(如 "overlayHotkey": 123)不再抛 InvalidOperationException 阻塞启动
+        File.WriteAllText(TempFile("settings.json"), """{ "themeMode": 123, "overlayHotkey": 456 }""");
+
+        var loaded = new SettingsService(TempFile("settings.json"));
+        loaded.Load();
+
+        Assert.Null(loaded.ThemeMode);
+        Assert.Null(loaded.OverlayHotkey);
+    }
+
+    [Fact]
+    public void Load_模块节类型不符_ReadSection回退null_不抛()
+    {
+        // 评审修复:模块节字段类型不符(itemsViewMode 为数字)时 ReadSection 静默回退 null
+        File.WriteAllText(TempFile("settings.json"), """{ "launcher": { "itemsViewMode": 123 } }""");
+
+        var loaded = new SettingsService(TempFile("settings.json"));
+        loaded.Load();
+
+        Assert.Null(loaded.ReadSection<TestModuleSettings>("launcher", TestModuleSettingsContext.Default.TestModuleSettings));
+    }
 }

@@ -26,7 +26,7 @@ public sealed class LauncherModule : IMewToolModule
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60); // 状态栏失败红字 / 每项热键提示
 
     private readonly LauncherStore _store = new();
-    private SettingsService _settings = null!;
+    private ISettingsService _settings = null!;
     private Window? _window;
     private IntPtr _windowHandle;
     private readonly LauncherRunner _runner = new();
@@ -78,7 +78,7 @@ public sealed class LauncherModule : IMewToolModule
     {
         _workbench = context.Workbench;
         _theme = context.Workbench.ThemeContext;
-        _settings = (SettingsService)context.Settings; // 模块按 launcher 节读写;根节(themeMode/overlayHotkey)归宿主
+        _settings = context.Settings; // 仅按契约读写 launcher 节(ReadSection/WriteSection/Save);根节(themeMode/overlayHotkey)归宿主
         _overlay = context.Overlay;
         _window = context.Window;
         _windowHandle = context.WindowHandle;

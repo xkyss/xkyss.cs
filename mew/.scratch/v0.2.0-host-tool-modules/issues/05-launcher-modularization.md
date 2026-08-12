@@ -17,5 +17,6 @@
 - 五区组装代码整体自 `Run()` 移入 `Configure`(顺序不变:主题/五区链 → ShowNav → ShowEmptyDetail → 布局迁移),`Run()` 改为临时引导:自组 Workbench/SettingsService/OverlayWindow/上下文后自我 Configure,再 BuildTitleBar + Build + 生命周期(窗口/托盘/全局热键/消息分发原样保留)。
 - 每项热键(`ItemHotkeys`)、启动/反馈(`LauncherRunner`/`LaunchItem`/`Feedback`)、`LauncherStore`/`LauncherSearch` 等启动项领域全部保留在模块内,行为不变;入口不变(`Program.cs` 仍 `new LauncherApp().Run()`),WinExe 未动。
 - 临时占位 `ScaffoldHotkeyService`(满足契约,空转):宿主中央热键服务(票据 07)落地前使用;`_settings` 由 context 传入(临时 cast,宿主未建模块暂持根节设置,票据 06/07 后归宿主)。
+- 评审修复(代码评审):移除 `_settings = (SettingsService)context.Settings` 向下转型——`ISettingsService` 契约补 `Save()`,模块字段改为 `ISettingsService`,仅按契约读写 launcher 节;新增用例验证非 `SettingsService` 实现下 Configure 不崩溃(不再依赖具体宿主类型,ADR-000200「工具只通过契约贡献」)。
 - 服务接口名与 MewUI 的 `IOverlayService` 撞名,LauncherApp 内用 `OverlayServiceContract` 别名消歧。
 - 测试:`LauncherModuleTests`(Configure 贡献五区 → Build 通过、设置文档可打开、注册 launcher 搜索源;隔离用户 launcher.json/layout.json/presentation.json)。`WorkbenchConfigurationTests` 与 `LauncherModuleTests` 同集合串行(MewDock Build 后持有 layout.json 句柄,并行互相踩文件)。编译 0 警告 0 错误,Launcher.Tests 全量 97 用例绿;运行期冒烟延至票据 09。

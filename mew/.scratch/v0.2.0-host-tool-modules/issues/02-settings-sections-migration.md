@@ -17,4 +17,5 @@
 - 旧扁平结构迁移:`Load()` 后若根节存在 `itemsViewMode`,移入 `launcher` 模块节并回写;主题模式/浮层呼出键键名不变,原值无损。
 - Launcher 侧:新增 `LauncherSettings`(+`LauncherSettingsJsonContext`,camelCase 命名策略与旧文件一致),`LauncherApp` 由一次性 `Load()` 改状态化 `_settings.Load()` 后读写 `_settings.ThemeMode`/`_settings.OverlayHotkey`/`launcher` 节,`ToggleViewMode` 经 `WriteSection` 落盘。
 - 测试:`SettingsStoreTests` 删除,新增 `SettingsServiceTests` 5 用例(根节与模块节往返、无文件缺省、旧扁平迁移、手写 JSON 未知字段忽略、损坏 JSON 回退)。调试中发现测试用源生成上下文缺 camelCase 命名策略导致迁移值读空,补 `JsonKnownNamingPolicy.CamelCase` 后 5/5 全绿。
-- 编译 0 警告 0 错误;相关 5 个用例全绿。
+- 评审修复(代码评审):「迁移失败静默回退」补全类型不符路径——`GetString` 捕获根值类型不符(如 `"overlayHotkey": 123`)的 `InvalidOperationException` 静默返回 null,`ReadSection` 捕获模块节字段类型不符的 `JsonException` 静默返回 null;新增 2 用例(根值类型不符、模块节类型不符均不抛且回退)。`SettingsServiceTests` 7/7 全绿。
+- 编译 0 警告 0 错误;相关用例全绿。

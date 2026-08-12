@@ -25,11 +25,14 @@ public interface IHotkeyService
 /// </summary>
 public interface ISettingsService
 {
-    /// <summary>读取模块设置节;无该节或节类型不匹配时返回 null。</summary>
+    /// <summary>读取模块设置节;无该节、节类型不匹配或反序列化失败时返回 null。</summary>
     T? ReadSection<T>(string moduleId, JsonTypeInfo<T> typeInfo) where T : class;
 
     /// <summary>写入模块设置节(覆盖该模块整节)。</summary>
     void WriteSection<T>(string moduleId, T value, JsonTypeInfo<T> typeInfo);
+
+    /// <summary>将设置文档写回磁盘;模块写完设置节后调用以持久化,宿主在退出/改设置时也调用。</summary>
+    void Save();
 }
 
 /// <summary>

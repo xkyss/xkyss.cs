@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization.Metadata;
 using Aprillz.MewUI.Controls;
 using Mew.Workbench;
 using Xunit;
@@ -22,6 +23,44 @@ public class LauncherModuleTests
         public List<ISearchSource> Sources { get; } = [];
 
         public void AddSearchSource(ISearchSource source) => Sources.Add(source);
+    }
+
+    /// <summary>非 SettingsService 的设置契约替身:验证模块只按契约读写,不依赖具体宿主类型(评审修复)。</summary>
+    private sealed class RecordingSettings : ISettingsService
+    {
+        public T? ReadSection<T>(string moduleId, JsonTypeInfo<T> typeInfo) where T : class => null;
+
+        public void WriteSection<T>(string moduleId, T value, JsonTypeInfo<T> typeInfo)
+        {
+        }
+
+        public void Save()
+        {
+        }
+    }
+
+    /// <summary>评审修复:宿主传入非 SettingsService 的实现时模块照常 Configure(不再向下转型,不崩溃)。</summary>
+    [Fact]
+    public void Configure_非SettingsService实现_仅按契约读写不崩溃()
+    {
+        using var _ = IsolateUserFiles();
+
+        var workbench = new WorkbenchType();
+        var context = new ToolModuleContext(
+            workbench,
+            windowHandle: IntPtr.Zero,
+            window: null,
+            hotkeys: new HotkeyService(),
+            settings: new RecordingSettings(),
+            overlay: new RecordingOverlay(),
+            theme: workbench.ThemeContext,
+            settingsSections: new SettingsSectionRegistry());
+
+        var module = new LauncherModule();
+        module.Configure(context); // 不抛:模块不再依赖 SettingsService 具体类型
+
+        Assert.Equal("launcher", module.Id);
+        Assert.Equal(["data"], context.SettingsSections.Sections.Select(section => section.Id));
     }
 
     [Fact]
