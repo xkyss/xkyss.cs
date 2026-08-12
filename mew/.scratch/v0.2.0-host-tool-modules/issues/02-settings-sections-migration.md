@@ -4,9 +4,17 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 设置服务支持根节 + 模块节分节读写
-- [ ] 旧扁平结构 settings.json 首次启动自动迁移为分节结构,主题模式/浮层呼出键/列表形态原值保留
-- [ ] Launcher 的列表形态经设置服务读写其模块节,行为与 v0.1.6 一致
-- [ ] 迁移失败(文件损坏/无权限)时静默回退默认值,不阻塞启动
+- [x] 设置服务支持根节 + 模块节分节读写
+- [x] 旧扁平结构 settings.json 首次启动自动迁移为分节结构,主题模式/浮层呼出键/列表形态原值保留
+- [x] Launcher 的列表形态经设置服务读写其模块节,行为与 v0.1.6 一致
+- [x] 迁移失败(文件损坏/无权限)时静默回退默认值,不阻塞启动
+
+## Comments
+
+- `SettingsStore`(+`AppSettings`)删除,由 `Mew.Workbench.SettingsService` 取代:根节(主题模式/浮层呼出键)状态化读写,模块节经 `ReadSection<T>/WriteSection<T>` 走调用方源生成类型(JSON DOM 无反射,AOT/Trim 兼容);`Load()`/`Save()` 沿用静默容错(IO/权限/JSON 损坏回退默认)。
+- 旧扁平结构迁移:`Load()` 后若根节存在 `itemsViewMode`,移入 `launcher` 模块节并回写;主题模式/浮层呼出键键名不变,原值无损。
+- Launcher 侧:新增 `LauncherSettings`(+`LauncherSettingsJsonContext`,camelCase 命名策略与旧文件一致),`LauncherApp` 由一次性 `Load()` 改状态化 `_settings.Load()` 后读写 `_settings.ThemeMode`/`_settings.OverlayHotkey`/`launcher` 节,`ToggleViewMode` 经 `WriteSection` 落盘。
+- 测试:`SettingsStoreTests` 删除,新增 `SettingsServiceTests` 5 用例(根节与模块节往返、无文件缺省、旧扁平迁移、手写 JSON 未知字段忽略、损坏 JSON 回退)。调试中发现测试用源生成上下文缺 camelCase 命名策略导致迁移值读空,补 `JsonKnownNamingPolicy.CamelCase` 后 5/5 全绿。
+- 编译 0 警告 0 错误;相关 5 个用例全绿。

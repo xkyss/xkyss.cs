@@ -26,7 +26,7 @@ internal sealed class LauncherApp
     private static readonly Color HotkeyWarning = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LauncherStore _store = new();
-    private readonly SettingsStore _settings = new();
+    private readonly SettingsService _settings = new();
     private string _overlayHotkey;
     private Window? _window;
     private Icon? _windowIcon;
@@ -72,6 +72,7 @@ internal sealed class LauncherApp
     private const string SettingsAppearance = "appearance";
     private const string SettingsHotkey = "hotkey";
     private const string SettingsData = "data";
+    private const string LauncherSectionId = "launcher"; // settings.json 中 Launcher 模块设置节
     private string _settingsNav = SettingsAppearance; // 设置上下文当前分类
     private StackPanel? _settingsContent;
 
@@ -80,10 +81,14 @@ internal sealed class LauncherApp
         _items = _store.Load();
         _theme = _workbench.ThemeContext;
         _itemHotkeys = new ItemHotkeys(_items, LaunchItem, Feedback);
-        var settings = _settings.Load();
-        _overlayHotkey = string.IsNullOrWhiteSpace(settings.OverlayHotkey) ? DefaultOverlayHotkey : settings.OverlayHotkey!;
-        _viewMode = string.IsNullOrWhiteSpace(settings.ItemsViewMode) ? "card" : settings.ItemsViewMode!;
+        _settings.Load();
+        _overlayHotkey = string.IsNullOrWhiteSpace(_settings.OverlayHotkey) ? DefaultOverlayHotkey : _settings.OverlayHotkey!;
+        _viewMode = string.IsNullOrWhiteSpace(LauncherItemsViewMode) ? "card" : LauncherItemsViewMode!;
     }
+
+    /// <summary>Launcher 模块设置节中的列表形态(settings.json "launcher" 节)。</summary>
+    private string? LauncherItemsViewMode =>
+        _settings.ReadSection<LauncherSettings>(LauncherSectionId, LauncherSettingsJsonContext.Default.LauncherSettings)?.ItemsViewMode;
 
     internal void Run()
     {
@@ -315,16 +320,15 @@ internal sealed class LauncherApp
     /// <summary>从 settings.json 读取主题模式,缺省/无效回退跟随系统。</summary>
     private ThemeVariant LoadThemeMode()
     {
-        var stored = _settings.Load().ThemeMode;
+        var stored = _settings.ThemeMode;
         return Enum.TryParse<ThemeVariant>(stored, out var mode) ? mode : ThemeVariant.System;
     }
 
     /// <summary>将当前主题模式持久化到 settings.json(保留其他设置字段)。</summary>
     private void PersistThemeMode()
     {
-        var settings = _settings.Load();
-        settings.ThemeMode = _theme.Mode.ToString();
-        _settings.Save(settings);
+        _settings.ThemeMode = _theme.Mode.ToString();
+        _settings.Save();
     }
 
     /// <summary>设置页单选跟随当前主题模式(状态栏按钮等外部切换时同步)。</summary>
@@ -817,9 +821,8 @@ internal sealed class LauncherApp
         _overlayHotkey = hotkey;
         _hotkeyDisplay!.Text = hotkey;
 
-        var settings = _settings.Load();
-        settings.OverlayHotkey = hotkey;
-        _settings.Save(settings);
+        _settings.OverlayHotkey = hotkey;
+        _settings.Save();
 
         CancelCaptureHotkey();
         _hotkeyHint!.Text = $"已生效:{hotkey}";
@@ -1320,9 +1323,8 @@ internal sealed class LauncherApp
     private void ToggleViewMode()
     {
         _viewMode = _viewMode == "card" ? "list" : "card";
-        var settings = _settings.Load();
-        settings.ItemsViewMode = _viewMode;
-        _settings.Save(settings);
+        _settings.WriteSection(LauncherSectionId, new LauncherSettings { ItemsViewMode = _viewMode }, LauncherSettingsJsonContext.Default.LauncherSettings);
+        _settings.Save();
         _modeToggleButton!.Content(ViewModeGlyph());
         ShowNav(_navId);
     }
