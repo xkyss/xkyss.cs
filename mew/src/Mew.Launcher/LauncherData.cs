@@ -192,7 +192,7 @@ public static class LauncherData
         var owned = new HashSet<string>(categoryIds, StringComparer.Ordinal);
         foreach (var category in categories)
         {
-            if (FirstInSubtree(category, owned) is { } id)
+            if (FirstOwnedIdInSubtree(category, owned) is { } id)
             {
                 return id;
             }
@@ -201,7 +201,7 @@ public static class LauncherData
         return null;
     }
 
-    private static string? FirstInSubtree(LauncherCategory category, HashSet<string> owned)
+    private static string? FirstOwnedIdInSubtree(LauncherCategory category, HashSet<string> owned)
     {
         if (owned.Contains(category.Id))
         {
@@ -210,7 +210,7 @@ public static class LauncherData
 
         foreach (var child in category.Children ?? [])
         {
-            if (FirstInSubtree(child, owned) is { } id)
+            if (FirstOwnedIdInSubtree(child, owned) is { } id)
             {
                 return id;
             }

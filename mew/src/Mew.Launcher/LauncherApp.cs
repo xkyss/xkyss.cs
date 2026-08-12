@@ -959,7 +959,7 @@ internal sealed class LauncherApp
         var name = LauncherData.CategoryName(categories, categoryId) ?? categoryId;
 
         var confirmed = MessageBox.Confirm(
-            $"删除分类「{name}」将连同其子分类一起删除,{removed.Count} 个启动项将失去此分类,且不可恢复。",
+            $"删除分类「{name}」将连同其子分类一起删除,{removed.Count} 个启动项将失去此分类。",
             PromptIconKind.Warning,
             "",
             _window!);
@@ -1095,10 +1095,11 @@ internal sealed class LauncherApp
             _listSelection.Clamp(0);
             var hasQuery = !string.IsNullOrWhiteSpace(_query);
             var hasFilter = _kindFilter is not null;
+            // 列表已空:聚合为空且无过滤 → 无数据(引导新增);聚合有内容但被过滤排除 → 无匹配
             var kind = EmptyState.ForList(
-                hasItems: aggregated.Count > 0 && !hasQuery && !hasFilter,
+                hasItems: false,
                 hasQuery: hasQuery,
-                hasFilter: hasFilter);
+                hasFilter: hasFilter && aggregated.Count > 0);
             _listPanel.Add(kind == EmptyStateKind.NoMatch
                 ? hasFilter
                     ? EmptyStateView("无匹配启动项", "全部类型", ClearKindFilter,
@@ -1189,10 +1190,14 @@ internal sealed class LauncherApp
     /// <summary>启动类型徽标:URL / 程序,由命令推导(命令是唯一事实来源),卡片与列表共用。</summary>
     private UIElement ItemKindBadge(LauncherItem item) =>
         new Label()
-            .Text(LauncherData.KindOf(item.Command) == LauncherData.ItemKind.Url ? "URL" : "程序")
+            .Text(ItemKindLabel(LauncherData.KindOf(item.Command)))
             .FontSize(10)
             .VerticalAlignment(VerticalAlignment.Center)
             .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Accent));
+
+    /// <summary>启动类型展示文案:类型过滤下拉与徽标共用的唯一映射。</summary>
+    private static string ItemKindLabel(LauncherData.ItemKind kind) =>
+        kind == LauncherData.ItemKind.Url ? "URL" : "程序";
 
     /// <summary>卡片:图标(左侧)+ 名称(加粗稍大,与图标垂直居中)+ 底部第三行见 <see cref="CardBottomText"/>;单击启动,悬停浮现「编辑」图标按钮。</summary>
     private (UIElement Container, Button Main) Card(LauncherItem item, int index)
@@ -1349,8 +1354,8 @@ internal sealed class LauncherApp
         var kindOptions = new List<KindFilterOption>
         {
             new(null, "全部"),
-            new(LauncherData.ItemKind.Url, "URL"),
-            new(LauncherData.ItemKind.Program, "程序"),
+            new(LauncherData.ItemKind.Url, ItemKindLabel(LauncherData.ItemKind.Url)),
+            new(LauncherData.ItemKind.Program, ItemKindLabel(LauncherData.ItemKind.Program)),
         };
         var kindCombo = new ComboBox
         {
@@ -1729,16 +1734,13 @@ internal sealed class LauncherApp
         ShowNav(_navId);
     }
 
-    /// <summary>清除启动类型过滤(回到「全部」)并刷新列表。</summary>
+    /// <summary>清除启动类型过滤(回到「全部」)并刷新列表;由下拉 SelectionChanged 统一走过滤刷新路径,避免重复刷新。</summary>
     private void ClearKindFilter()
     {
-        _kindFilter = null;
         if (_kindCombo is { } combo)
         {
             combo.SelectedIndex = 0;
         }
-
-        ShowNav(_navId);
     }
 
     /// <summary>清空分类树搜索词并刷新树。</summary>
@@ -1767,11 +1769,13 @@ internal sealed class LauncherApp
     {
         var navId = LauncherData.FirstCategoryIdInTreeOrder(_store.Categories.ToList(), item.CategoryIds ?? [])
             ?? LauncherData.UncategorizedNavId;
+        // 目标节点可能被侧边栏搜索过滤隐藏,先清空过滤,保证定位后节点可见且被选中
+        ClearCategorySearch();
         ShowNav(navId);
         SelectNavNode(navId);
     }
 
-    /// <summary>侧边栏树中选中指定导航节点;节点被搜索过滤隐藏时保持现状。</summary>
+    /// <summary>侧边栏树中选中指定导航节点;节点不在当前树中(理论上已由定位前清空过滤保证)时保持现状。</summary>
     private void SelectNavNode(string navId)
     {
         if (_treeItems is not { } items)

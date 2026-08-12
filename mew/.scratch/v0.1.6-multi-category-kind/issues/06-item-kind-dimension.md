@@ -15,5 +15,5 @@
 
 - 实现:`LauncherData.ItemKind`(URL / 程序)+ `LauncherData.KindOf(command)` 单一推导函数(http(s):// 前缀为 URL,其余含 .bat/.cmd 脚本为程序);卡片与列表徽标(`ItemKindBadge`,accent 色小标签)、类型过滤下拉(「全部 / URL / 程序」,`_kindFilter` 状态)消费同一函数;列表渲染/过滤均即时调用 `KindOf`,改命令即变,零落盘。
 - 顺带统一:原 `LauncherRunner` / `IconResolver` 各自的私有 `IsUrl`(语义完全相同)改为委托 `LauncherData.KindOf`,URL 判定单一来源,与 ADR 000106-02「同一推导函数」一致。
-- 空态修正:列表空态判定引入 `hasFilter`,`EmptyState.ForList` 增加可选参数;搜索或类型过滤导致零结果时显示「无匹配启动项」(过滤导致时按钮为「全部类型」清除过滤),不再误显「暂无启动项」。
+- 空态:列表空态判定引入 `hasFilter`,`EmptyState.ForList` 增加可选参数;聚合有内容但被搜索或类型过滤排除 → 「无匹配启动项」(过滤导致时按钮为「全部类型」清除过滤);聚合为空 → 「暂无启动项」引导新增。code-review 修正了「空库+过滤被误判为无匹配」的边界。
 - 测试:LauncherDataTests 新增 `KindOf` 推导 Theory(含大小写、.bat/.cmd 脚本并入程序、空命令),EmptyStateTests 新增过滤空态用例,连同既有 44 例通过。
