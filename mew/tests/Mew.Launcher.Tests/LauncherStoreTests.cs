@@ -167,4 +167,31 @@ public class LauncherStoreTests : IDisposable
         Assert.Equal(JsonValueKind.Object, doc.RootElement.ValueKind); // 新结构,非数组
         Assert.NotEmpty(doc.RootElement.GetProperty("categories").EnumerateArray());
     }
+
+    [Fact]
+    public void Save_新建项默认归属_落盘并在分类下可见()
+    {
+        var store = new LauncherStore(TempFile("launcher.json"));
+        store.UpdateCategories(new List<LauncherCategory> { new("games", "游戏", []) });
+        var items = new List<LauncherItem>
+        {
+            new("a", "A", "a", CategoryIds: LauncherData.CategoryIdsForNewItem("games")),
+            new("b", "B", "b", CategoryIds: LauncherData.CategoryIdsForNewItem(LauncherData.AllNavId)),
+        };
+        store.Save(items);
+
+        // 落盘后读回:分类节点下新建 → 默认归属该分类;固定节点下新建 → 空归属(未分类)
+        var loaded = new LauncherStore(TempFile("launcher.json")).Load();
+        Assert.Equal("games", loaded.Single(i => i.Id == "a").CategoryIds!.Single());
+        Assert.Empty(loaded.Single(i => i.Id == "b").CategoryIds!);
+
+        // 数组形式落盘:文件里是 categoryIds,不是 categoryId
+        var json = File.ReadAllText(TempFile("launcher.json"));
+        Assert.Contains("\"categoryIds\"", json);
+        Assert.DoesNotContain("\"categoryId\"", json);
+
+        // 对应分类下可见:新项 a 在「游戏」聚合中,未分类项 b 不在
+        Assert.Contains(LauncherData.AggregateSubtree(store.Categories.ToList(), loaded, "games"), i => i.Id == "a");
+        Assert.DoesNotContain(LauncherData.AggregateSubtree(store.Categories.ToList(), loaded, "games"), i => i.Id == "b");
+    }
 }
