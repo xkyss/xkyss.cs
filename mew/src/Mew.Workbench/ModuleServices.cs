@@ -9,14 +9,18 @@ namespace Mew.Workbench;
 /// </summary>
 public interface IHotkeyService
 {
-    /// <summary>注册全局热键;成功返回 true,格式非法/已被占用(含跨模块冲突)返回 false。</summary>
-    bool Register(IntPtr hwnd, string hotkey, Action callback);
+    /// <summary>注册全局热键;成功返回 true,格式非法/已被占用(含跨模块冲突)返回 false。
+    /// <paramref name="label"/> 为占用方描述(如「浮层呼出键」/「启动项『X』」),供冲突提示点名。</summary>
+    bool Register(IntPtr hwnd, string hotkey, Action callback, string? label = null);
 
     /// <summary>注销指定热键;未注册时静默。</summary>
     void Unregister(string hotkey);
 
     /// <summary>该热键是否已被注册(含本模块与其他模块)。</summary>
     bool IsRegistered(string hotkey);
+
+    /// <summary>返回占用指定组合的注册描述(注册时给的 label),未占用返回 null;用于冲突提示点名。</summary>
+    string? FindOwner(string hotkey);
 }
 
 /// <summary>

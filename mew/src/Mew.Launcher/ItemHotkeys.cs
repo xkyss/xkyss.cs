@@ -49,13 +49,17 @@ internal sealed class ItemHotkeys
             }
 
             var itemCopy = item; // 闭包捕获当前项(后续项可被编辑/删除)
-            if (_hotkeys.Register(_handle, hotkey, () => _launch(itemCopy)))
+            if (_hotkeys.Register(_handle, hotkey, () => _launch(itemCopy), $"启动项「{itemCopy.Name}」"))
             {
                 _registered.Add(hotkey);
             }
             else
             {
-                _feedback($"热键 {hotkey} 注册失败(可能已被占用),未生效");
+                // 与 v0.1.6 一致:冲突提示点名占用方(如浮层呼出键/其他启动项),而非通用文案
+                var owner = _hotkeys.FindOwner(hotkey);
+                _feedback(owner is null
+                    ? $"热键 {hotkey} 注册失败(可能已被其他程序占用),未生效"
+                    : $"热键 {hotkey} 与{owner}的已注册热键冲突,未生效");
             }
         }
     }

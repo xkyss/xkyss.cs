@@ -84,15 +84,15 @@ internal sealed class MewHost
         settingsSections.Add(HotkeySectionId, "热键", BuildHotkeyPanel);
 
         // 浮层呼出键为宿主热键:先于模块注册,与每项热键冲突时按 v0.1.6 语义(浮层优先),失败反馈延迟到消息循环就绪
-        var overlayHotkeyRegistered = _hotkeys.Register(window.Handle, _overlayHotkey, _overlayWindow.ShowOverlay);
+        var overlayHotkeyRegistered = _hotkeys.Register(window.Handle, _overlayHotkey, _overlayWindow.ShowOverlay, "浮层呼出键");
 
         // 宿主主题(随设置持久化)先于模块视图构建生效
         workbench.Theme(themeContext => themeContext
             .SetMode(LoadThemeMode())
             .SetAccent(Accent.Blue));
 
-        // 组合根:显式注册模块,全部贡献完后统一 Build()
-        new LauncherModule().Configure(context);
+        // 组合根:显式注册模块(编译期组合,ADR-000101-03/ADR-000200),全部贡献完后统一 Build()
+        AddModule(new LauncherModule());
 
         // 宿主贡献:设置上下文(活动栏/侧边栏/编辑器文档),设置节 = 外观/热键(宿主)+ 模块节(如 Launcher 的数据)
         workbench
@@ -175,6 +175,10 @@ internal sealed class MewHost
             Application.Quit();
         }
     }
+
+    /// <summary>组合根:显式注册工具模块(编译期组合,ADR-000101-03/ADR-000200)。
+    /// 模块经 <see cref="IMewToolModule.Configure"/> 经 ToolModuleContext 贡献五区/搜索源/设置节,注册后统一 Build。</summary>
+    private void AddModule(IMewToolModule module) => module.Configure(_context);
 
     /// <summary>循环切换主题模式(跟随系统 → 亮 → 暗),持久化与标题栏图标由 ThemeModeChanged 统一处理。</summary>
     private void CycleTheme()
@@ -362,7 +366,11 @@ internal sealed class MewHost
         if (!string.Equals(hotkey, _overlayHotkey, StringComparison.OrdinalIgnoreCase)
             && _hotkeys.IsRegistered(hotkey))
         {
-            _hotkeyHint!.Text = "与已注册热键冲突(含启动项每项热键),请换一个组合";
+            // 与 v0.1.6 一致:冲突提示点名占用方(浮层键/启动项每项热键),而非通用文案
+            var owner = _hotkeys.FindOwner(hotkey);
+            _hotkeyHint!.Text = owner is null
+                ? "与已注册热键冲突,请换一个组合"
+                : $"与{owner}的已注册热键冲突,请换一个组合";
             return;
         }
 

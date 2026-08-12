@@ -76,4 +76,21 @@ public class HotkeyServiceTests
         Assert.False(service.Dispatch(0x1000)); // 注销后 id 不再分发
         Assert.Equal(2, first);
     }
+
+    [Fact]
+    public void FindOwner_返回占用方label_未注册与注销后返回null()
+    {
+        var service = new HotkeyService();
+        Assert.True(service.Register(IntPtr.Zero, "Ctrl+Alt+F14", () => { }, "启动项「记事本」"));
+
+        // 文本写法不同(修饰键顺序/大小写)也能定位占用方
+        Assert.Equal("启动项「记事本」", service.FindOwner("Alt+Ctrl+F14"));
+        Assert.Equal("启动项「记事本」", service.FindOwner("ctrl+alt+f14"));
+
+        Assert.Null(service.FindOwner("Ctrl+Alt+F15")); // 未注册
+        Assert.Null(service.FindOwner("一键启动")); // 格式非法
+
+        service.Unregister("Ctrl+Alt+F14");
+        Assert.Null(service.FindOwner("Ctrl+Alt+F14")); // 注销后不再占用
+    }
 }

@@ -18,10 +18,10 @@ public sealed class HotkeyService : IHotkeyService
     private readonly List<Registration> _registrations = [];
     private int _nextId = BaseId;
 
-    private sealed record Registration(IntPtr Hwnd, string Text, uint Modifiers, uint Vk, int Id, Action Callback);
+    private sealed record Registration(IntPtr Hwnd, string Text, uint Modifiers, uint Vk, int Id, string? Label, Action Callback);
 
     /// <summary>注册全局热键:格式非法、跨注册冲突(同修饰键+键码)或系统注册失败(已被其他进程占用)时返回 false。</summary>
-    public bool Register(IntPtr hwnd, string hotkey, Action callback)
+    public bool Register(IntPtr hwnd, string hotkey, Action callback, string? label = null)
     {
         if (!HotkeyParser.TryParse(hotkey, out var modifiers, out var vk))
         {
@@ -39,7 +39,7 @@ public sealed class HotkeyService : IHotkeyService
             return false; // 系统级失败(已被其他程序占用等)
         }
 
-        _registrations.Add(new Registration(hwnd, hotkey, modifiers, vk, id, callback));
+        _registrations.Add(new Registration(hwnd, hotkey, modifiers, vk, id, label, callback));
         return true;
     }
 
@@ -71,6 +71,17 @@ public sealed class HotkeyService : IHotkeyService
         }
 
         return _registrations.Any(registration => registration.Modifiers == modifiers && registration.Vk == vk);
+    }
+
+    /// <summary>返回占用指定组合的注册描述(注册时给的 label),未占用返回 null;用于冲突提示点名。</summary>
+    public string? FindOwner(string hotkey)
+    {
+        if (!HotkeyParser.TryParse(hotkey, out var modifiers, out var vk))
+        {
+            return null;
+        }
+
+        return _registrations.FirstOrDefault(registration => registration.Modifiers == modifiers && registration.Vk == vk)?.Label;
     }
 
     /// <summary>WM_HOTKEY 分发(宿主在窗口消息处理中调用):按注册 id 找到回调并触发;未知 id 返回 false。</summary>
