@@ -1155,16 +1155,16 @@ internal sealed class LauncherApp
                         .VerticalAlignment(VerticalAlignment.Center)
                         .Column(1)
                         .Children(
-                            new Label().Text(item.Name)
-                                .Bold()
-                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
                             new StackPanel()
                                 .Orientation(Orientation.Horizontal)
                                 .Spacing(6)
                                 .Children(
-                                    new Label().Text(item.Command).FontSize(11)
+                                    new Label().Text(item.Name)
+                                        .Bold()
                                         .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground)),
-                                    ItemKindTag(item, 11, _theme.EditorArea.Accent))
+                                    ItemKindTag(item)), // 名称右侧:小号、与名称同色
+                            new Label().Text(item.Command).FontSize(11)
+                                .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground))
                         ),
                     new Label()
                         .Text(item.Description ?? "")
@@ -1183,13 +1183,13 @@ internal sealed class LauncherApp
         return BuildItemShell(item, main, index, editAtCorner: false);
     }
 
-    /// <summary>启动类型标记:#URL / #程序,由命令推导(命令是唯一事实来源)。卡片:名称下方、10px、普通色;列表:命令行旁、11px、accent 色。</summary>
-    private UIElement ItemKindTag(LauncherItem item, double fontSize = 10, Color? foreground = null) =>
+    /// <summary>启动类型标记:#URL / #程序,由命令推导(命令是唯一事实来源);卡片置于名称下方、列表置于名称右侧,均为 10px 普通色。</summary>
+    private UIElement ItemKindTag(LauncherItem item) =>
         new Label()
             .Text("#" + ItemKindLabel(LauncherData.KindOf(item.Command)))
-            .FontSize(fontSize)
+            .FontSize(10)
             .VerticalAlignment(VerticalAlignment.Center)
-            .WithTheme((_, label) => label.Foreground(foreground ?? _theme.EditorArea.Foreground));
+            .WithTheme((_, label) => label.Foreground(_theme.EditorArea.Foreground));
 
     /// <summary>启动类型展示文案:类型过滤下拉与标记共用的唯一映射。</summary>
     private static string ItemKindLabel(LauncherData.ItemKind kind) =>
