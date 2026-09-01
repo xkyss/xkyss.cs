@@ -17,7 +17,7 @@ namespace Mew.Host;
 /// </summary>
 internal sealed class MewHost
 {
-    private const string AppVersion = "v0.2.0";
+    private const string AppVersion = "v0.2.1";
     private const string DefaultOverlayHotkey = "Ctrl+Alt+Space";
 
     private Window _window = null!;
@@ -62,7 +62,7 @@ internal sealed class MewHost
         {
             _crashedPlugins.Add(id);
             Log($"插件 {id} 已崩溃/断开");
-            try { _window.Dispatcher.Invoke(() => _window.ShowToast($"插件 {id} 已崩溃")); } catch { }
+            try { _window.ShowToast($"插件 {id} 已崩溃"); } catch { }
         };
         ipcServer.Start();
         var overlay = new OverlayWindow(window, theme);
@@ -169,7 +169,7 @@ internal sealed class MewHost
         if (_autoRestarting) return;
         _autoRestarting = true;
         // 托盘与浮层仍可用，弹 Toast 并自动拉起
-        try { _window.Dispatcher.Invoke(() => _window.ShowToast("扩展主机已重启")); } catch { }
+        try { _window.ShowToast("扩展主机已重启"); } catch { }
         Task.Delay(1000).ContinueWith(_ => EnsurePluginHostRunning());
     }
 
