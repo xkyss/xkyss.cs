@@ -6,6 +6,7 @@ using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.Rendering;
 using Mew.Launcher;
 using Mew.Workbench;
+using Mew.Workbench.Plugins;
 using Icon = System.Drawing.Icon;
 using WorkbenchType = Mew.Workbench.Workbench;
 
@@ -49,6 +50,9 @@ internal sealed class MewHost
     private Button? _hotkeyChangeButton;
     private Label? _hotkeyDisplay;
     private Label? _hotkeyHint;
+    private PluginEnableStore _pluginEnables = null!;
+    private IReadOnlyList<PluginDescriptor> _discoveredPlugins = [];
+    private StackPanel? _pluginPanel;
 
     internal void Run()
     {
@@ -80,8 +84,17 @@ internal sealed class MewHost
         settings.Load();
         _overlayHotkey = string.IsNullOrWhiteSpace(_settings.OverlayHotkey) ? DefaultOverlayHotkey : _settings.OverlayHotkey!;
 
-        // 宿主设置节:热键(呼出键捕获/冲突检测)先于模块注册,保证设置侧边栏顺序 = 外观/热键/模块节
+        // 插件发现(票据 01):扫描用户目录与安装目录，校验清单与启用态
+        _pluginEnables = new PluginEnableStore();
+        _pluginEnables.Load();
+        var discovery = new PluginDiscovery();
+        var userPluginsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mew", "Plugins");
+        var installPluginsDir = Path.Combine(AppContext.BaseDirectory, "Plugins");
+        _discoveredPlugins = discovery.Discover(userPluginsDir, installPluginsDir);
+
+        // 宿主设置节:热键(呼出键捕获/冲突检测)先于模块注册,保证设置侧边栏顺序 = 外观/热键/插件/模块节
         settingsSections.Add(HotkeySectionId, "热键", BuildHotkeyPanel);
+        settingsSections.Add("plugins", "插件", BuildPluginPanel);
 
         // 浮层呼出键为宿主热键:先于模块注册,与每项热键冲突时按 v0.1.6 语义(浮层优先),失败反馈延迟到消息循环就绪
         var overlayHotkeyRegistered = _hotkeys.Register(window.Handle, _overlayHotkey, _overlayWindow.ShowOverlay, "浮层呼出键");
@@ -585,5 +598,74 @@ internal sealed class MewHost
                     .Spacing(6)
                     .Children(radios.Cast<Element>().ToArray())
             );
+    }
+
+    /// <summary>设置分类内容:插件（发现列表、健康态、启用开关、单 AOT 下 DLL 置灰）。</summary>
+    private UIElement BuildPluginPanel()
+    {
+        var theme = _theme;
+        var panel = new StackPanel().Padding(24).Spacing(12);
+        _pluginPanel = panel;
+        RefreshPluginPanel();
+        return panel;
+    }
+
+    private void RefreshPluginPanel()
+    {
+        if (_pluginPanel is null) return;
+        var theme = _theme;
+        _pluginPanel.Clear();
+        _pluginPanel.Add(new Label().Text("插件").FontSize(20).Bold()
+            .WithTheme((_, l) => l.Foreground(theme.EditorArea.Foreground)));
+        // 单 AOT 回退：当前扩展主机不可用，DLL 需 JIT
+        const bool isJitAvailable = false;
+        if (_discoveredPlugins.Count == 0)
+        {
+            _pluginPanel.Add(new Label().Text("未发现插件（将 plugin.json 置于 %APPDATA%/Mew/Plugins/<id>/）")
+                .FontSize(12).WithTheme((_, l) => l.Foreground(theme.EditorArea.Foreground)));
+            return;
+        }
+        foreach (var desc in _discoveredPlugins)
+        {
+            var health = desc.Health(isJitAvailable);
+            var enabled = _pluginEnables.IsEnabled(desc.Id);
+            var healthText = health switch
+            {
+                PluginHealth.Healthy => enabled ? "已启用" : "已禁用",
+                PluginHealth.InvalidManifest => "清单错误",
+                PluginHealth.DuplicateId => "ID 重复",
+                PluginHealth.NeedsJit => "需 JIT 扩展主机",
+                _ => health.ToString()
+            };
+            var row = new StackPanel().Orientation(Orientation.Horizontal).Spacing(8);
+            var title = new Label().Text($"{desc.Manifest.DisplayName} ({desc.Id}) v{desc.Manifest.Version}")
+                .WithTheme((_, l) => l.Foreground(health == PluginHealth.InvalidManifest || health == PluginHealth.DuplicateId ? ShellIcons.HotkeyWarning : theme.EditorArea.Foreground));
+            var healthLabel = new Label().Text(healthText).FontSize(11)
+                .WithTheme((_, l) => l.Foreground(health == PluginHealth.Healthy ? theme.EditorArea.Foreground : ShellIcons.HotkeyWarning));
+            var toggle = new Button()
+                .Content(new Label().Text(enabled ? "禁用" : "启用"))
+                .CanDrag(false)
+                .OnClick(() =>
+                {
+                    _pluginEnables.SetEnabled(desc.Id, !enabled);
+                    _pluginEnables.Save();
+                    RefreshPluginPanel();
+                });
+            // 置灰：清单错误或重复 ID 时禁用切换，需 JIT 时也禁用
+            if (health == PluginHealth.InvalidManifest || health == PluginHealth.DuplicateId || health == PluginHealth.NeedsJit)
+            {
+                toggle.Content(new Label().Text(healthText));
+            }
+            if (!string.IsNullOrWhiteSpace(desc.ValidationErrors.FirstOrDefault()))
+            {
+                var err = new Label().Text(string.Join("; ", desc.ValidationErrors)).FontSize(11)
+                    .WithTheme((_, l) => l.Foreground(ShellIcons.HotkeyWarning));
+                _pluginPanel.Add(new StackPanel().Spacing(2).Children(title, healthLabel, err, toggle));
+            }
+            else
+            {
+                _pluginPanel.Add(new StackPanel().Spacing(2).Children(title, healthLabel, toggle));
+            }
+        }
     }
 }
