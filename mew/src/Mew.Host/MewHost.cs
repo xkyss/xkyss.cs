@@ -39,6 +39,8 @@ internal sealed class MewHost
     private Process? _pluginHostProcess;
     private TrayIcon? _tray;
     private IpcServer _ipcServer = null!;
+    private readonly HashSet<string> _crashedPlugins = new(StringComparer.OrdinalIgnoreCase);
+    private bool _autoRestarting;
 
     internal void Run()
     {
@@ -56,6 +58,12 @@ internal sealed class MewHost
         _hotkeys = hotkeys;
         var ipcServer = new IpcServer(hotkeys, settings);
         _ipcServer = ipcServer;
+        ipcServer.ClientDisconnected += id =>
+        {
+            _crashedPlugins.Add(id);
+            Log($"插件 {id} 已崩溃/断开");
+            try { _window.Dispatcher.Invoke(() => _window.ShowToast($"插件 {id} 已崩溃")); } catch { }
+        };
         ipcServer.Start();
         var overlay = new OverlayWindow(window, theme);
         _overlayWindow = overlay;
@@ -141,9 +149,37 @@ internal sealed class MewHost
         try
         {
             var psi = new ProcessStartInfo(exe) { UseShellExecute = false };
-            _pluginHostProcess = Process.Start(psi);
-            if (_pluginHostProcess != null)
-                _pluginHostProcess.EnableRaisingEvents = true;
+            var proc = Process.Start(psi);
+            if (proc != null)
+            {
+                proc.EnableRaisingEvents = true;
+                proc.Exited += OnPluginHostExited;
+                _pluginHostProcess = proc;
+                _autoRestarting = false;
+                Log($"扩展主机已拉起 pid={proc.Id}");
+            }
+        }
+        catch (Exception ex) { Log($"扩展主机拉起失败：{ex.Message}"); }
+    }
+
+    private void OnPluginHostExited(object? sender, EventArgs e)
+    {
+        var proc = sender as Process;
+        Log($"扩展主机退出 pid={proc?.Id} code={proc?.ExitCode}");
+        if (_autoRestarting) return;
+        _autoRestarting = true;
+        // 托盘与浮层仍可用，弹 Toast 并自动拉起
+        try { _window.Dispatcher.Invoke(() => _window.ShowToast("扩展主机已重启")); } catch { }
+        Task.Delay(1000).ContinueWith(_ => EnsurePluginHostRunning());
+    }
+
+    private void Log(string message)
+    {
+        try
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mew");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "host.log"), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
         }
         catch { }
     }

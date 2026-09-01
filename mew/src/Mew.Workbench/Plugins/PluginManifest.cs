@@ -70,8 +70,8 @@ public sealed class PluginManifest
             // 权限与能力一致性：声明了权限但未声明对应 capability 视为警告？此处仅校验权限本身合法，越权在 register 阶段拒绝
         }
 
-        if (ProtocolVersion.HasValue && ProtocolVersion.Value < 1)
-            errors.Add($"protocolVersion 非法：{ProtocolVersion}");
+        if (ProtocolVersion.HasValue && ProtocolVersion.Value != Mew.Workbench.Ipc.IpcProtocol.CurrentVersion)
+            errors.Add($"协议版本不匹配（期望 {Mew.Workbench.Ipc.IpcProtocol.CurrentVersion}，实际 {ProtocolVersion}）：请更新插件/宿主");
 
         return errors;
     }

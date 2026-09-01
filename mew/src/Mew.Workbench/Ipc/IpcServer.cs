@@ -93,9 +93,13 @@ public sealed class IpcServer
     public bool IsHotkeyRegistered(string hotkey) => _hotkeys?.IsRegistered(hotkey) ?? false;
     public string? FindHotkeyOwner(string hotkey) => _hotkeys?.FindOwner(hotkey);
 
+    public event Action<string>? ClientDisconnected;
+
     public void Unregister(string id)
     {
-        lock (_lock) _clients.RemoveAll(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
+        bool removed;
+        lock (_lock) removed = _clients.RemoveAll(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase)) > 0;
+        if (removed) ClientDisconnected?.Invoke(id);
     }
 
     /// <summary>跨源搜索聚合：向所有已注册客户端扇出 search，收集结果后扁平混排。</summary>
