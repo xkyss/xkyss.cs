@@ -62,7 +62,7 @@ internal sealed class MewHost
         {
             _crashedPlugins.Add(id);
             Log($"插件 {id} 已崩溃/断开");
-            try { _window.ShowToast($"插件 {id} 已崩溃"); } catch { }
+            // Toast 需在 UI 线程，暂仅日志，避免跨线程集合修改崩溃
         };
         ipcServer.Start();
         var overlay = new OverlayWindow(window, theme);
@@ -170,8 +170,8 @@ internal sealed class MewHost
         Log($"扩展主机退出 pid={proc?.Id} code={proc?.ExitCode}");
         if (_autoRestarting) return;
         _autoRestarting = true;
-        // 托盘与浮层仍可用，弹 Toast 并自动拉起
-        try { _window.ShowToast("扩展主机已重启"); } catch { }
+        // 托盘与浮层仍可用，自动拉起（Toast 需 UI 线程，暂仅日志）
+        Log("扩展主机将自动重启");
         Task.Delay(1000).ContinueWith(_ => EnsurePluginHostRunning());
     }
 
