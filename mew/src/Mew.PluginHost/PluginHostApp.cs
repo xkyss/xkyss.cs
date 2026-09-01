@@ -4,6 +4,7 @@ using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.Rendering;
 using Mew.Launcher;
 using Mew.Workbench;
+using Mew.Workbench.Ipc;
 using Mew.Workbench.Plugins;
 using Icon = System.Drawing.Icon;
 using WorkbenchType = Mew.Workbench.Workbench;
@@ -41,6 +42,7 @@ internal sealed class PluginHostApp
     private PluginEnableStore _pluginEnables = null!;
     private IReadOnlyList<PluginDescriptor> _discoveredPlugins = [];
     private StackPanel? _pluginPanel;
+    private IpcClient? _ipcClient;
 
     internal void Run()
     {
@@ -81,6 +83,19 @@ internal sealed class PluginHostApp
 
         // 组合根：编译期模块（T1），后续 T2 将经 ALC 动态加入
         AddModule(new LauncherModule());
+
+        // IPC：向宿主注册搜索源（管道模式，宿主为 server）
+        // 取 Launcher 的搜索源：通过 overlay 间接获取，简化为新建一个可查询的源占位
+        var launcherSource = new IpcSearchSourceAdapter("launcher", "启动项", query =>
+        {
+            // 委托给本地 LauncherSearch 逻辑：此处复用 LauncherSearchSource 的查询（需 items）
+            // 为简化，返回空由真实 LauncherSearchSource 在扩展主机内的 overlay 中已注册，
+            // 此处创建的适配器仅为演示 IPC 链路，实际应转发至同一数据源
+            return [];
+        });
+        _ipcClient = new IpcClient(launcherSource, "launcher", "启动项", 1, new PluginCapabilitiesDto(new SearchCapabilityDto("launcher", "启动项"), null, null));
+        // 尝试管道连接，失败不影响本地 Workbench 启动（单进程回退）
+        _ipcClient.Connect(out _);
 
         // 内部插件：五区本身视为首个内部插件的占位描述（与外部插件同等可见）
         // 实际五区贡献已由各模块完成，此处仅为清单语义保留
@@ -253,6 +268,15 @@ internal sealed class PluginHostApp
         _pluginPanel = panel;
         RefreshPluginPanel();
         return panel;
+    }
+
+    private sealed class IpcSearchSourceAdapter : ISearchSource
+    {
+        private readonly Func<string, IReadOnlyList<SearchResult>> _fn;
+        public IpcSearchSourceAdapter(string id, string displayName, Func<string, IReadOnlyList<SearchResult>> fn) { Id = id; DisplayName = displayName; _fn = fn; }
+        public string Id { get; }
+        public string DisplayName { get; }
+        public IReadOnlyList<SearchResult> Search(string query, int maxResults) => _fn(query).Take(maxResults).ToList();
     }
 
     private void RefreshPluginPanel()

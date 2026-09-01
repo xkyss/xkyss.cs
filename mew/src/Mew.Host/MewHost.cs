@@ -4,6 +4,7 @@ using Aprillz.MewUI;
 using Aprillz.MewUI.Controls;
 using Aprillz.MewUI.Rendering;
 using Mew.Workbench;
+using Mew.Workbench.Ipc;
 using Mew.Workbench.Plugins;
 using WorkbenchType = Mew.Workbench.Workbench;
 using Icon = System.Drawing.Icon;
@@ -37,6 +38,7 @@ internal sealed class MewHost
     private IntPtr _windowSmallIcon;
     private Process? _pluginHostProcess;
     private TrayIcon? _tray;
+    private IpcServer _ipcServer = null!;
 
     internal void Run()
     {
@@ -52,6 +54,9 @@ internal sealed class MewHost
         _settings = settings;
         var hotkeys = new HotkeyService();
         _hotkeys = hotkeys;
+        var ipcServer = new IpcServer();
+        _ipcServer = ipcServer;
+        ipcServer.Start();
         var overlay = new OverlayWindow(window, theme);
         _overlayWindow = overlay;
 
