@@ -43,6 +43,9 @@ internal sealed class PluginHostApp
     private IReadOnlyList<PluginDescriptor> _discoveredPlugins = [];
     private StackPanel? _pluginPanel;
     private IpcClient? _ipcClient;
+    private PluginDllLoader? _dllLoader;
+    private readonly List<IpcClient> _dllIpcClients = [];
+    private IReadOnlyList<PluginLoadResult> _dllLoadResults = [];
 
     internal void Run()
     {
@@ -81,10 +84,28 @@ internal sealed class PluginHostApp
         // 宿主设置节：插件列表（发现结果）先于模块节注册，保证顺序 外观/插件/模块节
         settingsSections.Add("plugins", "插件", BuildPluginPanel);
 
-        // 组合根：编译期模块（T1），后续 T2 将经 ALC 动态加入
+        // 组合根：编译期模块（T1）
         AddModule(new LauncherModule());
 
-        // IPC：向宿主注册搜索源（管道模式，宿主为 server）
+        // T2 DLL 运行时加载（按目录 ALC 隔离）
+        _dllLoader = new PluginDllLoader();
+        _dllLoadResults = _dllLoader.Load(_discoveredPlugins, _pluginEnables, () =>
+        {
+            // 为 DLL 插件创建捕获式 overlay，记录其注册的搜索源以便经 IPC 代理至宿主
+            var capturingOverlay = new CapturingOverlay(overlay);
+            return new ToolModuleContext(workbench, window.Handle, window, hotkeys, settings, capturingOverlay, theme, settingsSections);
+        });
+        // 将捕获的源通过管道注册到宿主（内存直连模式下 _ipcServer 为空则走管道）
+        foreach (var src in CapturingOverlay.Captured.ToList())
+        {
+            var cap = _discoveredPlugins.FirstOrDefault(d => d.Id == src.Id)?.Manifest.Capabilities;
+            var dto = cap?.Search != null ? new PluginCapabilitiesDto(new SearchCapabilityDto(cap.Search.ProviderId, cap.Search.DisplayName), null, null) : new PluginCapabilitiesDto(null, null, null);
+            var client = new IpcClient(src, src.Id, src.DisplayName, 1, dto);
+            if (client.Connect(out _)) _dllIpcClients.Add(client);
+        }
+        CapturingOverlay.Captured.Clear();
+
+        // IPC：向宿主注册编译期 Launcher 搜索源（管道模式，宿主为 server）
         // 取 Launcher 的搜索源：通过 overlay 间接获取，简化为新建一个可查询的源占位
         var launcherSource = new IpcSearchSourceAdapter("launcher", "启动项", query =>
         {
@@ -279,12 +300,28 @@ internal sealed class PluginHostApp
         public IReadOnlyList<SearchResult> Search(string query, int maxResults) => _fn(query).Take(maxResults).ToList();
     }
 
+    private sealed class CapturingOverlay : Mew.Workbench.IOverlayService
+    {
+        public static readonly List<ISearchSource> Captured = [];
+        private readonly Mew.Workbench.IOverlayService _inner;
+        public CapturingOverlay(Mew.Workbench.IOverlayService inner) { _inner = inner; }
+        public void AddSearchSource(ISearchSource source) { _inner.AddSearchSource(source); Captured.Add(source); }
+    }
+
     private void RefreshPluginPanel()
     {
         if (_pluginPanel is null) return;
         var theme = _theme;
         _pluginPanel.Clear();
         _pluginPanel.Add(new Label().Text("插件").FontSize(20).Bold().WithTheme((_, l) => l.Foreground(theme.EditorArea.Foreground)));
+        var hasDll = _discoveredPlugins.Any(d => string.Equals(d.Manifest.Entry.Type, "dll", StringComparison.OrdinalIgnoreCase));
+        if (hasDll)
+        {
+            _pluginPanel.Add(new StackPanel().Orientation(Orientation.Horizontal).Spacing(8).Children(
+                new Label().Text("DLL 插件变更需重启扩展主机").FontSize(11).WithTheme((_, l) => l.Foreground(ShellIcons.HotkeyWarning)),
+                new Button().Content(new Label().Text("重启扩展主机")).CanDrag(false).OnClick(() => { _window.Close(); Environment.Exit(0); })
+            ));
+        }
         const bool isJitAvailable = true; // 扩展主机本身为 JIT，DLL 可加载
         if (_discoveredPlugins.Count == 0)
         {
