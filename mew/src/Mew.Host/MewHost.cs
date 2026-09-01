@@ -92,8 +92,10 @@ internal sealed class MewHost
                 window.ShowToast($"⚠ 呼出热键 {_overlayHotkey} 注册失败(可能已被其他程序占用)");
             _tray = new TrayIcon(window.Handle, ShowMain, Quit);
             _tray.Add();
-            // 按需拉起扩展主机（首启即拉起，保证 Launcher 可见）
+            // 按需拉起扩展主机（首启即拉起，保证 Launcher 可见），宿主窗口随后隐藏至托盘，Workbench 防守线在扩展主机窗口中展示
             EnsurePluginHostRunning();
+            if (IsPluginHostRunning)
+                window.Hide();
         };
 
         window.NativeMessage += args =>
@@ -139,10 +141,10 @@ internal sealed class MewHost
     {
         if (IsPluginHostRunning) return;
         var exe = Path.Combine(AppContext.BaseDirectory, "Mew.PluginHost.exe");
-        // 开发期 fallback：.build 输出路径
+        // 开发期 fallback：.build 输出路径（Host Base 为 .../.build/Mew.Host/bin/Debug/net10.0-windows）
         if (!File.Exists(exe))
         {
-            var alt = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".build", "Mew.PluginHost", "bin", "Debug", "net10.0-windows", "Mew.PluginHost.exe");
+            var alt = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Mew.PluginHost", "bin", "Debug", "net10.0-windows", "Mew.PluginHost.exe");
             exe = Path.GetFullPath(alt);
         }
         if (!File.Exists(exe)) return;
