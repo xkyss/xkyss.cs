@@ -12,6 +12,14 @@ public sealed class IpcServer
 {
     private readonly List<IpcClientHandle> _clients = [];
     private readonly object _lock = new();
+    private readonly HotkeyService? _hotkeys;
+    private readonly SettingsService? _settings;
+
+    public IpcServer(HotkeyService? hotkeys = null, SettingsService? settings = null)
+    {
+        _hotkeys = hotkeys;
+        _settings = settings;
+    }
 
     public IReadOnlyList<IpcClientHandle> Clients
     {
@@ -48,6 +56,42 @@ public sealed class IpcServer
         error = null;
         return true;
     }
+
+    /// <summary>由插件经 IPC 代理注册全局热键，集中冲突检测。</summary>
+    public HotkeyRegisterAckMessage TryRegisterHotkey(string pluginId, string hotkey, string? label, PluginCapabilitiesDto? capabilities)
+    {
+        if (capabilities?.Hotkeys == null || capabilities.Hotkeys.All(h => h.Id != label && h.Default != hotkey))
+        {
+            // 若清单未声明任何 hotkeys 能力，拒绝
+            if (capabilities?.Hotkeys == null)
+                return new HotkeyRegisterAckMessage(false, "未声明 hotkeys 能力，拒绝注册");
+        }
+        if (_hotkeys == null) return new HotkeyRegisterAckMessage(false, "宿主热键服务不可用");
+        // 使用宿主热键服务集中注册，回调经 IPC 转发至插件
+        var ok = _hotkeys.Register(IntPtr.Zero, hotkey, () => { /* 触发后经 pipe 通知 */ }, label);
+        if (!ok)
+        {
+            var owner = _hotkeys.FindOwner(hotkey);
+            return new HotkeyRegisterAckMessage(false, owner is null ? "热键已被占用" : $"与{owner}冲突");
+        }
+        return new HotkeyRegisterAckMessage(true, null);
+    }
+
+    /// <summary>设置节注册校验：未声明 settingsSection 能力则拒绝。</summary>
+    public bool CanRegisterSettingsSection(string pluginId, PluginCapabilitiesDto? capabilities, out string? error)
+    {
+        if (capabilities?.SettingsSection == null)
+        {
+            error = "未声明 settingsSection 能力，拒绝注册";
+            return false;
+        }
+        error = null;
+        return true;
+    }
+
+    public void HotkeyUnregister(string hotkey) => _hotkeys?.Unregister(hotkey);
+    public bool IsHotkeyRegistered(string hotkey) => _hotkeys?.IsRegistered(hotkey) ?? false;
+    public string? FindHotkeyOwner(string hotkey) => _hotkeys?.FindOwner(hotkey);
 
     public void Unregister(string id)
     {
@@ -130,10 +174,49 @@ public sealed class IpcServer
                 // 延迟创建 handle：pipe 客户端的搜索源通过远端调用，无本地 ISearchSource，标记为 pipe 客户端
                 lock (_lock) _clients.Add(handle = new IpcClientHandle(reg.Id, reg.DisplayName, reg.ProtocolVersion, reg.Capabilities, new PipeSearchProxy(pipe, writer, reader, reg.Id, reg.DisplayName)));
                 await writer.WriteLineAsync(JsonSerializer.Serialize(new RegisterAckMessage(true, null), IpcJsonContext.Default.RegisterAckMessage));
-                // 保持连接直到断开
+                // 处理后续消息：热键注册、设置变更等（搜索由 server 侧主动发 SearchRequest，经 PipeSearchProxy 处理）
                 while (!ct.IsCancellationRequested && pipe.IsConnected)
                 {
-                    await Task.Delay(500, ct);
+                    line = await reader.ReadLineAsync(ct);
+                    if (line == null) break;
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(line);
+                        var type = doc.RootElement.GetProperty("type").GetString();
+                        if (type == "hotkeyRegister")
+                        {
+                            var msg = JsonSerializer.Deserialize(line, IpcJsonContext.Default.HotkeyRegisterMessage);
+                            if (msg != null)
+                            {
+                                if (handle.Capabilities?.Hotkeys == null)
+                                {
+                                    var nack = new HotkeyRegisterAckMessage(false, "未声明 hotkeys 能力，拒绝注册");
+                                    await writer.WriteLineAsync(JsonSerializer.Serialize(nack, IpcJsonContext.Default.HotkeyRegisterAckMessage));
+                                }
+                                else
+                                {
+                                    var label = msg.Label ?? msg.Hotkey;
+                                    var ok = _hotkeys != null && _hotkeys.Register(IntPtr.Zero, msg.Hotkey, () =>
+                                    {
+                                        try { writer.WriteLine(JsonSerializer.Serialize(new HotkeyTriggeredMessage(msg.Hotkey, msg.PluginId), IpcJsonContext.Default.HotkeyTriggeredMessage)); } catch { }
+                                    }, label);
+                                    HotkeyRegisterAckMessage ack2;
+                                    if (ok) ack2 = new HotkeyRegisterAckMessage(true, null);
+                                    else
+                                    {
+                                        var owner = _hotkeys?.FindOwner(msg.Hotkey);
+                                        ack2 = new HotkeyRegisterAckMessage(false, owner is null ? "热键已被占用" : $"与{owner}冲突");
+                                    }
+                                    await writer.WriteLineAsync(JsonSerializer.Serialize(ack2, IpcJsonContext.Default.HotkeyRegisterAckMessage));
+                                }
+                            }
+                        }
+                        else if (type == "settingsChanged")
+                        {
+                            // 设置变更推送，暂仅记录日志，不持久化（由宿主 SettingsService 处理）
+                        }
+                    }
+                    catch { }
                 }
             }
             catch { }

@@ -46,6 +46,27 @@ public sealed record LogMessage(
     [property: JsonPropertyName("message")] string Message
 ) : IpcMessage("log");
 
+public sealed record HotkeyRegisterMessage(
+    [property: JsonPropertyName("hotkey")] string Hotkey,
+    [property: JsonPropertyName("label")] string? Label,
+    [property: JsonPropertyName("pluginId")] string PluginId
+) : IpcMessage("hotkeyRegister");
+
+public sealed record HotkeyRegisterAckMessage(
+    [property: JsonPropertyName("ok")] bool Ok,
+    [property: JsonPropertyName("error")] string? Error
+) : IpcMessage("hotkeyRegisterAck");
+
+public sealed record HotkeyTriggeredMessage(
+    [property: JsonPropertyName("hotkey")] string Hotkey,
+    [property: JsonPropertyName("pluginId")] string PluginId
+) : IpcMessage("hotkeyTriggered");
+
+public sealed record SettingsChangedMessage(
+    [property: JsonPropertyName("section")] string Section,
+    [property: JsonPropertyName("json")] string Json
+) : IpcMessage("settingsChanged");
+
 public sealed record PluginCapabilitiesDto(
     [property: JsonPropertyName("search")] SearchCapabilityDto? Search,
     [property: JsonPropertyName("settingsSection")] SettingsSectionDto? SettingsSection,

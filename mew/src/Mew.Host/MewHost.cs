@@ -54,7 +54,7 @@ internal sealed class MewHost
         _settings = settings;
         var hotkeys = new HotkeyService();
         _hotkeys = hotkeys;
-        var ipcServer = new IpcServer();
+        var ipcServer = new IpcServer(hotkeys, settings);
         _ipcServer = ipcServer;
         ipcServer.Start();
         var overlay = new OverlayWindow(window, theme);

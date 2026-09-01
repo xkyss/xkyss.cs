@@ -34,9 +34,10 @@ public sealed class HotkeyService : IHotkeyService
         }
 
         var id = _nextId++;
-        if (!RegisterHotKey(hwnd, id, modifiers | ModNoRepeat, vk))
+        if (OperatingSystem.IsWindows())
         {
-            return false; // 系统级失败(已被其他程序占用等)
+            if (!RegisterHotKey(hwnd, id, modifiers | ModNoRepeat, vk))
+                return false; // 系统级失败(已被其他程序占用等)
         }
 
         _registrations.Add(new Registration(hwnd, hotkey, modifiers, vk, id, label, callback));
@@ -59,7 +60,8 @@ public sealed class HotkeyService : IHotkeyService
 
         var registration = _registrations[index];
         _registrations.RemoveAt(index);
-        UnregisterHotKey(registration.Hwnd, registration.Id);
+        if (OperatingSystem.IsWindows())
+            UnregisterHotKey(registration.Hwnd, registration.Id);
     }
 
     /// <summary>该组合键是否已被注册(含本模块与其他模块,以及宿主浮层键)。</summary>
